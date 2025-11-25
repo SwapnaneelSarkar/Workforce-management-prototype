@@ -60,21 +60,29 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
             {items.map((item) => {
               const active = pathname.startsWith(item.href)
               // Render icon or fallback to first letter
-              let iconContent: React.ReactNode = item.label.charAt(0)
-              
-              if (item.icon) {
+              const renderIcon = () => {
+                if (!item.icon) {
+                  return item.label.charAt(0)
+                }
+                
                 // Check if it's already a React element
                 if (React.isValidElement(item.icon)) {
-                  iconContent = item.icon
-                } 
+                  return item.icon
+                }
+                
                 // Check if it's a Lucide icon component (React component/function)
                 // Lucide icons are React functional components, which are functions
-                else if (typeof item.icon === 'function') {
+                if (typeof item.icon === 'function') {
                   const IconComponent = item.icon as LucideIcon
-                  // Render the icon component with proper props
-                  iconContent = <IconComponent className="h-4 w-4" size={16} />
+                  // Render the icon component - Lucide icons accept className and size props
+                  return <IconComponent className="h-4 w-4" size={16} />
                 }
+                
+                // Fallback to first letter
+                return item.label.charAt(0)
               }
+              
+              const iconContent = renderIcon()
               
               return (
                 <li key={item.href}>

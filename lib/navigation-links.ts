@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react"
+import type { SidebarItem } from "@/components/system/sidebar"
 import { 
   LayoutDashboard, 
   User, 
@@ -23,12 +24,7 @@ import {
   Gavel
 } from "lucide-react"
 
-export type NavLink = {
-  href: string
-  label: string
-  icon?: LucideIcon
-  badge?: string
-}
+export type NavLink = SidebarItem
 
 export const candidateNavLinks: NavLink[] = [
   { href: "/candidate/dashboard", label: "Dashboard", icon: LayoutDashboard },
