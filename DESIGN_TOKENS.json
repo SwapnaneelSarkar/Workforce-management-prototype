@@ -1,0 +1,159 @@
+{
+  "colors": {
+    "primary": {
+      "dark": "#2D3748",
+      "darkHover": "#3B4963",
+      "description": "Primary brand color for buttons and accents"
+    },
+    "secondary": {
+      "gray": "#4A5568",
+      "description": "Secondary text and UI elements"
+    },
+    "accent": {
+      "blue": "#3182CE",
+      "description": "Accent color for links and highlights"
+    },
+    "background": {
+      "light": "#F7F7F9",
+      "card": "#FFFFFF",
+      "description": "Background colors"
+    },
+    "border": {
+      "default": "#E2E8F0",
+      "description": "Border color for cards and inputs"
+    },
+    "text": {
+      "muted": "#718096",
+      "foreground": "#2D3748",
+      "description": "Text colors"
+    },
+    "status": {
+      "success": "#48BB78",
+      "warning": "#ED8936",
+      "danger": "#F56565",
+      "info": "#3182CE",
+      "neutral": "#EDF2F7",
+      "description": "Status indicator colors"
+    }
+  },
+  "spacing": {
+    "cardPadding": "20px",
+    "tablePadding": "16px",
+    "pageMargin": "32px",
+    "pageMarginMobile": "20px",
+    "description": "Consistent spacing values"
+  },
+  "typography": {
+    "fontFamily": "Geist, Inter, Segoe UI, -apple-system, BlinkMacSystemFont, sans-serif",
+    "sizes": {
+      "h1": "28px",
+      "h2": "18px",
+      "h3": "14px",
+      "body": "14px",
+      "small": "12px"
+    },
+    "weights": {
+      "regular": "400",
+      "semibold": "600",
+      "bold": "700"
+    },
+    "lineHeights": {
+      "h1": "36px",
+      "h2": "26px",
+      "h3": "20px",
+      "body": "20px"
+    }
+  },
+  "shadows": {
+    "subtle": "0 1px 4px rgba(16, 24, 40, 0.06)",
+    "elevated": "0 6px 18px rgba(16, 24, 40, 0.08)",
+    "hover": "0 8px 24px rgba(15, 23, 42, 0.12)",
+    "description": "Box shadow values"
+  },
+  "borderRadius": {
+    "button": "6px",
+    "card": "8px",
+    "input": "6px",
+    "chip": "999px",
+    "description": "Border radius values"
+  },
+  "breakpoints": {
+    "mobile": "640px",
+    "tablet": "1024px",
+    "desktop": "1200px",
+    "description": "Responsive breakpoints"
+  },
+  "layout": {
+    "sidebarWidth": "260px",
+    "pageMaxWidth": "1200px",
+    "description": "Layout dimensions"
+  },
+  "animations": {
+    "duration": {
+      "fast": "150ms",
+      "normal": "200ms",
+      "slow": "300ms"
+    },
+    "easing": {
+      "default": "ease",
+      "description": "Animation timing"
+    }
+  },
+  "zIndex": {
+    "modal": "50",
+    "dropdown": "40",
+    "tooltip": "30",
+    "header": "20",
+    "description": "Z-index layers"
+  },
+  "statusChip": {
+    "tones": {
+      "neutral": {
+        "background": "#EDF2F7",
+        "text": "#4A5568"
+      },
+      "success": {
+        "background": "#48BB78",
+        "text": "#FFFFFF"
+      },
+      "warning": {
+        "background": "#ED8936",
+        "text": "#FFFFFF"
+      },
+      "danger": {
+        "background": "#F56565",
+        "text": "#FFFFFF"
+      },
+      "info": {
+        "background": "#3182CE",
+        "text": "#FFFFFF"
+      }
+    }
+  },
+  "components": {
+    "card": {
+      "padding": "20px",
+      "borderRadius": "8px",
+      "border": "1px solid #E2E8F0",
+      "shadow": "0 1px 4px rgba(16, 24, 40, 0.06)",
+      "hoverShadow": "0 8px 24px rgba(15, 23, 42, 0.12)"
+    },
+    "table": {
+      "padding": "16px",
+      "headerBackground": "#F7F7F9",
+      "rowHover": "#FDFDFD"
+    },
+    "button": {
+      "padding": "12px 20px",
+      "borderRadius": "6px",
+      "fontSize": "14px",
+      "fontWeight": "600"
+    },
+    "input": {
+      "height": "40px",
+      "padding": "10px 14px",
+      "borderRadius": "6px",
+      "border": "1px solid #E2E8F0"
+    }
+  }
+}
