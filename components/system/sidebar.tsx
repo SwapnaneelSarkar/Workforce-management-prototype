@@ -5,7 +5,7 @@ import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
-import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react"
+import { Menu, PanelLeftClose, PanelLeftOpen, LayoutDashboard } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import type { LucideIcon } from "lucide-react"
@@ -60,29 +60,41 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
             {items.map((item) => {
               const active = pathname.startsWith(item.href)
               // Render icon or fallback to first letter
-              const renderIcon = () => {
-                if (!item.icon) {
-                  return item.label.charAt(0)
-                }
-                
-                // Check if it's already a React element
-                if (React.isValidElement(item.icon)) {
-                  return item.icon
-                }
-                
-                // Check if it's a Lucide icon component (React component/function)
-                // Lucide icons are React functional components, which are functions
-                if (typeof item.icon === 'function') {
-                  const IconComponent = item.icon as LucideIcon
-                  // Render the icon component - Lucide icons accept className and size props
-                  return <IconComponent className="h-4 w-4" size={16} />
-                }
-                
-                // Fallback to first letter
-                return item.label.charAt(0)
-              }
+              let iconContent: React.ReactNode = item.label.charAt(0)
               
-              const iconContent = renderIcon()
+              if (item.icon) {
+                try {
+                  // If it's already a React element, use it directly
+                  if (React.isValidElement(item.icon)) {
+                    iconContent = item.icon
+                  } 
+                  // Otherwise, try to render it as a Lucide icon component
+                  // Lucide icons are React functional components (functions)
+                  else {
+                    // Try multiple ways to detect and render the icon
+                    const icon = item.icon
+                    const iconType = typeof icon
+                    
+                    // Check if it's a function (most common case for Lucide icons)
+                    if (iconType === 'function') {
+                      const IconComponent = icon as LucideIcon
+                      iconContent = <IconComponent className="h-4 w-4" size={16} />
+                    }
+                    // Check if it has a render method (class component)
+                    else if (icon && typeof (icon as any).render === 'function') {
+                      const IconComponent = icon as any
+                      iconContent = <IconComponent className="h-4 w-4" size={16} />
+                    }
+                    // Check if it's a React component type
+                    else if (icon && (icon as any).$$typeof) {
+                      iconContent = icon as React.ReactNode
+                    }
+                  }
+                } catch (error) {
+                  // If rendering fails, fall back to first letter
+                  iconContent = item.label.charAt(0)
+                }
+              }
               
               return (
                 <li key={item.href}>
