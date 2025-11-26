@@ -92,16 +92,25 @@ export default function CandidateMessagesPage() {
                     <p className="text-xs text-muted-foreground line-clamp-1">{thread.lastMessage}</p>
                     <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
                       <span>{new Date(thread.updatedAt).toLocaleString()}</span>
-                      <button
+                      <span
                         onClick={(event) => {
                           event.stopPropagation()
                           toggleRead(thread.id, thread.unreadCount === 0)
                         }}
-                        className="text-primary underline-offset-4 hover:underline"
+                        className="cursor-pointer text-primary underline-offset-4 hover:underline"
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleRead(thread.id, thread.unreadCount === 0)
+                          }
+                        }}
                         aria-label={thread.unreadCount ? "Mark as read" : "Mark as unread"}
                       >
                         {thread.unreadCount ? "Mark read" : "Mark unread"}
-                      </button>
+                      </span>
                     </div>
                   </button>
                 )
