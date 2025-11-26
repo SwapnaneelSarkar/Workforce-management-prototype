@@ -34,7 +34,7 @@ export default function ApplicationsListPage() {
         ]}
       />
 
-      <Card title="Applications" subtitle="Each row represents a candidate for a specific job.">
+      <Card title="Applications" subtitle="Simple list of candidates and when they applied.">
         <div className="space-y-3">
           {applicationList.map((app) => (
             <div key={app.id} className="flex flex-wrap items-center gap-4 rounded-[12px] border border-border px-4 py-3">
@@ -44,12 +44,9 @@ export default function ApplicationsListPage() {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{app.candidateName}</p>
-                  <p className="text-xs text-muted-foreground">{app.jobTitle}</p>
                   <p className="text-xs text-muted-foreground">{app.submittedRelative ?? app.submittedAt}</p>
                 </div>
               </div>
-              <span className="rounded-full bg-[#F0F6FF] px-3 py-1 text-xs font-semibold text-[#3182CE]">{app.vendorName ?? "Vendor"}</span>
-              <StatusChip label={mapStatus(app.status)} tone={statusTone(mapStatus(app.status))} />
               <div className="flex gap-2">
                 <Button
                   variant="secondary"

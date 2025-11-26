@@ -49,7 +49,8 @@ This document captures the current, code-backed feature set for the multi-tenant
 | `updateEmail(email)` | Writes profile email after validation. | `/candidate/settings` |
 | `saveOnboardingStep(step, data)` | Saves answers + auto-adds required docs mapped via `onboardingDocumentMappings`. | `/candidate/onboarding` |
 | `submitJobApplication(jobId)` | Creates application stub, pushes notification, prevents duplicates. | `/candidate/jobs/[id]`, `/candidate/apply` |
-| `createJob(payload)` | Publishes new requisition with shift, hours, and tags. | `/organization/jobs/create` |
+| `createJob(payload)` | Creates a new requisition with core job fields, tags, optional `status`, and optional `complianceTemplateId`. | `/organization/jobs/create` |
+| `updateJob(id, updates)` | Updates an existing job (e.g., toggling status Draft/Open or changing details). | `/organization/jobs` |
 | `updateApplicationStatus(id, status)` | Updates the current stage for an application. | `/organization/applications` |
 | `rejectApplication(id)` | Shortcut to mark status `Rejected`. | `/organization/applications` |
 | `submitVendorBid({ jobId, vendorName, rate, availability })` | Stores vendor submissions with status `Submitted`. | `/vendor/bids` |
@@ -119,33 +120,34 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 ## Organization Portal (All Routes)
 
 ### `/organization/login`
-- Parity with candidate login but with organization-focused copy, SSO helper text, and icons (e.g., `Building2`).
-- Keeps user signed in toggle, forgot password link, security note referencing SOC2 controls; redirect goes to `/organization/dashboard`.
+- Two-step email + OTP flow tailored for hiring teams, with `Building2` iconography and explainer copy about passwordless access.
+- Step 1 collects a work email and sends a demo OTP; Step 2 validates any 6-digit code and then redirects to `/organization/dashboard`, with inline error messaging and toast confirmation for the sent OTP.
 
 ### `/organization/dashboard`
-- KPI grid surfaces open roles, active requisitions, pending reviews, and interviews scheduled.
-- Requisition table uses `StatusChip`s, department/location metadata, and overflow menu buttons.
-- Recommended actions card provides quick links (create job, review applications, view reports, view requisitions).
-- Recent applications card lists latest submissions with tone-coded chips.
+- Simple KPI card grid summarizing total jobs, draft jobs, published jobs, and total applications from provider state.
+- Quick-access actions let users create a new job or navigate to the jobs list.
 
 ### `/organization/jobs`
-- Summary stats show total requisitions, open roles, and active postings.
-- Main table lists each requisition with status badge and view/hide toggle that reveals location and shift details.
-- “New Requisition” button links to create flow.
+- Header and action bar let users create jobs and toggle sort order between creation sequence and status.
+- Main table lists each job with status pill (Draft vs. Published), attached compliance template name, and application counts pulled from provider data.
+- Row actions include deep link to `/organization/applications?jobId={id}` plus Publish/Unpublish toggle wired to `actions.updateJob`.
 
 ### `/organization/jobs/create`
-- Four-step `MultiStepForm` (General, Details, Invite vendors, Review & publish) with select inputs, textarea, and vendor invitation field.
-- Save button animates per step; final publish view surfaces job summary plus success confirmation once `createJob` resolves.
+- Single-page job creation form for title, location select, pay range, optional description, and required compliance template.
+- Validation ensures title, location, pay range, and template are present before calling `actions.createJob`; errors show inline above the form.
+- Supports “Save as draft” and “Publish job” flows, which map to `Draft` vs `Open` status and redirect back to `/organization/jobs` after saving.
 
 ### `/organization/applications`
-- Card layout lists every application with vendor badge, match-score bar, status chip, and action buttons (Qualify, Interview, Reject) that call provider actions.
-- Schedule interview modal collects date input; reject modal confirms destructive action.
-
-### `/organization/applications/[id]`
-- Full detail view shows candidate profile, documents, compliance checklist, notes/attachments, and an action center with modals for scheduling or rejecting.
+- Filterable-by-job applications list (via `jobId` query param) showing only candidate identity and applied date.
+- Inline actions allow Accept and Reject flows wired to `actions.updateApplicationStatus` and `actions.rejectApplication`.
+- “View candidate” opens a modal with basic profile info, a document wallet section using `StatusChip`s, and a “Missing compliance items” checklist based on the job’s attached compliance template.
 
 ### `/organization/reports`
-- Snapshot grid for open requisitions, total applications, and interviews scheduled.
+- Placeholder only for this MVP; route exists but currently returns `null` with no UI rendered.
+
+### `/organization/compliance/templates`
+- Workspace for managing compliance checklist templates, including creating, selecting, and editing templates and their items.
+- Template details panel supports name/description editing and item-level configuration (type, expiration, and whether required at submission).
 
 ---
 
@@ -176,13 +178,13 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 
 | Route | Highlights |
 | --- | --- |
-| `/organization/login` | Mirrored UX to candidate login but targeted copy for hiring teams, SSO helper text, redirect to dashboard. |
-| `/organization/dashboard` | KPI tiles (open roles, active reqs, pending reviews, interviews scheduled), requisition table with department/location metadata, recommended action shortcuts, recent applications feed with tone-specific chips. |
-| `/organization/jobs` | Aggregate stats, primary action to create requisition, table with expandable rows showing location and shift details. |
-| `/organization/jobs/create` | Four-step `MultiStepForm` (General, Details, Invite vendors, Review), review summary, publish success state that links back to jobs. |
-| `/organization/applications` | Application cards with vendor badges + match score bars, inline action buttons (qualify/interview/reject) that mutate provider state, interview scheduling modal, reject confirmation modal. |
-| `/organization/applications/[id]` | Full detail view (candidate info, documents, compliance checklist, notes/attachments, sidebar actions) with schedule/reject modals and toast feedback. |
-| `/organization/reports` | Snapshot cards for open requisitions, total applications, and interviews scheduled. |
+| `/organization/login` | Two-step passwordless login (email + 6-digit OTP) with hiring-team copy, toast confirmation, and redirect to dashboard. |
+| `/organization/dashboard` | Simple KPI tiles for total jobs, draft jobs, published jobs, and applications, plus actions to create or view jobs. |
+| `/organization/jobs` | Sortable jobs table (by creation or status) with status badges, compliance template labels, application counts, and publish/unpublish toggle. |
+| `/organization/jobs/create` | Single-screen job form capturing basics plus a required compliance template, with Save as draft vs Publish actions. |
+| `/organization/applications` | Applications list filterable by job, with accept/reject actions and a candidate detail modal that surfaces documents and missing compliance checklist items. |
+| `/organization/reports` | Placeholder route for future reporting; currently returns `null` with no UI rendered. |
+| `/organization/compliance/templates` | Compliance template workspace for creating, editing, and maintaining reusable checklist templates and their items. |
 
 ---
 
@@ -292,8 +294,8 @@ Each primitive exports typed props so custom system components can wrap them wit
 - `/organization/jobs`
 - `/organization/jobs/create`
 - `/organization/applications`
-- `/organization/applications/[id]`
 - `/organization/reports`
+- `/organization/compliance/templates`
 
 ### Vendor
 - `/vendor/login`
