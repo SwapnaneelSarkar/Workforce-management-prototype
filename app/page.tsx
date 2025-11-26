@@ -7,7 +7,7 @@ const roles = [
   {
     title: "Candidate Workspace",
     description: "Apply faster, track onboarding tasks, and keep credentials synced with recruiters.",
-    stats: "4k+ active assignments",
+    stats: "4k+ active clinicians",
     href: "/candidate/login",
     badge: "Talent Portal",
     icon: UsersRound,
@@ -15,7 +15,7 @@ const roles = [
   },
   {
     title: "Organization Control Center",
-    description: "Monitor requisitions, approvals, compliance tasks, and workforce costs in one view.",
+    description: "Monitor requisitions, onboarding tasks, and vendor performance in one view.",
     stats: "98% SLA adherence",
     href: "/organization/login",
     badge: "Enterprise Suite",

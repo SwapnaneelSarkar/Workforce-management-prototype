@@ -51,10 +51,8 @@ Complete reference for all data types and structures used in the workforce manag
   hours: string
   billRate: string
   status: "Open" | "Closed" | "Draft"
-  complianceTemplateId: string
   description: string
   requirements: string[]
-  benefits: string[]
   tags: string[]
 }
 ```
@@ -83,42 +81,9 @@ Complete reference for all data types and structures used in the workforce manag
   contact: { email: string; phone: string }
   vendorName?: string
   highlights: string[]
-  timeline: ApplicationTimelineEvent[]
   compliance: ComplianceItem[]
   attachments: ApplicationAttachment[]
   notes: ApplicationNote[]
-}
-```
-
-### ApplicationTimelineEvent
-```typescript
-{
-  id: string
-  timestamp: string
-  actor: string
-  summary: string
-  channel: "system" | "email" | "note"
-}
-```
-
-### ComplianceTemplate
-```typescript
-{
-  id: string
-  name: string
-  items: ComplianceTemplateItem[]
-  createdDate: string
-}
-```
-
-### ComplianceTemplateItem
-```typescript
-{
-  id: string
-  type: string
-  name: string
-  expirationType: "fixed" | "rolling" | "none"
-  requiredAtSubmission: boolean
 }
 ```
 
@@ -170,108 +135,6 @@ Complete reference for all data types and structures used in the workforce manag
 }
 ```
 
-### Assignment
-```typescript
-{
-  id: string
-  role: string
-  workerId: string
-  workerName: string
-  vendor: string
-  location: string
-  startDate: string
-  endDate: string
-  status: "Active" | "Upcoming" | "Ending Soon"
-  billRate: string
-  hoursPerWeek: number
-  complianceStatus: "Clear" | "Expiring" | "Missing"
-  matchScore: number
-}
-```
-
-### WorkforceMember
-```typescript
-{
-  id: string
-  name: string
-  role: string
-  status: "Active" | "Credentialing" | "Break"
-  location: string
-  vendor: string
-  avatar: string
-  currentAssignment: string
-  documents: CandidateDocument[]
-  history: WorkforceHistoryRecord[]
-}
-```
-
-### Invoice
-```typescript
-{
-  id: string
-  vendorId: string
-  amount: number
-  dueDate: string
-  status: "Paid" | "Pending" | "Overdue"
-  description: string
-}
-```
-
-### Timesheet
-```typescript
-{
-  id: string
-  staff: string
-  date: string
-  hours: number
-  type: "Regular" | "Overtime" | "On Call"
-  status: "Pending" | "Approved" | "Rejected"
-}
-```
-
-### ApprovalChain
-```typescript
-{
-  id: string
-  requisitionId: string
-  approvers: ApprovalStep[]
-}
-```
-
-### ApprovalStep
-```typescript
-{
-  id: string
-  name: string
-  role: string
-  status: "Pending" | "Approved" | "Rejected"
-  decisionAt?: string
-}
-```
-
-### MessageThread
-```typescript
-{
-  id: string
-  participants: string[]
-  subject: string
-  unreadCount: number
-  lastMessage: string
-  updatedAt: string
-  messages: Message[]
-}
-```
-
-### Message
-```typescript
-{
-  id: string
-  from: string
-  body: string
-  timestamp: string
-}
-```
-
 ### Notification
 ```typescript
 {
@@ -279,7 +142,7 @@ Complete reference for all data types and structures used in the workforce manag
   title: string
   subtitle: string
   time: string
-  type: "job" | "system" | "message"
+  type: "job" | "system"
   read?: boolean
 }
 ```
@@ -318,9 +181,6 @@ Complete reference for all data types and structures used in the workforce manag
   candidate: {
     profile: CandidateProfile
     documents: CandidateDocument[]
-    favorites: string[]
-    messages: MessageThread[]
-    referralCode?: { value: string; generatedAt: string }
     notificationPrefs: { email: boolean; sms: boolean; push: boolean }
     onboarding: OnboardingState
     applications: Application[]
@@ -329,12 +189,6 @@ Complete reference for all data types and structures used in the workforce manag
   organization: {
     jobs: Job[]
     applications: Application[]
-    templates: ComplianceTemplate[]
-    approvals: ApprovalChain[]
-    timesheets: Timesheet[]
-    invoices: Invoice[]
-    assignments: Assignment[]
-    workforce: WorkforceMember[]
     insights: ApplicationInsight[]
     candidates: CandidateProfile[]
   }

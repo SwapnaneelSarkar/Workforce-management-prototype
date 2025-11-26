@@ -73,8 +73,8 @@ export default function CandidateSettingsPage() {
                 onCheckedChange={(value) => handleToggle("sms", value)}
               />
               <PreferenceToggle
-                label="Push messages"
-                helper="Enable push notifications for new messages."
+                label="Push alerts"
+                helper="Enable push notifications for important updates."
                 checked={prefs.push}
                 onCheckedChange={(value) => handleToggle("push", value)}
               />

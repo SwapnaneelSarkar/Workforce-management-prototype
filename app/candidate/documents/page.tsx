@@ -192,6 +192,11 @@ export default function DocumentWalletPage() {
               disabled={uploading}
             >
               {[
+                "Resume",
+                "Date of birth proof",
+                "Certifications",
+                "References",
+                "License",
                 "Active RN License",
                 "Background Check",
                 "Drug Screening",

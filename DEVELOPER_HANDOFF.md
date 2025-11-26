@@ -37,7 +37,7 @@ workforce-management-ui/
 ## Key Features
 
 ### 1. Multi-Portal Architecture
-- **Candidate Portal**: Job browsing, applications, documents, messages, notifications
+- **Candidate Portal**: Job browsing, applications, documents, notifications
 - **Organization Portal**: Job creation, application management, compliance, workforce tracking
 - **Vendor Portal**: Vendor management, bid submission, performance tracking
 

@@ -1,7 +1,5 @@
 "use client"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Header, Card, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
@@ -9,7 +7,6 @@ import { checkJobReadiness } from "@/lib/readiness-engine"
 
 export default function CandidateDashboardPage() {
   const { candidate, organization } = useDemoData()
-  const router = useRouter()
 
   // Check if onboarding is complete
   const onboardingData = {
@@ -42,31 +39,15 @@ export default function CandidateDashboardPage() {
 
   const isJobReady = readiness?.status === "Ready"
 
-  useEffect(() => {
-    // Redirect to onboarding if not complete
-    if (!isOnboardingComplete()) {
-      router.push("/candidate/onboarding")
-      return
-    }
-
-    // If onboarding complete but compliance not complete, show message but don't redirect
-    // (user can still access dashboard but will see warnings)
-  }, [isOnboardingComplete, isComplianceComplete])
-
   const completedDocs = candidate.documents.filter((doc) => doc.status === "Completed").length
   const totalDocs = candidate.documents.length
   const progressPercent = totalDocs > 0 ? Math.round((completedDocs / totalDocs) * 100) : 0
 
   const quickActions = [
-    { label: "Book an interview", description: "View available slots", href: "/candidate/messages" },
-    { label: "Upload credentials", description: "Keep wallet green", href: "/candidate/documents" },
-    { label: "Refer a friend", description: "Earn bonus rewards", href: "/candidate/refer" },
+    { label: "Browse jobs", description: "Review matches and new postings", href: "/candidate/jobs", cta: "See roles" },
+    { label: "Upload credentials", description: "Keep wallet green", href: "/candidate/documents", cta: "Update docs" },
+    { label: "View applications", description: "Check statuses and next steps", href: "/candidate/applications", cta: "Open tracker" },
   ]
-
-  // Show onboarding incomplete message
-  if (!isOnboardingComplete()) {
-    return null // Will redirect
-  }
 
   return (
     <>
@@ -114,12 +95,12 @@ export default function CandidateDashboardPage() {
 
       <section className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-3">
-            {quickActions.map((action) => (
+          {quickActions.map((action) => (
             <Card key={action.label} className="shadow-[0_2px_8px_rgba(16,24,40,0.08)] hover:shadow-[0_8px_24px_rgba(16,24,40,0.12)]">
               <div className="ph5-label">{action.label}</div>
               <p className="text-sm text-muted-foreground">{action.description}</p>
               <Link href={action.href} className="text-sm font-semibold text-[#3182CE] underline-offset-4 hover:underline">
-                Go to {action.label.toLowerCase()}
+                {action.cta}
               </Link>
             </Card>
           ))}
@@ -171,6 +152,39 @@ export default function CandidateDashboardPage() {
                 <dd className="text-muted-foreground">{candidate.profile.email}</dd>
               </div>
             </dl>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-[2fr,1.2fr]">
+          <Card title="Recent jobs for you" subtitle="High-signal roles based on your profile.">
+            <div className="space-y-3">
+              {organization.jobs.slice(0, 3).map((job) => (
+                <div
+                  key={job.id}
+                  className="flex items-start justify-between rounded-xl border border-border px-4 py-3 hover:border-primary/30 hover:shadow-sm transition-all"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{job.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {job.location} • {job.shift} • {job.hours}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{job.department}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 text-right">
+                    <span className="text-sm font-semibold text-foreground">{job.billRate}</span>
+                    <StatusChip label={job.status} tone={job.status === "Open" ? "success" : "neutral"} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card title="Next best actions" subtitle="Quick jumps based on your recent activity.">
+            <ul className="space-y-3 text-sm text-muted-foreground">
+              <li>Review your onboarding checklist and keep your profile fresh.</li>
+              <li>Upload any missing compliance docs in your wallet.</li>
+              <li>Browse open roles and save a few favorites for later.</li>
+            </ul>
           </Card>
         </div>
 

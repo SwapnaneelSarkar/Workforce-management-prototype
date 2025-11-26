@@ -20,8 +20,6 @@ export function useNavigation() {
     goOrgJobs: () => router.push("/organization/jobs"),
     goOrgJobCreate: () => router.push("/organization/jobs/create"),
     goOrgApplications: () => router.push("/organization/applications"),
-    goOrgCompliance: () => router.push("/organization/compliance/templates"),
-    goOrgComplianceDetail: (id: string) => router.push(`/organization/compliance/${id}`),
     goOrgVendors: () => router.push("/organization/vendors"),
     goVendorLogin: () => router.push("/vendor/login"),
     goVendorList: () => router.push("/vendor/vendors"),

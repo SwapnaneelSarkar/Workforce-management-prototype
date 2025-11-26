@@ -5,40 +5,25 @@ import type { ReactNode } from "react"
 import type {
   Application,
   ApplicationInsight,
-  ApprovalStep,
-  Assignment,
   CandidateDocument,
   CandidateProfile,
-  ComplianceTemplate,
-  ComplianceTemplateItem,
-  Invoice,
   Job,
-  MessageThread,
   Notification,
-  Timesheet,
   Vendor,
   VendorBid,
   VendorDetail,
   VendorLeaderboardRow,
-  WorkforceMember,
 } from "@/lib/mock-data"
 import {
   applications as initialApplications,
   applicationInsights,
-  approvalChains as initialApprovalChains,
-  assignments as initialAssignments,
   candidates as initialCandidates,
-  complianceTemplates as initialTemplates,
-  invoices as initialInvoices,
   jobs as initialJobs,
-  messageThreads as initialThreads,
   notifications as initialNotifications,
   onboardingDocumentMappings,
-  timesheets as initialTimesheets,
   vendorBids as initialVendorBids,
   vendorPerformanceKpis,
   vendorDetails as initialVendorDetails,
-  workforceMembers as initialWorkforceMembers,
   vendors as initialVendors,
   buildVendorLeaderboard,
 } from "@/lib/mock-data"
@@ -61,9 +46,6 @@ type DemoDataContextValue = {
   candidate: {
     profile: CandidateProfile
     documents: CandidateDocument[]
-    favorites: string[]
-    messages: MessageThread[]
-    referralCode?: { value: string; generatedAt: string }
     notificationPrefs: CandidatePreferences
     onboarding: OnboardingState
     applications: Application[]
@@ -72,12 +54,6 @@ type DemoDataContextValue = {
   organization: {
     jobs: Job[]
     applications: Application[]
-    templates: ComplianceTemplate[]
-    approvals: typeof initialApprovalChains
-    timesheets: Timesheet[]
-    invoices: Invoice[]
-    assignments: Assignment[]
-    workforce: WorkforceMember[]
     insights: ApplicationInsight[]
     candidates: CandidateProfile[]
   }
@@ -89,12 +65,8 @@ type DemoDataContextValue = {
     details: VendorDetail[]
   }
   actions: {
-    toggleFavorite: (jobId: string) => void
     uploadDocument: (payload: { name: string; type: string }) => Promise<CandidateDocument>
     replaceDocument: (docId: string, updates: Partial<CandidateDocument>) => Promise<void>
-    generateReferralCode: () => Promise<string>
-    markThreadRead: (threadId: string, unread: boolean) => void
-    sendMessage: (threadId: string, body: string) => Promise<void>
     updateNotificationPrefs: (prefs: Partial<CandidatePreferences>) => void
     markAllNotificationsRead: () => void
     setNotificationRead: (id: string, read: boolean) => void
@@ -109,24 +81,15 @@ type DemoDataContextValue = {
       shift: string
       hours: string
       billRate: string
-      complianceTemplateId: string
       description: string
       requirements: string[]
-      benefits: string[]
       tags: string[]
       status?: Job["status"]
-    }) => Promise<Job>
+        complianceTemplateId?: string
+      }) => Promise<Job>
+      updateJob: (id: string, updates: Partial<Job>) => void
     updateApplicationStatus: (id: string, status: Application["status"]) => void
     rejectApplication: (id: string) => void
-    addTemplateItem: (templateId: string, item: ComplianceTemplateItem) => void
-    removeTemplateItem: (templateId: string, itemId: string) => void
-    updateTemplateItem: (templateId: string, itemId: string, updates: Partial<ComplianceTemplateItem>) => void
-    addTemplateItem: (templateId: string, item: ComplianceTemplateItem) => void
-    removeTemplateItem: (templateId: string, itemId: string) => void
-    updateTemplateItem: (templateId: string, itemId: string, updates: Partial<ComplianceTemplateItem>) => void
-    updateApprovalStep: (chainId: string, stepId: string, status: ApprovalStep["status"]) => Promise<void>
-    updateTimesheetStatus: (timesheetId: string, status: Timesheet["status"]) => void
-    updateInvoiceStatus: (invoiceId: string, status: Invoice["status"]) => void
     submitVendorBid: (payload: { jobId: string; vendorName: string; rate: string; availability: string }) => Promise<VendorBid>
   }
 }
@@ -150,37 +113,23 @@ const formatDateTime = (value: string) => {
 export function DemoDataProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<CandidateProfile>(initialCandidates[0])
   const [documents, setDocuments] = useState<CandidateDocument[]>(initialCandidates[0].documents)
-  const [favorites, setFavorites] = useState<string[]>([])
-  const [messages, setMessages] = useState<MessageThread[]>(initialThreads)
-  const [referralCode, setReferralCode] = useState<{ value: string; generatedAt: string }>()
   const [notificationPrefs, setNotificationPrefs] = useState<CandidatePreferences>({ email: true, sms: false, push: true })
   const [onboarding, setOnboarding] = useState<OnboardingState>({
     personal: {},
     workHistory: {},
     skills: {},
     availability: {},
-    requiredDocuments: profile.requiredDocuments,
+    requiredDocuments: ["Resume", "Date of birth proof", "Certifications", "References", "License"],
   })
   const [applicationsState, setApplicationsState] = useState<Application[]>(initialApplications)
   const [jobsState, setJobsState] = useState<Job[]>(initialJobs)
-  const [templates, setTemplates] = useState<ComplianceTemplate[]>(initialTemplates)
-  const [approvals, setApprovals] = useState(initialApprovalChains)
-  const [timesheetsState, setTimesheets] = useState<Timesheet[]>(initialTimesheets)
-  const [invoicesState, setInvoices] = useState<Invoice[]>(initialInvoices)
   const [vendorsState, setVendors] = useState<Vendor[]>(initialVendors)
   const [bidsState, setBids] = useState<VendorBid[]>(initialVendorBids)
   const [notificationList, setNotificationList] = useState<Notification[]>(initialNotifications)
-  const [assignmentsState] = useState<Assignment[]>(initialAssignments)
-  const [workforceState] = useState<WorkforceMember[]>(initialWorkforceMembers)
   const [vendorDetailsState] = useState<VendorDetail[]>(initialVendorDetails)
 
   const primaryCandidate = useMemo(() => ({ ...profile, documents }), [profile, documents])
   const candidatePool = useMemo(() => [primaryCandidate, ...initialCandidates.slice(1)], [primaryCandidate])
-
-  const normalizedTimesheets = useMemo(
-    () => timesheetsState.map((sheet) => ({ ...sheet, hours: Math.max(0, Math.min(24, sheet.hours)) })),
-    [timesheetsState],
-  )
 
   const computeMatchScore = useCallback(
     (application: Application) => {
@@ -219,10 +168,6 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     [vendorsState, bidsState],
   )
 
-  const toggleFavorite = useCallback((jobId: string) => {
-    setFavorites((prev) => (prev.includes(jobId) ? prev.filter((id) => id !== jobId) : [...prev, jobId]))
-  }, [])
-
   const uploadDocument = useCallback(
     async ({ name, type }: { name: string; type: string }) => {
       await simulateDelay()
@@ -246,40 +191,6 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       prev.map((doc) => (doc.id === docId ? { ...doc, ...updates, lastUpdated: new Date().toISOString().slice(0, 10) } : doc)),
     )
   }, [])
-
-  const generateReferralCode = useCallback(async () => {
-    await simulateDelay()
-    const code = `REF-${Math.random().toString(36).toUpperCase().slice(2, 8)}`
-    const generatedAt = new Date().toISOString()
-    setReferralCode({ value: code, generatedAt })
-    return code
-  }, [])
-
-  const markThreadRead = useCallback((threadId: string, unread: boolean) => {
-    setMessages((prev) =>
-      prev.map((thread) => (thread.id === threadId ? { ...thread, unreadCount: unread ? 1 : 0 } : thread)),
-    )
-  }, [])
-
-  const sendMessage = useCallback(async (threadId: string, body: string) => {
-    await simulateDelay()
-    setMessages((prev) =>
-      prev.map((thread) =>
-        thread.id === threadId
-          ? {
-              ...thread,
-              unreadCount: 0,
-              lastMessage: body,
-              updatedAt: new Date().toISOString(),
-              messages: [
-                ...thread.messages,
-                { id: crypto.randomUUID(), from: profile.name, body, timestamp: new Date().toISOString() },
-              ],
-            }
-          : thread,
-      ),
-    )
-  }, [profile.name])
 
   const updateNotificationPrefs = useCallback((prefs: Partial<CandidatePreferences>) => {
     setNotificationPrefs((prev) => ({ ...prev, ...prefs }))
@@ -362,12 +273,11 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       shift: string
       hours: string
       billRate: string
-      complianceTemplateId: string
       description: string
       requirements: string[]
-      benefits: string[]
       tags: string[]
       status?: Job["status"]
+      complianceTemplateId?: string
     }) => {
       await simulateDelay(400, 900)
       const job: Job = {
@@ -381,63 +291,16 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const updateJob = useCallback((id: string, updates: Partial<Job>) => {
+    setJobsState((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)))
+  }, [])
+
   const updateApplicationStatus = useCallback((id: string, status: Application["status"]) => {
     setApplicationsState((prev) => prev.map((app) => (app.id === id ? { ...app, status } : app)))
   }, [])
 
   const rejectApplication = useCallback((id: string) => {
     setApplicationsState((prev) => prev.map((app) => (app.id === id ? { ...app, status: "Rejected" } : app)))
-  }, [])
-
-  const addTemplateItem = useCallback((templateId: string, item: ComplianceTemplateItem) => {
-    setTemplates((prev) =>
-      prev.map((template) => (template.id === templateId ? { ...template, items: [...template.items, item] } : template)),
-    )
-  }, [])
-
-  const removeTemplateItem = useCallback((templateId: string, itemId: string) => {
-    setTemplates((prev) =>
-      prev.map((template) =>
-        template.id === templateId ? { ...template, items: template.items.filter((item) => item.id !== itemId) } : template,
-      ),
-    )
-  }, [])
-
-  const updateTemplateItem = useCallback((templateId: string, itemId: string, updates: Partial<ComplianceTemplateItem>) => {
-    setTemplates((prev) =>
-      prev.map((template) =>
-        template.id === templateId
-          ? {
-              ...template,
-              items: template.items.map((item) => (item.id === itemId ? { ...item, ...updates } : item)),
-            }
-          : template,
-      ),
-    )
-  }, [])
-
-  const updateApprovalStep = useCallback(async (chainId: string, stepId: string, status: ApprovalStep["status"]) => {
-    await simulateDelay()
-    setApprovals((prev) =>
-      prev.map((chain) =>
-        chain.id === chainId
-          ? {
-              ...chain,
-              approvers: chain.approvers.map((step) =>
-                step.id === stepId ? { ...step, status, decisionAt: new Date().toISOString().slice(0, 10) } : step,
-              ),
-            }
-          : chain,
-      ),
-    )
-  }, [])
-
-  const updateTimesheetStatus = useCallback((timesheetId: string, status: Timesheet["status"]) => {
-    setTimesheets((prev) => prev.map((sheet) => (sheet.id === timesheetId ? { ...sheet, status } : sheet)))
-  }, [])
-
-  const updateInvoiceStatus = useCallback((invoiceId: string, status: Invoice["status"]) => {
-    setInvoices((prev) => prev.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status } : invoice)))
   }, [])
 
   const submitVendorBid = useCallback(
@@ -463,9 +326,6 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       candidate: {
         profile: primaryCandidate,
         documents,
-        favorites,
-        messages,
-        referralCode,
         notificationPrefs,
         onboarding,
         applications: enrichedApplications.filter((app) => app.candidateId === primaryCandidate.id),
@@ -474,12 +334,6 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       organization: {
         jobs: jobsState,
         applications: enrichedApplications,
-        templates,
-        approvals,
-        timesheets: normalizedTimesheets,
-        invoices: invoicesState,
-        assignments: assignmentsState,
-        workforce: workforceState,
         insights: applicationInsights,
         candidates: candidatePool,
       },
@@ -491,12 +345,8 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         details: vendorDetailsState,
       },
       actions: {
-        toggleFavorite,
         uploadDocument,
         replaceDocument,
-        generateReferralCode,
-        markThreadRead,
-        sendMessage,
         updateNotificationPrefs,
         markAllNotificationsRead,
         setNotificationRead,
@@ -504,41 +354,25 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         saveOnboardingStep,
         submitJobApplication,
         createJob,
+        updateJob,
         updateApplicationStatus,
         rejectApplication,
-        addTemplateItem,
-        removeTemplateItem,
-        updateTemplateItem,
-        updateApprovalStep,
-        updateTimesheetStatus,
-        updateInvoiceStatus,
         submitVendorBid,
       },
     }),
     [
       applicationInsights,
-      assignmentsState,
       candidatePool,
       documents,
       enrichedApplications,
-      approvals,
       bidsState,
-      favorites,
       jobsState,
-      messages,
-      normalizedTimesheets,
       notificationList,
       notificationPrefs,
       onboarding,
       primaryCandidate,
-      referralCode,
-      templates,
-      toggleFavorite,
       uploadDocument,
       replaceDocument,
-      generateReferralCode,
-      markThreadRead,
-      sendMessage,
       updateNotificationPrefs,
       markAllNotificationsRead,
       setNotificationRead,
@@ -548,18 +382,10 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       createJob,
       updateApplicationStatus,
       rejectApplication,
-      addTemplateItem,
-      removeTemplateItem,
-      updateTemplateItem,
-      updateApprovalStep,
-      updateTimesheetStatus,
-      updateInvoiceStatus,
       submitVendorBid,
       vendorsState,
-      invoicesState,
       vendorLeaderboardState,
       vendorDetailsState,
-      workforceState,
     ],
   )
 

@@ -65,7 +65,7 @@ export default function VendorLoginPage() {
           </div>
           <ul className="space-y-4 text-sm text-slate-600">
             {[
-              "Pipeline insights show where submissions are stuck.",
+              "Live insights show where submissions are stuck.",
               "Benchmark quality, speed, and redeploy rates instantly.",
               "Smart nudges keep compliance docs from expiring.",
             ].map((item) => (

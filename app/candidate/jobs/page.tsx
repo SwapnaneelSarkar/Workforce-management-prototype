@@ -40,7 +40,7 @@ export default function JobListingPage() {
     <div className="space-y-6">
       <Header
         title="Job Marketplace"
-        subtitle="Discover tailored assignments and compare bill rates side-by-side."
+        subtitle="Discover tailored roles and compare bill rates side-by-side."
         breadcrumbs={[
           { label: "Candidate Portal", href: "/candidate/dashboard" },
           { label: "Jobs" },

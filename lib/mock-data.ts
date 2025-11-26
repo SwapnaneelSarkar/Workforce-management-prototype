@@ -27,16 +27,6 @@ export type CandidateProfile = {
   documents: CandidateDocument[]
 }
 
-export type MessageThread = {
-  id: string
-  participants: string[]
-  subject: string
-  unreadCount: number
-  lastMessage: string
-  updatedAt: string
-  messages: { id: string; from: string; body: string; timestamp: string }[]
-}
-
 export type Job = {
   id: string
   title: string
@@ -47,10 +37,8 @@ export type Job = {
   hours: string
   billRate: string
   status: "Open" | "Closed" | "Draft"
-  complianceTemplateId: string
   description: string
   requirements: string[]
-  benefits: string[]
   tags: string[]
 }
 
@@ -67,21 +55,6 @@ export type Application = {
   submittedRelative?: string
 }
 
-export type ComplianceTemplateItem = {
-  id: string
-  type: string
-  name: string
-  expirationType: "fixed" | "rolling" | "none"
-  requiredAtSubmission: boolean
-}
-
-export type ComplianceTemplate = {
-  id: string
-  name: string
-  items: ComplianceTemplateItem[]
-  createdDate: string
-}
-
 export type Vendor = {
   id: string
   name: string
@@ -93,38 +66,6 @@ export type Vendor = {
     responseTimeHours: number
     candidatesSupplied: number
   }
-}
-
-export type Invoice = {
-  id: string
-  vendorId: string
-  amount: number
-  dueDate: string
-  status: "Paid" | "Pending" | "Overdue"
-  description: string
-}
-
-export type Timesheet = {
-  id: string
-  staff: string
-  date: string
-  hours: number
-  type: "Regular" | "Overtime" | "On Call"
-  status: "Pending" | "Approved" | "Rejected"
-}
-
-export type ApprovalStep = {
-  id: string
-  name: string
-  role: string
-  status: "Pending" | "Approved" | "Rejected"
-  decisionAt?: string
-}
-
-export type ApprovalChain = {
-  id: string
-  requisitionId: string
-  approvers: ApprovalStep[]
 }
 
 export type VendorBid = {
@@ -142,16 +83,8 @@ export type Notification = {
   title: string
   subtitle: string
   time: string
-  type: "job" | "system" | "message"
+  type: "job" | "system"
   read?: boolean
-}
-
-export type ApplicationTimelineEvent = {
-  id: string
-  timestamp: string
-  actor: string
-  summary: string
-  channel: "system" | "email" | "note"
 }
 
 export type ApplicationAttachment = {
@@ -168,49 +101,9 @@ export type ApplicationInsight = {
   contact: { email: string; phone: string }
   vendorName?: string
   highlights: string[]
-  timeline: ApplicationTimelineEvent[]
   compliance: { id: string; requirement: string; status: "Completed" | "Pending" | "Expired"; dueDate: string }[]
   attachments: ApplicationAttachment[]
   notes: { id: string; author: string; body: string; createdAt: string }[]
-}
-
-export type Assignment = {
-  id: string
-  role: string
-  workerId: string
-  workerName: string
-  vendor: string
-  location: string
-  startDate: string
-  endDate: string
-  status: "Active" | "Upcoming" | "Ending Soon"
-  billRate: string
-  hoursPerWeek: number
-  complianceStatus: "Clear" | "Expiring" | "Missing"
-  matchScore: number
-}
-
-export type WorkforceHistoryRecord = {
-  id: string
-  assignmentId: string
-  role: string
-  location: string
-  startDate: string
-  endDate: string
-  status: "Completed" | "Extended" | "Ended"
-}
-
-export type WorkforceMember = {
-  id: string
-  name: string
-  role: string
-  status: "Active" | "Credentialing" | "Break"
-  location: string
-  vendor: string
-  avatar: string
-  currentAssignment: string
-  documents: CandidateDocument[]
-  history: WorkforceHistoryRecord[]
 }
 
 export type VendorAgreement = {
@@ -263,7 +156,7 @@ export const candidates: CandidateProfile[] = [
     experienceYears: 8,
     specialties: ["ICU", "Critical Care"],
     skills: ["ACLS", "Vent Management", "Epic", "Preceptor"],
-    summary: "Night-shift ICU traveler focused on neuro/trauma pods with strong preceptor ratings from previous assignments.",
+    summary: "Night-shift ICU traveler focused on neuro/trauma pods with strong preceptor ratings from previous rotations.",
     vendorPartner: "QuickCheck Solutions",
     availabilityNotes: "Ready to start within 2 weeks; prefers block scheduling.",
     profileCompletePct: 82,
@@ -315,7 +208,7 @@ export const candidates: CandidateProfile[] = [
     experienceYears: 6,
     specialties: ["PCU", "Step-down"],
     skills: ["Telemetry", "Charge Nurse", "DaVinci", "Epic"],
-    summary: "Step-down RN with hybrid PCU/Telemetry background and recent charge assignments.",
+    summary: "Step-down RN with hybrid PCU/Telemetry background and recent charge rotations.",
     vendorPartner: "HealthVerify Pro",
     availabilityNotes: "Currently in panel; available after 12/12.",
     profileCompletePct: 91,
@@ -456,11 +349,9 @@ export const jobs: Job[] = [
     hours: "36 hrs/week",
     billRate: "$88/hr",
     status: "Open",
-    complianceTemplateId: "template-001",
     description:
-      "Registered Nurse needed for ICU unit at Memorial Main Campus. Full-time night shift assignment focused on high-acuity patient care.",
+      "Registered Nurse needed for ICU unit at Memorial Main Campus. Full-time night shift role focused on high-acuity patient care.",
     requirements: ["Active RN License", "Background Check", "Drug Screening", "ACLS Certification"],
-    benefits: ["Shift differential", "Housing stipend", "Full medical", "401k match"],
     tags: ["Night Shift", "13 Weeks", "$88/hr"],
   },
   {
@@ -473,10 +364,8 @@ export const jobs: Job[] = [
     hours: "40 hrs/week",
     billRate: "$76/hr",
     status: "Open",
-    complianceTemplateId: "template-002",
     description: "Progressive Care Unit nurse to support step-down patients transitioning from ICU.",
     requirements: ["Active RN License", "Background Check", "CPR Certification"],
-    benefits: ["Day shift", "Continuing education", "Full medical"],
     tags: ["Day Shift", "Ongoing", "$76/hr"],
   },
   {
@@ -489,10 +378,8 @@ export const jobs: Job[] = [
     hours: "36 hrs/week",
     billRate: "$90/hr",
     status: "Open",
-    complianceTemplateId: "template-002",
     description: "Emergency Room nurse with flexible scheduling. Fast-paced environment.",
     requirements: ["Active RN License", "Background Check", "Drug Screening", "ACLS Certification"],
-    benefits: ["Sign-on bonus", "Shift flexibility", "Medical/Dental"],
     tags: ["Variable Shift", "8 Weeks", "$90/hr"],
   },
   {
@@ -505,10 +392,8 @@ export const jobs: Job[] = [
     hours: "40 hrs/week",
     billRate: "$74/hr",
     status: "Open",
-    complianceTemplateId: "template-001",
     description: "Medical-Surgical nurse supporting post-operative patients.",
     requirements: ["Active RN License", "Background Check"],
-    benefits: ["Mentorship", "Tuition reimbursement"],
     tags: ["Day Shift", "Ongoing", "$74/hr"],
   },
   {
@@ -521,10 +406,8 @@ export const jobs: Job[] = [
     hours: "36 hrs/week",
     billRate: "$82/hr",
     status: "Open",
-    complianceTemplateId: "template-001",
     description: "Telemetry nurse focusing on cardiac monitoring.",
     requirements: ["Active RN License", "ACLS Certification", "Background Check"],
-    benefits: ["Cardiac specialization training", "Full medical"],
     tags: ["Evening Shift", "12 Weeks", "$82/hr"],
   },
 ]
@@ -580,30 +463,6 @@ export const applications: Application[] = [
   },
 ]
 
-export const complianceTemplates: ComplianceTemplate[] = [
-  {
-    id: "template-001",
-    name: "RN Traveler Template",
-    createdDate: "2025-10-01",
-    items: [
-      { id: "tmp-001", type: "License", name: "Active RN License", expirationType: "fixed", requiredAtSubmission: true },
-      { id: "tmp-002", type: "Certification", name: "ACLS Certification", expirationType: "rolling", requiredAtSubmission: true },
-      { id: "tmp-003", type: "Screening", name: "Drug Screening", expirationType: "fixed", requiredAtSubmission: false },
-      { id: "tmp-004", type: "Screening", name: "Background Check", expirationType: "fixed", requiredAtSubmission: true },
-    ],
-  },
-  {
-    id: "template-002",
-    name: "Acute Care Template",
-    createdDate: "2025-09-18",
-    items: [
-      { id: "tmp-101", type: "Certification", name: "CPR Certification", expirationType: "rolling", requiredAtSubmission: true },
-      { id: "tmp-102", type: "Assessment", name: "Skills Checklist", expirationType: "none", requiredAtSubmission: false },
-      { id: "tmp-103", type: "Immunization", name: "TB Test", expirationType: "fixed", requiredAtSubmission: false },
-    ],
-  },
-]
-
 export const vendors: Vendor[] = [
   {
     id: "vendor-001",
@@ -632,93 +491,10 @@ export const vendors: Vendor[] = [
 ]
 
 export const vendorPerformanceKpis = [
-  { id: "kpi-001", label: "Fill Rate", value: "92%" },
+  { id: "kpi-001", label: "Active Vendors", value: "12" },
   { id: "kpi-002", label: "Avg Response Time", value: "3.1 hrs" },
   { id: "kpi-003", label: "Candidates Supplied", value: "182" },
   { id: "kpi-004", label: "Active Reqs", value: "24" },
-]
-
-export const messageThreads: MessageThread[] = [
-  {
-    id: "thread-001",
-    participants: ["Joanne Rose", "Recruiter Team"],
-    subject: "Interview Availability",
-    unreadCount: 1,
-    lastMessage: "Can you confirm availability for next week?",
-    updatedAt: "2025-11-24T09:15:00Z",
-    messages: [
-      { id: "m-1", from: "Recruiter Team", body: "Can you confirm availability for next week?", timestamp: "2025-11-24T09:15:00Z" },
-      { id: "m-2", from: "Joanne Rose", body: "Tuesday and Thursday evenings work best.", timestamp: "2025-11-24T09:18:00Z" },
-    ],
-  },
-  {
-    id: "thread-002",
-    participants: ["Compliance Desk", "Joanne Rose"],
-    subject: "Missing License Copy",
-    unreadCount: 0,
-    lastMessage: "Please upload the renewed RN license to continue.",
-    updatedAt: "2025-11-23T16:22:00Z",
-    messages: [
-      { id: "m-3", from: "Compliance Desk", body: "Please upload the renewed RN license to continue.", timestamp: "2025-11-23T16:22:00Z" },
-    ],
-  },
-  {
-    id: "thread-003",
-    participants: ["Nova Health", "Joanne Rose"],
-    subject: "Offer Details",
-    unreadCount: 2,
-    lastMessage: "Here's the breakdown of compensation and benefits.",
-    updatedAt: "2025-11-18T11:05:00Z",
-    messages: [
-      { id: "m-4", from: "Nova Health", body: "Here's the breakdown of compensation and benefits.", timestamp: "2025-11-18T11:05:00Z" },
-    ],
-  },
-]
-
-export const invoices: Invoice[] = [
-  {
-    id: "inv-001",
-    vendorId: "vendor-001",
-    amount: 24500,
-    dueDate: "2025-12-05",
-    status: "Pending",
-    description: "October background screenings",
-  },
-  {
-    id: "inv-002",
-    vendorId: "vendor-002",
-    amount: 13200,
-    dueDate: "2025-12-12",
-    status: "Pending",
-    description: "Credential verification bundle",
-  },
-  {
-    id: "inv-003",
-    vendorId: "vendor-003",
-    amount: 4950,
-    dueDate: "2025-11-30",
-    status: "Paid",
-    description: "Drug testing services",
-  },
-]
-
-export const timesheets: Timesheet[] = [
-  { id: "ts-001", staff: "Joanne Rose", date: "2025-11-21", hours: 12, type: "Regular", status: "Pending" },
-  { id: "ts-002", staff: "James Mitchell", date: "2025-11-21", hours: 10, type: "Overtime", status: "Approved" },
-  { id: "ts-003", staff: "Sarah Johnson", date: "2025-11-21", hours: 8, type: "Regular", status: "Rejected" },
-  { id: "ts-004", staff: "Emily Watson", date: "2025-11-20", hours: 12, type: "On Call", status: "Pending" },
-]
-
-export const approvalChains: ApprovalChain[] = [
-  {
-    id: "approval-001",
-    requisitionId: "job-001",
-    approvers: [
-      { id: "ap-1", name: "Liam Thompson", role: "Nurse Director", status: "Approved", decisionAt: "2025-11-20" },
-      { id: "ap-2", name: "Sophia Martinez", role: "HR Lead", status: "Pending" },
-      { id: "ap-3", name: "Olivia Brown", role: "CNO", status: "Pending" },
-    ],
-  },
 ]
 
 export const vendorBids: VendorBid[] = [
@@ -787,7 +563,7 @@ function formatNotificationTime(date: Date): string {
 export const notifications: Notification[] = [
   { id: "notif-001", title: "New job invite", subtitle: "Nova Health | ICU RN", time: formatNotificationTime(new Date(Date.now() - 2 * 3600000)), type: "job", read: false },
   { id: "notif-002", title: "Document verified", subtitle: "Background Check approved", time: formatNotificationTime(new Date(Date.now() - 25 * 3600000)), type: "system", read: false },
-  { id: "notif-003", title: "New message", subtitle: "Recruiter team replied", time: formatNotificationTime(new Date(Date.now() - 28 * 3600000)), type: "message", read: false },
+  { id: "notif-003", title: "Profile update", subtitle: "Recruiter shared new note", time: formatNotificationTime(new Date(Date.now() - 28 * 3600000)), type: "system", read: false },
   { id: "notif-004", title: "Shift reminder", subtitle: "Night shift tomorrow 7p-7a", time: formatNotificationTime(new Date(Date.now() - 3 * 86400000)), type: "system", read: true },
 ]
 
@@ -798,12 +574,6 @@ export const applicationInsights: ApplicationInsight[] = [
     contact: { email: "joanne.rose@email.com", phone: "+1 (595) 1394 0252" },
     vendorName: "QuickCheck Solutions",
     highlights: ["Night-shift ICU traveler", "Top 10% patient experience", "Comfortable with Impella & VV ECMO"],
-    timeline: [
-      { id: "evt-001", timestamp: "2025-11-18T09:13:00Z", actor: "System", summary: "Application submitted", channel: "system" },
-      { id: "evt-002", timestamp: "2025-11-18T09:20:00Z", actor: "Compliance Desk", summary: "Requested renewed drug screen", channel: "email" },
-      { id: "evt-003", timestamp: "2025-11-19T14:45:00Z", actor: "Hiring Panel", summary: "Panel review scheduled", channel: "system" },
-      { id: "evt-004", timestamp: "2025-11-20T11:12:00Z", actor: "Recruiter Team", summary: "Availability call logged", channel: "note" },
-    ],
     compliance: [
       { id: "tmp-001", requirement: "Active RN License", status: "Completed", dueDate: "01 Oct 2026" },
       { id: "tmp-002", requirement: "ACLS Certification", status: "Completed", dueDate: "12 May 2026" },
@@ -825,12 +595,6 @@ export const applicationInsights: ApplicationInsight[] = [
     contact: { email: "sarah.johnson@email.com", phone: "+1 (595) 1400 8841" },
     vendorName: "HealthVerify Pro",
     highlights: ["Charge experience", "Telemetry + DaVinci exposure", "Patient sat 4.8/5"],
-    timeline: [
-      { id: "evt-101", timestamp: "2025-11-15T10:05:00Z", actor: "System", summary: "Submitted application", channel: "system" },
-      { id: "evt-102", timestamp: "2025-11-16T08:40:00Z", actor: "Hiring Panel", summary: "Qualified by recruiter", channel: "system" },
-      { id: "evt-103", timestamp: "2025-11-17T13:10:00Z", actor: "Panel Assistant", summary: "Interview slot sent", channel: "email" },
-      { id: "evt-104", timestamp: "2025-11-18T16:30:00Z", actor: "Sarah Johnson", summary: "Confirmed 11/21 interview", channel: "note" },
-    ],
     compliance: [
       { id: "tmp-101", requirement: "CPR Certification", status: "Completed", dueDate: "30 Jan 2026" },
       { id: "tmp-102", requirement: "Skills Checklist", status: "Completed", dueDate: "15 Aug 2026" },
@@ -849,11 +613,6 @@ export const applicationInsights: ApplicationInsight[] = [
     contact: { email: "michael.chen@email.com", phone: "+1 (595) 1968 4420" },
     vendorName: "LicenseCheck Pro",
     highlights: ["TNCC renewed this quarter", "Cross-trained to float to ICU", "Rapid response rotation"],
-    timeline: [
-      { id: "evt-201", timestamp: "2025-11-16T07:28:00Z", actor: "System", summary: "Application submitted", channel: "system" },
-      { id: "evt-202", timestamp: "2025-11-16T09:55:00Z", actor: "Recruiter Team", summary: "Credentials verified", channel: "note" },
-      { id: "evt-203", timestamp: "2025-11-17T11:42:00Z", actor: "Compliance Desk", summary: "Drug screen pending", channel: "email" },
-    ],
     compliance: [
       { id: "tmp-001", requirement: "Active RN License", status: "Completed", dueDate: "09 Jun 2026" },
       { id: "tmp-002", requirement: "ACLS Certification", status: "Completed", dueDate: "21 Sep 2026" },
@@ -873,11 +632,6 @@ export const applicationInsights: ApplicationInsight[] = [
     contact: { email: "emily.watson@email.com", phone: "+1 (595) 1880 0021" },
     vendorName: "QuickCheck Solutions",
     highlights: ["4.9 HCAHPS trend", "Telemetry cross-training", "Charge-ready"],
-    timeline: [
-      { id: "evt-301", timestamp: "2025-11-12T12:35:00Z", actor: "System", summary: "Application submitted", channel: "system" },
-      { id: "evt-302", timestamp: "2025-11-13T08:10:00Z", actor: "Hiring Panel", summary: "Advanced to offer review", channel: "system" },
-      { id: "evt-303", timestamp: "2025-11-14T10:25:00Z", actor: "Recruiter Team", summary: "Offer package shared", channel: "email" },
-    ],
     compliance: [
       { id: "tmp-001", requirement: "Active RN License", status: "Completed", dueDate: "18 Apr 2026" },
       { id: "tmp-004", requirement: "Background Check", status: "Completed", dueDate: "09 Feb 2026" },
@@ -891,111 +645,6 @@ export const applicationInsights: ApplicationInsight[] = [
     ],
   },
 ]
-
-export const assignments: Assignment[] = [
-  {
-    id: "asn-001",
-    role: "ICU RN",
-    workerId: "cand-001",
-    workerName: "Joanne Rose",
-    vendor: "QuickCheck Solutions",
-    location: "Memorial Main Campus • ICU",
-    startDate: "2025-10-21",
-    endDate: "2026-01-20",
-    status: "Active",
-    billRate: "$88/hr",
-    hoursPerWeek: 36,
-    complianceStatus: "Expiring",
-    matchScore: 86,
-  },
-  {
-    id: "asn-002",
-    role: "PCU RN",
-    workerId: "cand-002",
-    workerName: "Sarah Johnson",
-    vendor: "HealthVerify Pro",
-    location: "Memorial Main Campus • PCU",
-    startDate: "2025-09-02",
-    endDate: "2025-12-14",
-    status: "Ending Soon",
-    billRate: "$76/hr",
-    hoursPerWeek: 40,
-    complianceStatus: "Clear",
-    matchScore: 91,
-  },
-  {
-    id: "asn-003",
-    role: "ER RN",
-    workerId: "cand-003",
-    workerName: "Michael Chen",
-    vendor: "LicenseCheck Pro",
-    location: "Memorial Downtown • ER",
-    startDate: "2025-11-10",
-    endDate: "2026-02-10",
-    status: "Active",
-    billRate: "$90/hr",
-    hoursPerWeek: 36,
-    complianceStatus: "Missing",
-    matchScore: 79,
-  },
-  {
-    id: "asn-004",
-    role: "Med Surg RN",
-    workerId: "cand-004",
-    workerName: "Emily Watson",
-    vendor: "QuickCheck Solutions",
-    location: "Memorial Satellite • Med Surg",
-    startDate: "2025-12-02",
-    endDate: "2026-03-05",
-    status: "Upcoming",
-    billRate: "$74/hr",
-    hoursPerWeek: 40,
-    complianceStatus: "Clear",
-    matchScore: 88,
-  },
-]
-
-export const workforceMembers: WorkforceMember[] = candidates.map((candidate, index) => {
-  const activeAssignment = assignments.find((assignment) => assignment.workerId === candidate.id)
-  const status: WorkforceMember["status"] = activeAssignment
-    ? activeAssignment.status === "Upcoming"
-      ? "Credentialing"
-      : "Active"
-    : index % 2 === 0
-      ? "Break"
-      : "Credentialing"
-  return {
-    id: `worker-${candidate.id}`,
-    name: candidate.name,
-    role: candidate.role,
-    status,
-    location: candidate.location,
-    vendor: candidate.vendorPartner ?? "Internal Talent",
-    avatar: candidate.avatar,
-    currentAssignment: activeAssignment ? `${activeAssignment.role} • ${activeAssignment.location}` : "Bench",
-    documents: candidate.documents,
-    history: [
-      {
-        id: `hist-${candidate.id}-current`,
-        assignmentId: activeAssignment?.id ?? `asn-${candidate.id}-bench`,
-        role: activeAssignment?.role ?? candidate.role,
-        location: activeAssignment?.location ?? candidate.location,
-        startDate: activeAssignment?.startDate ?? "2025-07-01",
-        endDate: activeAssignment?.endDate ?? "2025-09-28",
-        status: activeAssignment ? "Extended" : "Completed",
-      },
-      {
-        id: `hist-${candidate.id}-prev`,
-        assignmentId: `prev-${candidate.id}`,
-        role: candidate.role,
-        location: "Memorial South Pavilion",
-        startDate: "2025-03-04",
-        endDate: "2025-06-30",
-        status: "Completed",
-      },
-    ],
-  }
-})
 
 export const vendorDetails: VendorDetail[] = [
   {
@@ -1078,7 +727,7 @@ export const buildVendorLeaderboard = (vendorList: Vendor[], bidsList: VendorBid
 export const vendorLeaderboard: VendorLeaderboardRow[] = buildVendorLeaderboard(vendors, vendorBids)
 
 export const onboardingDocumentMappings = [
-  { answer: "Travel Assignment", documents: ["Travel Agreement", "Immunization Record"] },
+  { answer: "travel-heavy", documents: ["Travel Agreement", "Immunization Record"] },
   { answer: "Night", documents: ["Fatigue Acknowledgement"] },
   { answer: "ICU", documents: ["ICU Skills Checklist"] },
 ]
@@ -1094,38 +743,7 @@ export const mockDocuments = candidates[0].documents.map((doc) => ({
   verified: doc.status === "Completed",
 }))
 export const mockNotifications = notifications
-export const mockMessageThreads = messageThreads.map((thread) => ({
-  id: thread.id,
-  participant: thread.participants[0],
-  subject: thread.subject,
-  preview: thread.lastMessage,
-  updatedAt: new Date(thread.updatedAt).toLocaleString(),
-}))
-export const mockInvoices = invoices.map((invoice) => ({
-  id: invoice.id,
-  vendor: vendors.find((vendor) => vendor.id === invoice.vendorId)?.name ?? "Vendor",
-  amount: `$${invoice.amount.toLocaleString()}`,
-  dueDate: invoice.dueDate,
-  status: invoice.status,
-}))
-export const mockTimesheets = timesheets.map((sheet) => ({
-  id: sheet.id,
-  staff: sheet.staff,
-  weekEnding: sheet.date,
-  hours: sheet.hours,
-  status: sheet.status,
-}))
 export const mockVendorKpis = vendorPerformanceKpis
-export const mockRequisitions = jobs.map((job, index) => ({
-  id: job.id,
-  title: job.title,
-  department: job.department,
-  openPositions: (index % 3) + 1,
-  submittedDate: "2025-11-15",
-  status: job.status === "Open" ? "Open" : "In Progress",
-  hireLeader: "Nancy Anderson",
-  approvalChain: approvalChains[0]?.approvers.map((approver) => approver.name) ?? [],
-}))
 export const mockApplications = applications.map((app) => ({
   id: app.id,
   candidateName: app.candidateName,
@@ -1145,20 +763,6 @@ export const mockVendors = vendors.map((vendor) => ({
   phone: "+1 (555) 123-4567",
   certifications: vendor.certifications,
   activeClients: vendor.kpis.candidatesSupplied,
-}))
-export const mockComplianceItems = complianceTemplates[0].items.map((item, index) => ({
-  id: item.id,
-  name: item.name,
-  type: item.type,
-  status: index < 2 ? "complete" : "incomplete",
-  progress: index < 2 ? 12 : 4,
-  total: 12,
-}))
-export const mockComplianceTemplates = complianceTemplates.map((template) => ({
-  id: template.id,
-  name: template.name,
-  items: template.items.map((item) => item.name),
-  createdDate: template.createdDate,
 }))
 export const mockVendorDocuments = candidates[0].documents.map((doc) => ({
   id: doc.id,

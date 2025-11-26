@@ -14,7 +14,7 @@ This document captures the current, code-backed feature set for the multi-tenant
 
 ## Technology & Architecture
 - **Routing**: App Router with nested layouts per portal (`app/candidate/layout.tsx`, etc.) so each area has isolated navigation chrome.
-- **State**: `DemoDataProvider` exposes candidate, organization, and vendor slices plus imperative helpers (upload docs, create jobs, approve timesheets, submit bids, etc.). Each helper simulates latency via `simulateDelay` for UI realism.
+- **State**: `DemoDataProvider` exposes candidate, organization, and vendor slices plus imperative helpers (upload docs, create jobs, update applications, submit bids, etc.). Each helper simulates latency via `simulateDelay` for UI realism.
 - **UI Kit**: `components/system` exports `Header`, `Card`, `MultiStepForm`, `Modal`, `FloatingActionButton`, `SkeletonLoader`, `StatusChip`, `FAB`, `DatePicker`, etc., ensuring consistent spacing, typography, and feedback affordances across routes.
 - **Styling**: Global tokens live in `app/globals.css` with semantic classnames (`ph5-button-primary`, `ph5-label`, etc.) to keep the grayscale foundation intact while allowing accent colors (#3182CE primary).
 
@@ -34,8 +34,8 @@ This document captures the current, code-backed feature set for the multi-tenant
 
 ## Demo Data & Actions
 - **Provider surface area**: `components/providers/demo-data-provider.tsx` wraps every page (via `components/providers/app-providers.tsx`) so routes can call `useDemoData()`.
-- **Candidate slice**: profile, documents, favorites, messages, referral code, notification prefs, onboarding answers, required document list, applications scoped to the signed-in candidate, and notification feed.
-- **Organization slice**: jobs/requisitions, every application in the system, compliance templates, approval chains, timesheets, invoices.
+- **Candidate slice**: profile, documents, notification prefs, onboarding answers, required document list, applications scoped to the signed-in candidate, and notification feed.
+- **Organization slice**: jobs/requisitions, every application in the system, application insights, and the candidate pool.
 - **Vendor slice**: vendor roster, submitted bids, leaderboard KPIs.
 - **Latency simulation**: `simulateDelay(min, max)` introduces 300–900 ms delays for async helpers so loading states feel real.
 
@@ -43,25 +43,15 @@ This document captures the current, code-backed feature set for the multi-tenant
 
 | Function | Purpose | Primary screens invoking it |
 | --- | --- | --- |
-| `toggleFavorite(jobId)` | Adds/removes job IDs from `candidate.favorites`. | `/candidate/jobs`, `/candidate/favorites` |
 | `uploadDocument({ name, type })` | Creates a pending credential with default expiry + timestamps. | `/candidate/documents`, `/candidate/jobs/[id]` (missing doc modal) |
 | `replaceDocument(docId, updates)` | Updates doc status/date (used to mark completed). | `/candidate/documents` |
-| `generateReferralCode()` | Generates `REF-XXXXXX` codes & stores `generatedAt`. | `/candidate/refer` |
-| `markThreadRead(threadId, unread)` | Flips unread counters. | `/candidate/messages` |
-| `sendMessage(threadId, body)` | Appends outbound replies, zeroes unread count. | `/candidate/messages` |
 | `updateNotificationPrefs(partial)` | Persists email/SMS/push toggles. | `/candidate/settings` |
 | `updateEmail(email)` | Writes profile email after validation. | `/candidate/settings` |
 | `saveOnboardingStep(step, data)` | Saves answers + auto-adds required docs mapped via `onboardingDocumentMappings`. | `/candidate/onboarding` |
 | `submitJobApplication(jobId)` | Creates application stub, pushes notification, prevents duplicates. | `/candidate/jobs/[id]`, `/candidate/apply` |
-| `createJob(payload)` | Publishes new requisition with chosen template + tags. | `/organization/jobs/create` |
-| `updateApplicationStatus(id, status)` | Moves applicants between pipeline stages. | `/organization/applications` |
+| `createJob(payload)` | Publishes new requisition with shift, hours, and tags. | `/organization/jobs/create` |
+| `updateApplicationStatus(id, status)` | Updates the current stage for an application. | `/organization/applications` |
 | `rejectApplication(id)` | Shortcut to mark status `Rejected`. | `/organization/applications` |
-| `addTemplateItem(templateId, item)` | Appends compliance requirements. | `/organization/compliance/templates` |
-| `removeTemplateItem(templateId, itemId)` | Deletes requirements. | `/organization/compliance/templates` |
-| `updateTemplateItem(templateId, itemId, updates)` | Toggles required-at-submission or other item metadata. | `/organization/compliance/templates` |
-| `updateApprovalStep(chainId, stepId, status)` | Records decisions + timestamps per approver. | `/organization/approvals` |
-| `updateTimesheetStatus(id, status)` | Approves/rejects timesheets inline. | `/organization/timekeeping` |
-| `updateInvoiceStatus(id, status)` | Marks invoices paid/overdue. | `/organization/finance`, `/organization/finance/invoices` |
 | `submitVendorBid({ jobId, vendorName, rate, availability })` | Stores vendor submissions with status `Submitted`. | `/vendor/bids` |
 
 Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { candidate, organization, vendor, actions } = useDemoData()`), making the coupling between UI features and data functions explicit.
@@ -78,7 +68,7 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - On submit, validates fields, shows `Authenticating...`, then redirects to `/candidate/dashboard`.
 
 ### `/candidate/dashboard`
-- Uses `Header` with breadcrumbs plus three quick-action cards (book interview, upload credentials, refer).
+- Uses `Header` with breadcrumbs plus three quick-action cards (browse jobs, upload credentials, check applications).
 - Onboarding progress wheel (`CircularProgress`) visualizes completed documents vs. total, with CTA buttons to onboarding/documents flows.
 - Profile snapshot displays key candidate metadata.
 - Recent activity list surfaces the latest five notifications.
@@ -93,8 +83,7 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - Job header displays breadcrumbs and dynamic CTA button (Apply vs. Review requirements) that calls `submitJobApplication`.
 - Info tile grid highlights department/unit/shift/hours/bill rate with highlighted styling for monetary values.
 - Requirement checklist compares job requirements to candidate documents, showing `Completed`/`Missing`.
-- Apply sidebar enforces missing-doc gating, shows `StatusChip`s for each requirement, and offers upload shortcuts (which call `uploadDocument`).
-- Benefits list, assignment overview, similar roles list, and compliance status cards round out the details; modal reiterates missing docs when apply is attempted early.
+- Apply sidebar enforces missing-doc gating, shows `StatusChip`s for each requirement, and offers upload shortcuts (which call `uploadDocument`). A contract info card summarizes dates, location, and language preferences.
 
 ### `/candidate/apply`
 - Three checklist cards (Profile, Document wallet, Onboarding) compute readiness in real time from provider data.
@@ -115,22 +104,11 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - Wallet grid shows every credential with status chip, last updated, expiry pill colored by tone, and Replace button calling `replaceDocument`.
 - Skeleton loader simulates fetch delay on first mount.
 
-### `/candidate/messages`
-- Left rail shows message threads with unread counters (`StatusChip`), mark read/unread button, and timestamps.
-- Right pane lists messages in a scrollable area and provides quick-reply textarea + send button which triggers `sendMessage` and toasts.
 
 ### `/candidate/notifications`
 - Header includes “Mark all read” action that toggles loading to show skeleton.
 - Filter select adjusts `typeFilter`, and `StatusChip` reflects count for the selection.
-- Digest preferences grid lists job/system/message categories with icon and “Enabled” text (static for now).
-
-### `/candidate/favorites`
-- Summary bar shows saved-job count along with a search field to filter saved roles by keyword.
-- Each card reuses organization job data, includes Save/Saved button tied to `toggleFavorite`, and displays job metadata plus tags, shift/hours, and bill rate.
-
-### `/candidate/refer`
-- Multiple cards cover referral rewards (`Gift` icon), active referral code (with generate/copy actions), recommended roles, and referral activity feed (re-using notifications).
-- Modal flow collects invite email and reuses `generateReferralCode` before sending a mock invite (toast-based).
+- Digest preferences grid lists job/system categories with icon and “Enabled” text (static for now).
 
 ### `/candidate/settings`
 - Notification preferences card exposes toggles for email/SMS/push; hooks into `updateNotificationPrefs`.
@@ -145,53 +123,29 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - Keeps user signed in toggle, forgot password link, security note referencing SOC2 controls; redirect goes to `/organization/dashboard`.
 
 ### `/organization/dashboard`
-- KPI grid derived from `mockRequisitions`/`mockApplications`.
-- Requisition table uses `StatusChip`s and progress bars to show fill-rate targets plus overflow menu buttons.
-- Recommended actions card provides quick links (create job, manage compliance, review applications, export report).
+- KPI grid surfaces open roles, active requisitions, pending reviews, and interviews scheduled.
+- Requisition table uses `StatusChip`s, department/location metadata, and overflow menu buttons.
+- Recommended actions card provides quick links (create job, review applications, view reports, view requisitions).
 - Recent applications card lists latest submissions with tone-coded chips.
 
 ### `/organization/jobs`
-- Summary stats (total requisitions, open positions, active requisitions).
-- Main table lists each requisition with status badge and view/hide toggle that reveals submission details and approval chain list.
+- Summary stats show total requisitions, open roles, and active postings.
+- Main table lists each requisition with status badge and view/hide toggle that reveals location and shift details.
 - “New Requisition” button links to create flow.
 
 ### `/organization/jobs/create`
-- Four-step `MultiStepForm` (General, Details, Invite vendors, Review & publish) with select inputs, textarea, compliance template picker, and vendor invitation field.
+- Four-step `MultiStepForm` (General, Details, Invite vendors, Review & publish) with select inputs, textarea, and vendor invitation field.
 - Save button animates per step; final publish view surfaces job summary plus success confirmation once `createJob` resolves.
 
 ### `/organization/applications`
-- Status tabs (“All”, “Submitted”, … “Rejected”) filter application cards.
-- Cards show avatar initials, vendor badge, match-score bar, status chip, and action buttons (Qualify, Interview, Reject) that call provider actions.
+- Card layout lists every application with vendor badge, match-score bar, status chip, and action buttons (Qualify, Interview, Reject) that call provider actions.
 - Schedule interview modal collects date input; reject modal confirms destructive action.
 
 ### `/organization/applications/[id]`
-- Placeholder layout showing intended sections (candidate info, documents, compliance checklist, sidebar actions). No live data yet.
-
-### `/organization/compliance/templates`
-- Left rail selects template; right pane lists items with toggles for `requiredAtSubmission`, remove buttons, and metadata (type, expiration).
-- Add requirement form collects name, type, expiration style, and required toggle before calling `addTemplateItem`.
-- Footer displays `StatusChip` with item count and “Changes saved instantly” note.
-
-### `/organization/compliance/[id]`
-- Placeholder grid mirroring future template editor (rows for item type, description, expiration, required, action).
-
-### `/organization/approvals`
-- Approval chain card lists each approver with name/role, status chip, and Approve/Reject buttons for pending steps. `updateApprovalStep` records decisions and timestamp.
-
-### `/organization/timekeeping`
-- Stat cards summarize pending/approved/rejected timesheets.
-- Queue list shows staff, date, hours, type, and status, alongside Approve/Reject buttons acting on `updateTimesheetStatus`.
-
-### `/organization/finance`
-- Stat cards compute pending and overdue totals (aggregating invoice amounts) plus open requisition count.
-- “Recent invoices” card shows top five invoices with amount, due date, status chip, and View link to invoices page.
-
-### `/organization/finance/invoices`
-- Full invoice register listing every invoice with status chip, Details modal button, and “Mark paid” control that calls `updateInvoiceStatus`.
-- Modal surfaces vendor/amount/due date information.
+- Full detail view shows candidate profile, documents, compliance checklist, notes/attachments, and an action center with modals for scheduling or rejecting.
 
 ### `/organization/reports`
-- Snapshot grid for open requisitions, application count, and pending approvals (computed from approval chains).
+- Snapshot grid for open requisitions, total applications, and interviews scheduled.
 
 ---
 
@@ -205,7 +159,7 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - Two-column layout: table of vendors (click to select) and sticky detail panel showing contact info, certifications, client count, mock document list, and action buttons (Edit, Upload Document). Upload mode exposes file-name input and stub button.
 
 ### `/vendor/vendors/[id]`
-- Placeholder detail page with sections for logo, vendor info, certifications, sub-vendor agreements, and action buttons (Edit/Suspend/Delete) awaiting real data.
+- Detail page with editable vendor metadata, certifications, agreements, contacts, document list, and contextual actions (contact vendor, save metadata). Toast feedback confirms saves.
 
 ### `/vendor/bids`
 - “Available jobs” card lists first six organization jobs with bill-rate chips and Submit bid button (opens modal).
@@ -213,8 +167,8 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - Submitted bids card shows vendor submissions from provider state with status chips.
 
 ### `/vendor/performance`
-- KPI cards (pulled from `vendorPerformanceKpis`) summarize metrics like fulfillment rate, response time, etc.
-- Vendor snapshot list and fulfillment leaderboard bars visualize partner performance, with progress bars sized to fill-rate percentages.
+- KPI cards (pulled from `vendorPerformanceKpis`) summarize metrics like active vendors, response time, candidates supplied, and active requisitions.
+- Vendor snapshot list and leaderboard bars visualize partner performance, with progress bars sized to aggregate scores.
 
 ---
 
@@ -223,18 +177,12 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 | Route | Highlights |
 | --- | --- |
 | `/organization/login` | Mirrored UX to candidate login but targeted copy for hiring teams, SSO helper text, redirect to dashboard. |
-| `/organization/dashboard` | KPI tiles (open positions, active reqs, pipeline size, fill rate sparkline), requisition table with progress visuals, recommended action shortcuts, recent applications feed with tone-specific chips. |
-| `/organization/jobs` | Aggregate stats, primary action to create requisition, table with expandable rows showing submission date, hiring leader, approval chain timeline. |
-| `/organization/jobs/create` | Four-step `MultiStepForm` (General, Details, Invite vendors, Review), compliance template picker, review summary, publish success state that links back to jobs. |
-| `/organization/applications` | Status tab filters, stat tiles, candidate cards with vendor badges + match score bars, inline action buttons (qualify/interview/reject) that mutate provider state, interview scheduling modal, reject confirmation modal. |
-| `/organization/applications/[id]` | Placeholder wireframe for deep applicant view (future enhancement). |
-| `/organization/compliance/templates` | Left rail template selector, item list with toggles + remove actions, add-requirement form (name/type/expiration/required), instant feedback chips (“n requirements”). |
-| `/organization/compliance/[id]` | Placeholder layout for template editor detail (future work). |
-| `/organization/approvals` | Approval chain viewer with per-approver status chip, approve/reject buttons that update chain state plus decision timestamp. |
-| `/organization/timekeeping` | Timesheet stats, queue list with approve/reject controls that call `updateTimesheetStatus`. |
-| `/organization/finance` | Pending/overdue totals (calculated), open requisitions count, latest invoices list with status chips and link to invoices page. |
-| `/organization/finance/invoices` | Full invoice register, detail modal showing vendor/amount/due date, “Mark paid” button updates provider state. |
-| `/organization/reports` | Snapshot cards for open requisitions, total applications, pending approvals (computed from approval chains). |
+| `/organization/dashboard` | KPI tiles (open roles, active reqs, pending reviews, interviews scheduled), requisition table with department/location metadata, recommended action shortcuts, recent applications feed with tone-specific chips. |
+| `/organization/jobs` | Aggregate stats, primary action to create requisition, table with expandable rows showing location and shift details. |
+| `/organization/jobs/create` | Four-step `MultiStepForm` (General, Details, Invite vendors, Review), review summary, publish success state that links back to jobs. |
+| `/organization/applications` | Application cards with vendor badges + match score bars, inline action buttons (qualify/interview/reject) that mutate provider state, interview scheduling modal, reject confirmation modal. |
+| `/organization/applications/[id]` | Full detail view (candidate info, documents, compliance checklist, notes/attachments, sidebar actions) with schedule/reject modals and toast feedback. |
+| `/organization/reports` | Snapshot cards for open requisitions, total applications, and interviews scheduled. |
 
 ---
 
@@ -244,9 +192,9 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 | --- | --- |
 | `/vendor/login` | Vendor-specific hero copy, secure login form, redirect to vendor workspace, parity with other login experiences. |
 | `/vendor/vendors` | Vendor list with stats (active vendors, total clients, services), selectable rows powering a sticky detail panel (contact info, certifications, client count, documents pulled from `mockVendorDocuments`, upload form). |
-| `/vendor/vendors/[id]` | Placeholder scaffold for a dedicated detail page (logo, info, certifications, agreements, actions). |
+| `/vendor/vendors/[id]` | Detail page with vendor profile metadata editing, certifications, agreements, documents, and contextual actions (contact vendor, save metadata). |
 | `/vendor/bids` | Available jobs list with bill-rate chips, submit-bid modal (rate + availability) wired to `submitVendorBid`, submitted bids list referencing provider state. |
-| `/vendor/performance` | KPI cards, vendor snapshot list, fulfillment leaderboard bars displaying fill-rate percentage per partner. |
+| `/vendor/performance` | KPI cards, vendor snapshot list, partner leaderboard bars displaying aggregate performance scores. |
 
 ---
 
@@ -261,10 +209,10 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - **Card**: Base container with optional title/subtitle/action slot; reused for stats, forms, and tables.
 - **StatusChip**: Tone variants (`success`, `warning`, `danger`, `info`, `neutral`) communicate state across portals.
 - **MultiStepForm**: Stepper UI with Next/Back/Save hooks used by candidate onboarding and org job creation.
-- **Modal**: Accessible overlay with title/description, used for missing-doc warnings, schedule interview, reject confirmation, referral invites, invoice details, bid submission.
-- **SkeletonLoader**: Provides shimmer placeholders while fake latency resolves (documents, jobs, messages).
+- **Modal**: Accessible overlay with title/description, used for missing-doc warnings, schedule interview, reject confirmation, and bid submission.
+- **SkeletonLoader**: Provides shimmer placeholders while fake latency resolves (documents, jobs, applications).
 - **FloatingActionButton**: On job marketplace for quick filter reset.
-- **Toast system**: `useToast` surfaces success/error info after uploads, referrals, messages, etc.
+- **Toast system**: `useToast` surfaces success/error info after uploads, job submissions, scheduling actions, etc.
 - **Tables & Lists**: `ph5-table` classes enforce zebra rows, header styling, padding, and responsive overflow wrappers.
 - **Forms**: Consistent label placement, rounded inputs, select dropdowns, toggles (Shadcn `Switch`), CTA buttons with busy/disabled states.
 
@@ -284,7 +232,7 @@ Every route uses `useDemoData()` to destructure the slice(s) it needs (`const { 
 - `header`: hero block with breadcrumbs, metadata, action buttons.
 - `modal`: accessible dialog container used across portals.
 - `multi-step-form`: orchestrates steps, CTA buttons, disabled states.
-- `progress-bar`: base progress visuals reused for fill-rate and onboarding.
+- `progress-bar`: base progress visuals reused for onboarding and match scores.
 - `skeleton-loader`: shimmer placeholder generator.
 - `sidebar`: nav scaffolding for sections that would one day have persistent menus.
 - `status-chip`: tonal pill component for statuses (success/warning/danger/info/neutral).
@@ -334,10 +282,8 @@ Each primitive exports typed props so custom system components can wrap them wit
 - `/candidate/profile`
 - `/candidate/onboarding`
 - `/candidate/documents`
-- `/candidate/messages`
+- `/candidate/applications`
 - `/candidate/notifications`
-- `/candidate/favorites`
-- `/candidate/refer`
 - `/candidate/settings`
 
 ### Organization
@@ -346,19 +292,13 @@ Each primitive exports typed props so custom system components can wrap them wit
 - `/organization/jobs`
 - `/organization/jobs/create`
 - `/organization/applications`
-- `/organization/applications/[id]` *(placeholder)*
-- `/organization/compliance/templates`
-- `/organization/compliance/[id]` *(placeholder)*
-- `/organization/approvals`
-- `/organization/timekeeping`
-- `/organization/finance`
-- `/organization/finance/invoices`
+- `/organization/applications/[id]`
 - `/organization/reports`
 
 ### Vendor
 - `/vendor/login`
 - `/vendor/vendors`
-- `/vendor/vendors/[id]` *(placeholder)*
+- `/vendor/vendors/[id]`
 - `/vendor/bids`
 - `/vendor/performance`
 
@@ -366,13 +306,9 @@ Each primitive exports typed props so custom system components can wrap them wit
 
 ## Mock Data Collections
 - **Candidates**: Baseline profile + documents + onboarding requirements.
-- **Jobs / Requisitions**: Department/unit/shift/rate metadata plus requirements & benefits lists.
+- **Jobs / Requisitions**: Department/unit/shift/rate metadata plus requirements & tag lists.
 - **Applications**: Candidate/job pairing with status, match score, vendor attribution, submitted timestamps.
-- **Notifications & Messages**: Feeds for dashboard/activity cards plus threaded conversations.
-- **Compliance Templates**: Template + items (type, expiration, submission requirement) editable in UI.
-- **Approvals**: Chains with approver metadata, statuses, and decision timestamps.
-- **Timesheets**: Staff name, date, hours, type, status.
-- **Invoices**: Amount, due date, status for finance workflows.
+- **Notifications**: Feeds for dashboard/activity cards.
 - **Vendors & Bids**: Vendor roster, certifications, KPIs, submitted bids.
 - **Onboarding Document Mappings**: Links questionnaire answers to required docs to keep wallet in sync.
 
@@ -395,8 +331,7 @@ Each primitive exports typed props so custom system components can wrap them wit
 ---
 
 ## Known Gaps & Follow-Ups
-- `/organization/applications/[id]`, `/organization/compliance/[id]`, and `/vendor/vendors/[id]` are still wireframe placeholders; real data bindings and controls are pending.
-- There is no dedicated candidate “application tracking” route yet; readiness sits under `/candidate/apply`.
+- `/vendor/vendors/[id]` saves metadata locally only—no persistence or validation yet.
 - Assignments/workforce routes mentioned in early plans are not present in code; future scope may reintroduce them.
 - Authentication flows are mocked; MFA copy references future backend integration.
 
@@ -405,4 +340,4 @@ Each primitive exports typed props so custom system components can wrap them wit
 ## Deployment Readiness
 - The prototype is fully navigable, responsive, and matches the PH5 grayscale design language.
 - Because everything runs client-side with mock data, it can be deployed to any static-friendly hosting service without extra services.
-- Demonstrates complete end-to-end flows for requisition creation, candidate onboarding, compliance management, finance, and vendor bid submission within a single session.
+- Demonstrates complete end-to-end flows for requisition creation, candidate onboarding, document readiness, and vendor bid submission within a single session.

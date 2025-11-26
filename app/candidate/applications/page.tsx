@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { Building2, Clock3, MapPin, Star, Calendar, Video, Phone, Mail, FileText } from "lucide-react"
+import { Building2, Clock3, MapPin, Star } from "lucide-react"
 import { Header, Card, StatusChip, SkeletonLoader } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,6 @@ export default function CandidateApplicationsPage() {
   const selectedJob = organization.jobs.find((job) => job.id === selectedApplication?.jobId)
   const insight = organization.insights.find((entry) => entry.applicationId === activeId)
 
-  const timeline = insight?.timeline ?? []
 
   const handleSelect = (applicationId: string) => {
     setActiveId(applicationId)
@@ -30,17 +29,7 @@ export default function CandidateApplicationsPage() {
     window.setTimeout(() => setPanelLoading(false), 250)
   }
 
-  const groupedApplications = useMemo(() => {
-    const statuses = ["Submitted", "Qualified", "Interview", "Offer", "Accepted", "Rejected"]
-    return statuses.map((status) => ({
-      status,
-      items: candidate.applications.filter((application) => application.status === status),
-    }))
-  }, [candidate.applications])
-
-  // Check if application has interview scheduled
-  const hasInterview = selectedApplication?.status === "Interview"
-  const interviewEvent = timeline.find((event) => event.summary.toLowerCase().includes("interview"))
+  const applicationList = candidate.applications
 
   return (
     <div className="space-y-6 p-8">
@@ -54,55 +43,43 @@ export default function CandidateApplicationsPage() {
       />
 
       <section className="grid gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-        <Card title="Pipeline" subtitle="Tap a card to view the detailed timeline.">
-          <div className="space-y-4">
-            {groupedApplications.map((group) => (
-              <div key={group.status}>
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">{group.status}</p>
-                  <span className="text-xs text-muted-foreground">{group.items.length}</span>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  {group.items.map((application) => {
-                    const job = organization.jobs.find((j) => j.id === application.jobId)
-                    return (
-                      <button
-                        key={application.id}
-                        type="button"
-                        onClick={() => handleSelect(application.id)}
-                        className={cn(
-                          "rounded-2xl border p-4 text-left shadow-sm transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                          activeId === application.id ? "border-primary bg-primary/5" : "border-border",
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-foreground">{job?.title || "Role"}</p>
-                            <p className="text-xs text-muted-foreground">Applied {application.submittedRelative}</p>
-                          </div>
-                          <StatusChip label={application.status} tone={statusTone(application.status)} />
-                        </div>
-                        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                          <span>Match score</span>
-                          <span className="font-semibold text-foreground">{application.matchScore ?? 0}%</span>
-                        </div>
-                        <div className="ph5-progress mt-1 h-2">
-                          <div className="ph5-progress-bar" style={{ width: `${application.matchScore ?? 0}%` }} />
-                        </div>
-                      </button>
-                    )
-                  })}
-                  {!group.items.length && (
-                    <p className="text-xs text-muted-foreground col-span-2">No applications in this stage.</p>
+        <Card title="Applications" subtitle="Tap a card to view the latest details.">
+          <div className="grid gap-3 md:grid-cols-2">
+            {applicationList.map((application) => {
+              const job = organization.jobs.find((j) => j.id === application.jobId)
+              return (
+                <button
+                  key={application.id}
+                  type="button"
+                  onClick={() => handleSelect(application.id)}
+                  className={cn(
+                    "rounded-2xl border p-4 text-left shadow-sm transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    activeId === application.id ? "border-primary bg-primary/5" : "border-border",
                   )}
-                </div>
-              </div>
-            ))}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground">{job?.title || "Role"}</p>
+                      <p className="text-xs text-muted-foreground">Applied {application.submittedRelative}</p>
+                    </div>
+                    <StatusChip label={application.status} tone={statusTone(application.status)} />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Match score</span>
+                    <span className="font-semibold text-foreground">{application.matchScore ?? 0}%</span>
+                  </div>
+                  <div className="ph5-progress mt-1 h-2">
+                    <div className="ph5-progress-bar" style={{ width: `${application.matchScore ?? 0}%` }} />
+                  </div>
+                </button>
+              )
+            })}
+            {!applicationList.length && <p className="text-xs text-muted-foreground col-span-2">No applications yet.</p>}
           </div>
         </Card>
 
         <div className="space-y-6">
-          <Card title="Timeline" subtitle="Every update, note, and reminder.">
+          <Card title="Overview" subtitle="Status, insights, and next steps.">
             {panelLoading ? (
               <SkeletonLoader lines={8} />
             ) : selectedApplication ? (
@@ -125,66 +102,6 @@ export default function CandidateApplicationsPage() {
                     {selectedApplication.documentStatus} docs
                   </div>
                 </div>
-
-                {/* Interview Placeholder */}
-                {hasInterview && (
-                  <div className="rounded-xl border border-primary/40 bg-primary/5 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="rounded-full bg-primary p-2">
-                        <Calendar className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-foreground">Interview Scheduled</p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {interviewEvent?.summary || "Interview details will be shared soon"}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <Button size="sm" variant="outline" className="text-xs">
-                            <Video className="mr-1 h-3 w-3" />
-                            Join Video Call
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-xs">
-                            <Phone className="mr-1 h-3 w-3" />
-                            Call Details
-                          </Button>
-                          <Button size="sm" variant="outline" className="text-xs">
-                            <Mail className="mr-1 h-3 w-3" />
-                            Contact Recruiter
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <ol className="relative border-l border-border pl-6">
-                  {timeline.map((event, index) => (
-                    <li key={event.id} className="mb-6">
-                      <span
-                        className={cn(
-                          "absolute -left-[9px] mt-1 h-4 w-4 rounded-full border-2 border-white shadow",
-                          event.channel === "system" && "bg-primary",
-                          event.channel === "email" && "bg-blue-500",
-                          event.channel === "note" && "bg-green-500",
-                        )}
-                        aria-hidden
-                      />
-                      <p className="text-xs font-semibold uppercase text-muted-foreground">
-                        {formatTimestamp(event.timestamp)}
-                      </p>
-                      <p className="text-sm font-semibold text-foreground">{event.summary}</p>
-                      <p className="text-xs text-muted-foreground">{event.actor}</p>
-                      {event.channel !== "system" && (
-                        <div className="mt-1 flex items-center gap-1">
-                          {event.channel === "email" && <Mail className="h-3 w-3 text-blue-500" />}
-                          {event.channel === "note" && <FileText className="h-3 w-3 text-green-500" />}
-                          <span className="text-xs text-muted-foreground capitalize">{event.channel}</span>
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                  {!timeline.length && <p className="text-sm text-muted-foreground">No updates yet.</p>}
-                </ol>
 
                 {/* Compliance Status */}
                 {insight?.compliance && insight.compliance.length > 0 && (
@@ -215,19 +132,13 @@ export default function CandidateApplicationsPage() {
                 </Button>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">Select an application to view the timeline.</p>
+              <p className="text-sm text-muted-foreground">Select an application to view the details.</p>
             )}
           </Card>
         </div>
       </section>
     </div>
   )
-}
-
-function formatTimestamp(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString("en-US", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
 }
 
 function Info({ label, value, icon }: { label: string; value: string; icon?: ReactNode }) {

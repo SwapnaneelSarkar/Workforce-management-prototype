@@ -45,3 +45,4 @@ export function Avatar({ src, initials, alt, size = "md", className }: AvatarPro
   )
 }
 
+

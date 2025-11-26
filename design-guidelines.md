@@ -26,3 +26,4 @@
 - Status chips use pill treatment with white text on semantic backgrounds.
 - Action column aligned right with icon buttons; progress bars aligned to baseline inside cells.
 
+

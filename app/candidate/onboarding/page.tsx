@@ -1,415 +1,264 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { Card, Header, MultiStepForm, StatusChip } from "@/components/system"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { MultiStepForm } from "@/components/system"
 import { DatePicker } from "@/components/system/date-picker"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { Input } from "@/components/ui/input"
-import { Slider } from "@/components/ui/slider"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { CheckCircle2, Tag } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ProgressBar } from "@/components/system/progress-bar"
 
-const SPECIALTIES = ["ICU", "ER", "PCU", "Med Surg", "Telemetry", "OR", "PACU", "L&D", "NICU", "PICU"]
-const SKILLS = ["ACLS", "BLS", "PALS", "TNCC", "NIHSS", "Vent Management", "Epic", "Cerner", "Charge Nurse", "Preceptor", "DaVinci", "BiPap"]
-const FACILITIES = ["Memorial Main Campus", "Memorial Downtown", "Memorial Satellite Clinic", "Memorial South Pavilion"]
-const SHIFTS = ["Day", "Night", "Evening", "Variable"]
+const PREFERRED_LOCATIONS = ["California", "Texas", "Florida", "New York", "Washington", "Arizona", "Remote"]
+const WORK_TYPES = ["Full-time", "Part-time", "Contract", "Travel", "Per Diem"]
+const SHIFTS = ["Day Shift", "Night Shift", "Rotational Shift", "Weekend Shift"]
+const CONTRACT_LENGTHS = ["4 weeks", "8 weeks", "12 weeks", "24 weeks", "Flexible"]
+const OCCUPATIONS = [
+  "Registered Nurse (RN)",
+  "Licensed Vocational Nurse (LVN)",
+  "Certified Nursing Assistant (CNA)",
+  "Medical Technician",
+  "Surgical Nurse",
+]
+const SPECIALTIES = [
+  "Long Term Acute Care",
+  "ICU",
+  "ER",
+  "Dialysis",
+  "OR / Surgical",
+  "Telemetry",
+  "Labor & Delivery",
+]
+const LICENSE_TYPES = ["Compact State", "Single State"]
+const CERTIFICATIONS = ["BLS", "ACLS", "PALS", "CPR", "CNA Certification", "RN License"]
+
+type MultiSelectFieldProps = {
+  options: string[]
+  value: string[]
+  onChange: (next: string[]) => void
+  maxSelections?: number
+}
+
+function MultiSelectChips({ options, value, onChange, maxSelections }: MultiSelectFieldProps) {
+  const toggleOption = (option: string) => {
+    const isSelected = value.includes(option)
+    if (isSelected) {
+      onChange(value.filter((item) => item !== option))
+      return
+    }
+    if (maxSelections && value.length >= maxSelections) {
+      return
+    }
+    onChange([...value, option])
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const selected = value.includes(option)
+        const disabled = maxSelections !== undefined && !selected && value.length >= maxSelections
+        return (
+          <button
+            key={option}
+            type="button"
+            onClick={() => toggleOption(option)}
+            disabled={disabled}
+            className={`rounded-full border px-3 py-1 text-sm transition ${
+              selected
+                ? "border-slate-900 bg-slate-900 text-white"
+                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+            } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+          >
+            {option}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export default function OnboardingPage() {
+  const router = useRouter()
   const { candidate, actions } = useDemoData()
-  const [activeStep, setActiveStep] = useState(0)
   const [saving, setSaving] = useState(false)
+  const [activeStep, setActiveStep] = useState(0)
+  const [showUploadStep, setShowUploadStep] = useState(false)
 
-  const [personal, setPersonal] = useState<Record<string, string>>(candidate.onboarding.personal)
-  const [workExperience, setWorkExperience] = useState<Record<string, string>>(candidate.onboarding.workHistory || {})
-  const [specialty, setSpecialty] = useState<Record<string, string | string[]>>(candidate.onboarding.skills || {})
-  const [skills, setSkills] = useState<Record<string, number>>(() => {
-    const existing = candidate.onboarding.skills as Record<string, string | string[]>
-    const skillLevels: Record<string, number> = {}
-    SKILLS.forEach((skill) => {
-      skillLevels[skill] = existing[skill] ? Number(existing[skill]) || 50 : 0
-    })
-    return skillLevels
+  const [answers, setAnswers] = useState({
+    preferredLocations: [] as string[],
+    preferredWorkTypes: [] as string[],
+    preferredShifts: [] as string[],
+    contractLength: "",
+    availableStart: "",
+    recentJobTitle: "",
+    totalExperienceYears: "",
+    occupation: "",
+    specialties: [] as string[],
+    licenseType: "",
+    dateOfBirth: "",
+    certifications: [] as string[],
+    summaryNote: "",
+    requestedTimeOff1: "",
+    requestedTimeOff2: "",
   })
-  const [preferences, setPreferences] = useState<Record<string, string>>(candidate.onboarding.availability)
-  const [availability, setAvailability] = useState<Record<string, string>>({
-    startDate: candidate.onboarding.availability.startDate || "",
-    weekly: candidate.onboarding.availability.weekly || "",
-  })
-
-  // Auto-tagging logic: when specialty is selected, auto-tag related skills
-  const autoTaggedSkills = useMemo(() => {
-    const tags: string[] = []
-    const selectedSpecialty = Array.isArray(specialty.specialty) ? specialty.specialty[0] : specialty.specialty
-    if (!selectedSpecialty) return tags
-
-    const specialtyMap: Record<string, string[]> = {
-      ICU: ["ACLS", "Vent Management", "Epic"],
-      ER: ["ACLS", "TNCC", "PALS"],
-      PCU: ["Telemetry", "Charge Nurse"],
-      "Med Surg": ["Epic", "Charge Nurse"],
-      Telemetry: ["ACLS", "Telemetry"],
-      OR: ["DaVinci", "Epic"],
-      PACU: ["ACLS", "Epic"],
-      "L&D": ["PALS", "Epic"],
-      NICU: ["PALS", "Epic"],
-      PICU: ["PALS", "ACLS", "Epic"],
-    }
-
-    const relatedSkills = specialtyMap[selectedSpecialty] || []
-    relatedSkills.forEach((skill) => {
-      if (!tags.includes(skill)) tags.push(skill)
-    })
-
-    return tags
-  }, [specialty.specialty])
-
-  // Auto-generate required documents based on selections
-  const autoGeneratedDocs = useMemo(() => {
-    const docs = new Set<string>()
-    
-    // Base documents
-    docs.add("Active RN License")
-    docs.add("Background Check")
-    
-    // Specialty-based
-    const selectedSpecialty = Array.isArray(specialty.specialty) ? specialty.specialty[0] : specialty.specialty
-    if (selectedSpecialty === "ICU" || selectedSpecialty === "ER") {
-      docs.add("ACLS Certification")
-    }
-    if (selectedSpecialty === "ER") {
-      docs.add("TNCC Certification")
-    }
-    if (selectedSpecialty === "L&D" || selectedSpecialty === "NICU" || selectedSpecialty === "PICU") {
-      docs.add("PALS Certification")
-    }
-    
-    // Preference-based
-    if (preferences.shift === "Night") {
-      docs.add("Fatigue Acknowledgement")
-    }
-    if (preferences.travel === "Yes" || preferences.travel === "Travel Assignment") {
-      docs.add("Travel Agreement")
-      docs.add("Immunization Record")
-    }
-    
-    return Array.from(docs)
-  }, [specialty.specialty, preferences.shift, preferences.travel])
 
   const steps = [
     {
-      id: "personal",
-      title: "Personal Information",
-      description: "Your contact information is shared with hiring teams.",
+      id: "preferences",
+      title: "Where and how do you want to work?",
+      description: "Tell us about your preferred locations, work types, shifts, and contract length.",
       content: (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <InputField
-            label="First name"
-            value={personal.firstName ?? ""}
-            onChange={(value) => setPersonal((prev) => ({ ...prev, firstName: value }))}
-            required
-          />
-          <InputField
-            label="Last name"
-            value={personal.lastName ?? ""}
-            onChange={(value) => setPersonal((prev) => ({ ...prev, lastName: value }))}
-            required
-          />
-          <InputField
-            label="Email"
-            type="email"
-            value={personal.email ?? candidate.profile.email}
-            onChange={(value) => setPersonal((prev) => ({ ...prev, email: value }))}
-            required
-          />
-          <InputField
-            label="Phone"
-            type="tel"
-            value={personal.phone ?? candidate.profile.phone}
-            onChange={(value) => setPersonal((prev) => ({ ...prev, phone: value }))}
-            required
-          />
-          <InputField
-            label="Address"
-            value={personal.address ?? ""}
-            onChange={(value) => setPersonal((prev) => ({ ...prev, address: value }))}
-          />
-          <InputField
-            label="City, State, ZIP"
-            value={personal.cityStateZip ?? ""}
-            onChange={(value) => setPersonal((prev) => ({ ...prev, cityStateZip: value }))}
-          />
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Preferred locations (up to 3)</p>
+            <MultiSelectChips
+              options={PREFERRED_LOCATIONS}
+              value={answers.preferredLocations}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, preferredLocations: value }))}
+              maxSelections={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Preferred work types</p>
+            <MultiSelectChips
+              options={WORK_TYPES}
+              value={answers.preferredWorkTypes}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, preferredWorkTypes: value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Preferred shifts</p>
+            <MultiSelectChips
+              options={SHIFTS}
+              value={answers.preferredShifts}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, preferredShifts: value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Preferred contract length</p>
+            <MultiSelectChips
+              options={CONTRACT_LENGTHS}
+              value={answers.contractLength ? [answers.contractLength] : []}
+              onChange={([first]) => setAnswers((prev) => ({ ...prev, contractLength: first ?? "" }))}
+              maxSelections={1}
+            />
+          </div>
         </div>
       ),
     },
     {
-      id: "workExperience",
-      title: "Work Experience & Background",
-      description: "Tell us about your professional background and experience.",
+      id: "experience",
+      title: "Experience & availability",
+      description: "Help us understand your background and when you can start.",
       content: (
         <div className="space-y-4">
-          <InputField
-            label="Current Unit"
-            value={workExperience.unit ?? ""}
-            onChange={(value) => setWorkExperience((prev) => ({ ...prev, unit: value }))}
-            placeholder="e.g., ICU, ER, Med Surg"
+          <DatePicker
+            label="Available to start"
+            value={answers.availableStart}
+            onChange={(value) => setAnswers((prev) => ({ ...prev, availableStart: value }))}
           />
-          <InputField
-            label="Years of Experience"
+          <Input
+            value={answers.recentJobTitle}
+            onChange={(event) => setAnswers((prev) => ({ ...prev, recentJobTitle: event.target.value }))}
+            placeholder="Most recent job title (e.g., Registered Nurse)"
+          />
+          <Input
             type="number"
-            value={workExperience.years ?? String(candidate.profile.experienceYears)}
-            onChange={(value) => setWorkExperience((prev) => ({ ...prev, years: value }))}
-            placeholder="e.g., 5"
+            value={answers.totalExperienceYears}
+            onChange={(event) => setAnswers((prev) => ({ ...prev, totalExperienceYears: event.target.value }))}
+            placeholder="Total experience in years"
           />
-          <InputField
-            label="Primary Facility"
-            value={workExperience.facility ?? candidate.profile.location}
-            onChange={(value) => setWorkExperience((prev) => ({ ...prev, facility: value }))}
-            placeholder="e.g., Memorial Main Campus"
-          />
-          <InputField
-            label="Travel Experience"
-            value={workExperience.travel ?? ""}
-            onChange={(value) => setWorkExperience((prev) => ({ ...prev, travel: value }))}
-            placeholder="e.g., Yes, 3 years travel experience"
-          />
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Professional Summary</label>
-            <textarea
-              value={workExperience.summary ?? candidate.profile.summary ?? ""}
-              onChange={(e) => setWorkExperience((prev) => ({ ...prev, summary: e.target.value }))}
-              placeholder="Describe your professional background, key achievements, and areas of expertise..."
-              className="w-full min-h-[100px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-              rows={4}
+        </div>
+      ),
+    },
+    {
+      id: "occupation-specialty",
+      title: "Occupation & specialties",
+      description: "Share your core occupation and any specialties you work in.",
+      content: (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Occupation</p>
+            <MultiSelectChips
+              options={OCCUPATIONS}
+              value={answers.occupation ? [answers.occupation] : []}
+              onChange={([first]) => setAnswers((prev) => ({ ...prev, occupation: first ?? "" }))}
+              maxSelections={1}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Specialties</p>
+            <MultiSelectChips
+              options={SPECIALTIES}
+              value={answers.specialties}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, specialties: value }))}
             />
           </div>
         </div>
       ),
     },
     {
-      id: "specialty",
-      title: "Role / Specialty Selection",
-      description: "Select your primary specialty and role. This helps us match you with the right opportunities.",
+      id: "license-compliance",
+      title: "License, certifications & DOB",
+      description: "This helps us handle compliance and matching behind the scenes.",
       content: (
-        <div className="space-y-6">
-          <div className="w-full">
-            <label className="text-sm font-semibold text-foreground mb-2 block">
-              Primary Specialty <span className="text-destructive">*</span>
-            </label>
-            <Select
-              value={Array.isArray(specialty.specialty) ? specialty.specialty[0] : specialty.specialty || ""}
-              onValueChange={(value) => {
-                setSpecialty((prev) => ({ ...prev, specialty: value }))
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select your specialty" />
-              </SelectTrigger>
-              <SelectContent className="z-[100]">
-                {SPECIALTIES.map((spec) => (
-                  <SelectItem key={spec} value={spec}>
-                    {spec}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {specialty.specialty && (
-              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                <Tag className="h-3 w-3" />
-                <span>Auto-tagging related skills...</span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Role</label>
-            <InputField
-              value={specialty.role ?? candidate.profile.role}
-              onChange={(value) => setSpecialty((prev) => ({ ...prev, role: value }))}
-              placeholder="e.g., Registered Nurse, Travel RN"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Years of Experience</label>
-            <InputField
-              type="number"
-              value={specialty.experienceYears ?? String(candidate.profile.experienceYears)}
-              onChange={(value) => setSpecialty((prev) => ({ ...prev, experienceYears: value }))}
-              placeholder="e.g., 5"
-            />
-          </div>
-
-          {autoTaggedSkills.length > 0 && (
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <p className="text-xs font-semibold text-primary mb-2">Suggested Skills (auto-tagged)</p>
-              <div className="flex flex-wrap gap-2">
-                {autoTaggedSkills.map((skill) => (
-                  <StatusChip key={skill} label={skill} tone="info" />
-                ))}
-              </div>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">License type</p>
+            <div className="space-y-3">
+              {LICENSE_TYPES.map((option) => (
+                <label key={option} className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="licenseType"
+                    value={option}
+                    checked={answers.licenseType === option}
+                    onChange={(event) => setAnswers((prev) => ({ ...prev, licenseType: event.target.value }))}
+                    className="h-4 w-4 border-slate-300 text-slate-900 focus:ring-slate-500"
+                  />
+                  {option}
+                </label>
+              ))}
             </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      id: "skills",
-      title: "Skills & Proficiency",
-      description: "Rate your proficiency level for each skill. This helps match you with roles that require these competencies.",
-      content: (
-        <div className="space-y-6">
-          {SKILLS.map((skill) => (
-            <div key={skill} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-foreground">{skill}</label>
-                <span className="text-xs text-muted-foreground">{skills[skill] || 0}%</span>
-              </div>
-              <Slider
-                value={[skills[skill] || 0]}
-                onValueChange={([value]) => setSkills((prev) => ({ ...prev, [skill]: value }))}
-                min={0}
-                max={100}
-                step={5}
-                className="w-full"
-              />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Beginner</span>
-                <span>Intermediate</span>
-                <span>Advanced</span>
-                <span>Expert</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: "preferences",
-      title: "Preferences",
-      description: "Tell us about your shift preferences, facility types, and travel distance.",
-      content: (
-        <div className="space-y-6">
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">
-              Preferred Shift <span className="text-destructive">*</span>
-            </label>
-            <Select
-              value={preferences.shift ?? candidate.profile.shiftPreference}
-              onValueChange={(value) => setPreferences((prev) => ({ ...prev, shift: value }))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select shift preference" />
-              </SelectTrigger>
-              <SelectContent>
-                {SHIFTS.map((shift) => (
-                  <SelectItem key={shift} value={shift}>
-                    {shift}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Preferred Facility Type</label>
-            <Select
-              value={preferences.facility ?? undefined}
-              onValueChange={(value) => setPreferences((prev) => ({ ...prev, facility: value === "any" ? "" : value }))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select facility type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any facility</SelectItem>
-                {FACILITIES.map((facility) => (
-                  <SelectItem key={facility} value={facility}>
-                    {facility}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Preferred Location</label>
-            <InputField
-              value={preferences.location ?? candidate.profile.location}
-              onChange={(value) => setPreferences((prev) => ({ ...prev, location: value }))}
-              placeholder="e.g., City, State"
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-800">Certifications</p>
+            <MultiSelectChips
+              options={CERTIFICATIONS}
+              value={answers.certifications}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, certifications: value }))}
             />
           </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Maximum Travel Distance</label>
-            <Select
-              value={preferences.distance ?? ""}
-              onValueChange={(value) => setPreferences((prev) => ({ ...prev, distance: value }))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select max distance" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">No travel</SelectItem>
-                <SelectItem value="25">Within 25 miles</SelectItem>
-                <SelectItem value="50">Within 50 miles</SelectItem>
-                <SelectItem value="100">Within 100 miles</SelectItem>
-                <SelectItem value="unlimited">Unlimited</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Travel Assignment</label>
-            <Select
-              value={preferences.travel ?? ""}
-              onValueChange={(value) => setPreferences((prev) => ({ ...prev, travel: value }))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select travel preference" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="No">No travel</SelectItem>
-                <SelectItem value="Yes">Yes, open to travel</SelectItem>
-                <SelectItem value="Travel Assignment">Travel assignment preferred</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <DatePicker
+            label="Date of birth"
+            value={answers.dateOfBirth}
+            onChange={(value) => setAnswers((prev) => ({ ...prev, dateOfBirth: value }))}
+          />
         </div>
       ),
     },
     {
-      id: "availability",
-      title: "Availability",
-      description: "When can you start and what cadence works best?",
+      id: "extras",
+      title: "Anything else we should know?",
+      description: "Optional, but helpful for recruiters reviewing your profile.",
       content: (
-        <div className="space-y-6">
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Next Available Start Date</label>
+        <div className="space-y-4">
+          <textarea
+            value={answers.summaryNote}
+            onChange={(event) => setAnswers((prev) => ({ ...prev, summaryNote: event.target.value }))}
+            placeholder="Quick summary (optional, up to 200 characters)"
+            maxLength={200}
+            className="w-full min-h-[80px] rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
+          />
+          <div className="grid gap-4 md:grid-cols-2">
             <DatePicker
-              label=""
-              value={availability.startDate ?? ""}
-              onChange={(value) => setAvailability((prev) => ({ ...prev, startDate: value }))}
+              label="Requested time off 1"
+              value={answers.requestedTimeOff1}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, requestedTimeOff1: value }))}
             />
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Weekly Availability</label>
-            <InputField
-              value={availability.weekly ?? ""}
-              onChange={(value) => setAvailability((prev) => ({ ...prev, weekly: value }))}
-              placeholder="e.g., 3x12s, nights"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-semibold text-foreground mb-2 block">Availability Notes</label>
-            <textarea
-              value={availability.notes ?? candidate.profile.availabilityNotes ?? ""}
-              onChange={(e) => setAvailability((prev) => ({ ...prev, notes: e.target.value }))}
-              placeholder="Any additional availability details..."
-              className="w-full min-h-[80px] rounded-md border border-input bg-transparent px-3 py-2 text-sm"
-              rows={3}
+            <DatePicker
+              label="Requested time off 2"
+              value={answers.requestedTimeOff2}
+              onChange={(value) => setAnswers((prev) => ({ ...prev, requestedTimeOff2: value }))}
             />
           </div>
         </div>
@@ -417,149 +266,154 @@ export default function OnboardingPage() {
     },
   ]
 
-  const currentStep = steps[activeStep]
-
-  const saveStep = async () => {
+  const saveAllAnswers = async () => {
     setSaving(true)
     try {
-      const stepData: Record<string, string | string[] | number> = {}
-      
-      if (currentStep.id === "personal") {
-        Object.assign(stepData, personal)
-      } else if (currentStep.id === "workExperience") {
-        Object.assign(stepData, workExperience)
-      } else if (currentStep.id === "specialty") {
-        Object.assign(stepData, specialty)
-      } else if (currentStep.id === "skills") {
-        // Convert skills object to string array of skills with proficiency >= 50
-        const proficientSkills = Object.entries(skills)
-          .filter(([_, level]) => level >= 50)
-          .map(([skill]) => skill)
-        stepData.skills = proficientSkills
-        // Also store individual skill levels
-        Object.entries(skills).forEach(([skill, level]) => {
-          stepData[skill] = String(level)
-        })
-      } else if (currentStep.id === "preferences") {
-        Object.assign(stepData, preferences)
-      } else if (currentStep.id === "availability") {
-        Object.assign(stepData, availability)
-      }
-
-      await actions.saveOnboardingStep(currentStep.id as any, stepData as any)
+      await actions.saveOnboardingStep(
+        "personal",
+        {
+          preferredLocations: answers.preferredLocations,
+          preferredWorkTypes: answers.preferredWorkTypes,
+          preferredShifts: answers.preferredShifts,
+          contractLength: answers.contractLength,
+          availableStart: answers.availableStart,
+          recentJobTitle: answers.recentJobTitle,
+          totalExperienceYears: answers.totalExperienceYears,
+          occupation: answers.occupation,
+          specialties: answers.specialties,
+          licenseType: answers.licenseType,
+          dateOfBirth: answers.dateOfBirth,
+          certifications: answers.certifications,
+          summaryNote: answers.summaryNote,
+          requestedTimeOff1: answers.requestedTimeOff1,
+          requestedTimeOff2: answers.requestedTimeOff2,
+        } as any,
+      )
     } finally {
       setSaving(false)
     }
   }
 
+  const handleNext = async (nextStep: number) => {
+    if (nextStep === steps.length) {
+      await saveAllAnswers()
+      setShowUploadStep(true)
+    } else {
+      setActiveStep(nextStep)
+    }
+  }
+
+  const baseRequiredDocs = [
+    "Resume",
+    "Date of birth proof",
+    "Certifications",
+    "References",
+    "License",
+    "Summary note",
+    "Requested time off 1",
+    "Requested time off 2",
+  ]
+  const dynamicRequiredDocs =
+    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : candidate.profile.requiredDocuments
+  const requiredDocs = Array.from(new Set([...baseRequiredDocs, ...dynamicRequiredDocs]))
+
+  const [uploadedDocs, setUploadedDocs] = useState<string[]>([])
+
+  const handleUpload = async (docType: string) => {
+    setSaving(true)
+    try {
+      await actions.uploadDocument({ name: `${docType}.pdf`, type: docType })
+      setUploadedDocs((prev) => (prev.includes(docType) ? prev : [...prev, docType]))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const finishToDashboard = () => {
+    router.push("/candidate/dashboard")
+  }
+
   return (
-    <div className="space-y-6 p-8">
-      <Header
-        title="Onboarding"
-        subtitle="Complete each step to unlock matching and auto-apply."
-        breadcrumbs={[
-          { label: "Candidate Portal", href: "/candidate/dashboard" },
-          { label: "Onboarding" },
-        ]}
-      />
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 px-4 py-10">
+      <div className="w-full max-w-3xl rounded-3xl bg-white p-8 shadow-xl ring-1 ring-slate-100">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Candidate onboarding</p>
+            <h1 className="mt-2 text-2xl font-semibold text-slate-900">Let’s get to know you better</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Answer a few quick questions so we can match you to the right roles. This only takes a couple of minutes.
+            </p>
+          </div>
+          {!showUploadStep && (
+            <div className="hidden w-40 sm:block">
+              <ProgressBar
+                value={Math.round(((activeStep + 1) / steps.length) * 100)}
+                label={`${activeStep + 1} of ${steps.length}`}
+              />
+            </div>
+          )}
+        </div>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-        <MultiStepForm
-          steps={steps.map((step) => ({ id: step.id, title: step.title, description: step.description, content: step.content }))}
-          activeStep={activeStep}
-          onBack={() => setActiveStep((prev) => Math.max(0, prev - 1))}
-          onNext={async () => {
-            if (activeStep === steps.length - 1) {
-              // Last step - submit questionnaire and redirect to documents
-              await saveStep()
-              // Auto-generate required documents and redirect
-              window.location.href = "/candidate/documents"
-            } else {
-              setActiveStep((prev) => Math.min(steps.length - 1, prev + 1))
-            }
-          }}
-          onSave={saveStep}
-          saving={saving}
-          finishLabel="Submit Questionnaire"
-        />
-
-        <div className="space-y-6">
-          <Card title="Required Documents" subtitle="Auto-generated based on your answers.">
-            <div className="space-y-2 text-sm">
-              {autoGeneratedDocs.length > 0 ? (
-                autoGeneratedDocs.map((doc) => {
-                  const hasDoc = candidate.documents.some((d) => d.type === doc && d.status === "Completed")
-                  return (
-                    <div
-                      key={doc}
-                      className={cn(
-                        "flex items-center justify-between rounded-lg border px-3 py-2",
-                        hasDoc ? "border-success/40 bg-success/5" : "border-border",
-                      )}
-                    >
-                      <span className={cn("text-foreground", hasDoc && "font-semibold")}>{doc}</span>
-                      {hasDoc ? (
-                        <CheckCircle2 className="h-4 w-4 text-success" />
-                      ) : (
-                        <StatusChip label="Needed" tone="warning" />
-                      )}
-                    </div>
-                  )
-                })
-              ) : (
-                <p className="text-muted-foreground">Complete previous steps to see required documents.</p>
+        {!showUploadStep ? (
+          <MultiStepForm
+            steps={steps}
+            activeStep={activeStep}
+            onBack={() => setActiveStep((prev) => Math.max(0, prev - 1))}
+            onNext={async () => {
+              const nextStep = activeStep + 1
+              await handleNext(nextStep)
+            }}
+            onSave={saveAllAnswers}
+            saving={saving}
+            nextLabel="Next question"
+            finishLabel="Continue"
+          />
+        ) : (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-slate-900">Upload your documents</h2>
+              <p className="text-sm text-slate-600">These documents keep your compliance wallet in good standing.</p>
+            </div>
+            <div className="space-y-3">
+              {requiredDocs.map((doc) => (
+                <div
+                  key={doc}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                >
+                  <span className="font-medium text-slate-800">{doc}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleUpload(doc)}
+                    disabled={saving || uploadedDocs.includes(doc)}
+                    className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {uploadedDocs.includes(doc) ? "Uploaded" : "Upload"}
+                  </button>
+                </div>
+              ))}
+              {requiredDocs.length === 0 && (
+                <p className="text-sm text-slate-500">No required documents right now. You’re all set.</p>
               )}
             </div>
-          </Card>
-
-          <Card title="Progress" subtitle="Onboarding completion">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Steps completed</span>
-                <span className="font-semibold text-foreground">
-                  {activeStep + 1} / {steps.length}
-                </span>
-              </div>
-              <div className="ph5-progress h-2">
-                <div className="ph5-progress-bar" style={{ width: `${((activeStep + 1) / steps.length) * 100}%` }} />
-              </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+              <button
+                type="button"
+                onClick={finishToDashboard}
+                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Skip for now
+              </button>
+              <button
+                type="button"
+                onClick={finishToDashboard}
+                className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                Go to dashboard
+              </button>
             </div>
-          </Card>
-        </div>
+          </div>
+        )}
       </div>
-    </div>
-  )
-}
-
-function InputField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  required,
-}: {
-  label?: string
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  type?: string
-  required?: boolean
-}) {
-  return (
-    <div className="space-y-2">
-      {label && (
-        <label className="text-sm font-semibold text-foreground">
-          {label} {required && <span className="text-destructive">*</span>}
-        </label>
-      )}
-      <Input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full"
-      />
     </div>
   )
 }

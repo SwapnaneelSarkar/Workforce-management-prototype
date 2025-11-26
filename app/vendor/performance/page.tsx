@@ -35,15 +35,15 @@ export default function VendorPerformancePage() {
                 <p className="text-xs text-muted-foreground">{partner.tier} • {partner.certifications.join(", ")}</p>
               </div>
               <div className="text-right text-sm">
-                <p>{partner.kpis.fillRate}% fill rate</p>
-                <p className="text-xs text-muted-foreground">{partner.kpis.candidatesSupplied} candidates</p>
+                <p>{partner.kpis.candidatesSupplied} candidates supplied</p>
+                <p className="text-xs text-muted-foreground">Avg response {partner.kpis.responseTimeHours} hrs</p>
               </div>
             </div>
           ))}
         </div>
       </Card>
 
-      <Card title="Fulfillment leaderboard" subtitle="Computed from submitted bids.">
+      <Card title="Partner leaderboard" subtitle="Computed from submitted bids.">
         <div className="space-y-4">
           {vendor.leaderboard.map((entry) => (
             <div key={entry.vendorId}>

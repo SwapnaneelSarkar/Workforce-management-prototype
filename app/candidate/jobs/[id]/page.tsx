@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { CheckCircle2, FileWarning, ShieldCheck, AlertCircle, XCircle, Clock, ChevronRight } from "lucide-react"
 import { Card, Header, Modal, SkeletonLoader, StatusChip, Map } from "@/components/system"
@@ -9,15 +9,15 @@ import { useToast } from "@/components/system"
 import { checkJobReadiness, getReadinessChecklist } from "@/lib/readiness-engine"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-
 type PageProps = {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 export default function JobDetailsPage({ params }: PageProps) {
+  const { id } = React.use(params)
   const { organization, candidate, actions } = useDemoData()
   const { pushToast } = useToast()
-  const job = organization.jobs.find((item) => item.id === params.id) ?? organization.jobs[0]
+  const job = organization.jobs.find((item) => item.id === id) ?? organization.jobs[0]
   const [showRequirements, setShowRequirements] = useState(true)
   const [readinessModalOpen, setReadinessModalOpen] = useState(false)
   const [confirmationModalOpen, setConfirmationModalOpen] = useState(false)
@@ -92,7 +92,6 @@ export default function JobDetailsPage({ params }: PageProps) {
 
   const [activeTab, setActiveTab] = useState<"details" | "facility">("details")
   const [descriptionExpanded, setDescriptionExpanded] = useState(true)
-  const [benefitsExpanded, setBenefitsExpanded] = useState(true)
 
   // Required items for submission
   const requiredItems = [
@@ -186,14 +185,12 @@ export default function JobDetailsPage({ params }: PageProps) {
               </div>
             </Card>
 
-            {/* Job Information Table */}
+            {/* Job Information */}
             <Card>
               <div className="space-y-4">
-                <InfoRow label="Assignment Dates" value="10/1-12/31 - 13 Weeks" />
-                <InfoRow label="Shift Type" value={job.shift} />
+                <InfoRow label="Contract Dates" value="10/1-12/31 - 13 Weeks" />
                 <InfoRow label="Location" value={job.location} />
                 <InfoRow label="Address" value="994 North Tustin Avenue" />
-                <InfoRow label="Software Familiarity & Usage" value="RX Software" />
                 <InfoRow label="Spoken Languages" value="English, Spanish" />
               </div>
             </Card>
@@ -227,31 +224,6 @@ export default function JobDetailsPage({ params }: PageProps) {
               )}
             </Card>
 
-            {/* Benefits Section */}
-            <Card>
-              <button
-                onClick={() => setBenefitsExpanded(!benefitsExpanded)}
-                className="w-full flex items-center justify-between mb-4"
-              >
-                <h3 className="text-lg font-semibold text-foreground">Benefits</h3>
-                <ChevronRight
-                  className={cn(
-                    "h-4 w-4 text-muted-foreground transition-transform",
-                    benefitsExpanded && "rotate-90"
-                  )}
-                />
-              </button>
-              {benefitsExpanded && (
-                <ul className="space-y-2 text-sm text-foreground">
-                  {job.benefits.map((benefit) => (
-                    <li key={benefit} className="flex items-start gap-2">
-                      <span className="text-primary mt-1">•</span>
-                      <span>{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
           </div>
         )}
 

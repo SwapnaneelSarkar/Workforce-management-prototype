@@ -53,10 +53,10 @@ export default function VendorDetailPage() {
         ]}
         actions={[
           {
-            id: "message",
-            label: "Send message",
+            id: "contact",
+            label: "Contact vendor",
             variant: "secondary",
-            onClick: () => toast({ title: "Message composer coming soon" }),
+            onClick: () => toast({ title: "Contact panel coming soon" }),
           },
         ]}
       />

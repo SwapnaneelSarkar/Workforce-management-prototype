@@ -59,7 +59,7 @@ export default function CandidateNotificationsPage() {
     <div className="space-y-6 p-8">
       <Header
         title="Notifications"
-        subtitle="Job invites, compliance reminders, and recruiter messages."
+        subtitle="Job invites, compliance reminders, and profile updates."
         breadcrumbs={[
           { label: "Candidate Portal", href: "/candidate/dashboard" },
           { label: "Notifications" },
@@ -87,7 +87,6 @@ export default function CandidateNotificationsPage() {
           <option value="all">All types</option>
           <option value="job">Job alerts</option>
           <option value="system">System</option>
-          <option value="message">Messages</option>
         </select>
         <StatusChip label={`${filtered.length} items`} tone="info" />
       </div>

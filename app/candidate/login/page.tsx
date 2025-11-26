@@ -12,6 +12,9 @@ export default function CandidateLoginPage() {
   const redirectTimeout = useRef<NodeJS.Timeout | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
   const [formState, setFormState] = useState({
+    firstName: "",
+    lastName: "",
+    phone: "",
     email: "joanne.rose@email.com",
     password: "password",
     confirmPassword: "",
@@ -32,7 +35,8 @@ export default function CandidateLoginPage() {
   }, [])
 
   const handleChange =
-    (field: "email" | "password" | "confirmPassword" | "remember") => (event: ChangeEvent<HTMLInputElement>) => {
+  (field: "firstName" | "lastName" | "phone" | "email" | "password" | "confirmPassword" | "remember") =>
+    (event: ChangeEvent<HTMLInputElement>) => {
       const value = field === "remember" ? event.target.checked : event.target.value
       setFormState((prev) => ({ ...prev, [field]: value }))
       setError(null)
@@ -66,9 +70,13 @@ export default function CandidateLoginPage() {
       return
     }
 
-    // Success - redirect to dashboard
+    // Success - redirect based on auth flow
     redirectTimeout.current = setTimeout(() => {
-      router.push("/candidate/dashboard")
+      if (isSignUp) {
+        router.push("/candidate/onboarding")
+      } else {
+        router.push("/candidate/dashboard")
+      }
     }, 400)
   }
 
@@ -81,6 +89,10 @@ export default function CandidateLoginPage() {
     }
 
     if (isSignUp) {
+      if (!formState.firstName || !formState.lastName || !formState.phone) {
+        setError("Please complete your name and phone number to create your account.")
+        return
+      }
       if (formState.password !== formState.confirmPassword) {
         setError("Passwords do not match. Please try again.")
         return
@@ -236,6 +248,36 @@ export default function CandidateLoginPage() {
             )}
 
             <div className="space-y-4">
+              {isSignUp && (
+                <>
+                  <label className="block text-sm font-medium text-slate-700">
+                    First name
+                    <input
+                      type="text"
+                      autoComplete="given-name"
+                      value={formState.firstName}
+                      onChange={handleChange("firstName")}
+                      disabled={isSubmitting}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="Joanne"
+                    />
+                  </label>
+
+                  <label className="block text-sm font-medium text-slate-700">
+                    Last name
+                    <input
+                      type="text"
+                      autoComplete="family-name"
+                      value={formState.lastName}
+                      onChange={handleChange("lastName")}
+                      disabled={isSubmitting}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="Rose"
+                    />
+                  </label>
+                </>
+              )}
+
               <label className="block text-sm font-medium text-slate-700">
                 Email
                 <input
@@ -248,6 +290,21 @@ export default function CandidateLoginPage() {
                   placeholder="you@email.com"
                 />
               </label>
+
+              {isSignUp && (
+                <label className="block text-sm font-medium text-slate-700">
+                  Phone number
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    value={formState.phone}
+                    onChange={handleChange("phone")}
+                    disabled={isSubmitting}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder="+1 (555) 123-4567"
+                  />
+                </label>
+              )}
 
               <label className="block text-sm font-medium text-slate-700">
                 Password
