@@ -77,12 +77,12 @@ export default function CandidateNotificationsPage() {
         ]}
       />
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-5 shadow-[0_2px_8px_rgba(16,24,40,0.06)] backdrop-blur-sm">
         <Filter className="h-4 w-4 text-muted-foreground" aria-hidden />
-        <select
+          <select
           value={typeFilter}
           onChange={(event) => setTypeFilter(event.target.value)}
-          className="rounded-full border border-border bg-input px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          className="rounded-full border-2 border-border bg-input px-4 py-2 text-sm font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary/50 transition-all duration-200 hover:border-primary/30 shadow-sm"
         >
           <option value="all">All types</option>
           <option value="job">Job alerts</option>
@@ -99,7 +99,7 @@ export default function CandidateNotificationsPage() {
           <Card title="Latest activity">
             <div className="space-y-3">
               {filtered.map((notif) => (
-                <div key={notif.id} className="rounded-xl border border-border px-4 py-3">
+                <div key={notif.id} className="rounded-xl border border-border px-5 py-4 hover:shadow-md hover:border-primary/20 transition-all duration-200 bg-card/50 backdrop-blur-sm">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{notif.title}</p>
@@ -138,12 +138,12 @@ export default function CandidateNotificationsPage() {
                 <div
                   key={notif.id}
                   className={cn(
-                    "flex items-start gap-3 rounded-lg p-3",
-                    !notif.read && "bg-blue-50/50"
+                    "flex items-start gap-3 rounded-xl p-4 transition-all duration-200 hover:shadow-md",
+                    !notif.read && "bg-gradient-to-r from-blue-50/50 to-transparent border border-blue-100/50"
                   )}
                 >
                   <div className="flex-shrink-0 mt-0.5">
-                    <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                    <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
                       <Plus className="h-4 w-4 text-white" />
                     </div>
                   </div>
@@ -176,7 +176,7 @@ export default function CandidateNotificationsPage() {
             { key: "sms", label: "SMS alerts" },
             { key: "push", label: "Push alerts" },
           ].map((channel) => (
-            <label key={channel.key} className="flex items-center justify-between rounded-xl border border-border px-4 py-3 text-sm font-semibold text-foreground">
+            <label key={channel.key} className="flex items-center justify-between rounded-xl border-2 border-border px-5 py-4 text-sm font-semibold text-foreground hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer bg-card/50 backdrop-blur-sm">
               {channel.label}
               <Switch checked={candidate.notificationPrefs[channel.key as keyof typeof candidate.notificationPrefs]} onCheckedChange={(checked) => actions.updateNotificationPrefs({ [channel.key]: checked })} />
             </label>

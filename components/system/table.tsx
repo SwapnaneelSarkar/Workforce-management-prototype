@@ -107,9 +107,9 @@ export function DataTable<T>({
   const isIndeterminate = selectedIds.size > 0 && selectedIds.size < sortedRows.length
 
   return (
-    <div className={cn("overflow-hidden rounded-[8px] border border-border bg-card shadow-[0_1px_4px_rgba(16,24,40,0.06)]", className)}>
-      <table className="min-w-full divide-y divide-border">
-        <thead className="bg-[#F7F7F9]">
+    <div className={cn("overflow-hidden rounded-xl border-2 border-border bg-card shadow-[0_2px_8px_rgba(16,24,40,0.06)] hover:shadow-[0_4px_12px_rgba(16,24,40,0.08)] transition-shadow duration-300", className)}>
+      <table className="min-w-full divide-y divide-border/60">
+        <thead className="bg-gradient-to-b from-[#F7F7F9] to-[#F0F2F5]">
           <tr>
             {selectable ? (
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -138,7 +138,7 @@ export function DataTable<T>({
                   {column.sortable ? (
                     <button
                       onClick={() => toggleSort(column.id)}
-                      className="inline-flex items-center gap-1 text-[12px] font-semibold uppercase tracking-[0.08em]"
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold uppercase tracking-[0.08em] hover:text-foreground transition-colors duration-200"
                       aria-label={`Sort by ${column.label}`}
                     >
                       {column.label}
@@ -167,7 +167,7 @@ export function DataTable<T>({
               const expanded = expandedRow === key
               return (
                 <>
-                  <tr key={key} className="bg-card hover:bg-[#FDFDFD]">
+                  <tr key={key} className="bg-card hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent transition-all duration-200 group">
                     {selectable ? (
                       <td className="px-4 py-3">
                         <Checkbox

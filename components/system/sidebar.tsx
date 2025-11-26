@@ -102,15 +102,19 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "group relative flex items-center gap-3 rounded-[6px] px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
-                      active ? "text-[#3182ce]" : "text-muted-foreground hover:bg-[#eef0f4]",
+                      "group relative flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
+                      active 
+                        ? "text-[#3182ce] bg-blue-50/50 shadow-sm" 
+                        : "text-muted-foreground hover:bg-[#eef0f4] hover:text-foreground hover:shadow-sm",
                       collapsed ? "justify-center" : "justify-between",
                     )}
                   >
                     <div className={cn("flex items-center gap-3", collapsed && "w-full justify-center")}>
                       <span
                         className={cn(
-                          "flex h-9 w-9 items-center justify-center rounded-full bg-[#eef0f4] text-muted-foreground",
+                          "flex h-9 w-9 items-center justify-center rounded-full bg-[#eef0f4] text-muted-foreground transition-all duration-200",
+                          active && "bg-blue-100 text-[#3182ce] shadow-sm",
+                          "group-hover:bg-blue-50 group-hover:scale-105",
                         )}
                       >
                         {iconContent}
@@ -122,7 +126,7 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
                         {item.badge}
                       </span>
                     ) : null}
-                    {active ? <span className="absolute inset-y-1 left-0 w-1 rounded-r-full bg-[#3182ce]" aria-hidden /> : null}
+                    {active ? <span className="absolute inset-y-1 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#3182ce] to-[#2563EB] shadow-sm" aria-hidden /> : null}
                   </Link>
                 </li>
               )
@@ -133,7 +137,7 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
         {!(isMobile || isTablet) ? (
           <button
             type="button"
-            className="mx-4 mb-4 flex items-center justify-center gap-2 rounded-[6px] border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-[#eef0f4]"
+            className="mx-4 mb-4 flex items-center justify-center gap-2 rounded-[8px] border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-[#eef0f4] hover:text-foreground hover:shadow-sm transition-all duration-200"
             onClick={() => setDesktopCollapsed((prev) => !prev)}
           >
             {isDesktopCollapsed ? (

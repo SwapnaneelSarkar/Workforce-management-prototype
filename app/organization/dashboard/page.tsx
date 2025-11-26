@@ -81,16 +81,16 @@ export default function OrganizationDashboardPage() {
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Recommended actions" subtitle="Keep momentum across the workflow.">
             <div className="grid gap-3 sm:grid-cols-2">
-              <Link href="/organization/jobs/create" className="rounded-[10px] border border-border px-4 py-3 text-sm font-semibold text-foreground hover:border-[#3182CE]">
+              <Link href="/organization/jobs/create" className="rounded-xl border-2 border-border px-5 py-4 text-sm font-semibold text-foreground hover:border-[#3182CE] hover:shadow-md hover:bg-blue-50/30 transition-all duration-200 bg-card/50 backdrop-blur-sm">
                 Create new requisition
               </Link>
-              <Link href="/organization/compliance/templates" className="rounded-[10px] border border-border px-4 py-3 text-sm font-semibold text-foreground hover:border-[#3182CE]">
+              <Link href="/organization/compliance/templates" className="rounded-xl border-2 border-border px-5 py-4 text-sm font-semibold text-foreground hover:border-[#3182CE] hover:shadow-md hover:bg-blue-50/30 transition-all duration-200 bg-card/50 backdrop-blur-sm">
                 Manage compliance templates
               </Link>
-              <Link href="/organization/applications" className="rounded-[10px] border border-border px-4 py-3 text-sm font-semibold text-foreground hover:border-[#3182CE]">
+              <Link href="/organization/applications" className="rounded-xl border-2 border-border px-5 py-4 text-sm font-semibold text-foreground hover:border-[#3182CE] hover:shadow-md hover:bg-blue-50/30 transition-all duration-200 bg-card/50 backdrop-blur-sm">
                 Review applications
               </Link>
-              <Link href="/organization/reports" className="rounded-[10px] border border-border px-4 py-3 text-sm font-semibold text-foreground hover:border-[#3182CE]">
+              <Link href="/organization/reports" className="rounded-xl border-2 border-border px-5 py-4 text-sm font-semibold text-foreground hover:border-[#3182CE] hover:shadow-md hover:bg-blue-50/30 transition-all duration-200 bg-card/50 backdrop-blur-sm">
                 Export report
               </Link>
             </div>
@@ -99,7 +99,7 @@ export default function OrganizationDashboardPage() {
           <Card title="Recent applications" subtitle="Live feed across requisitions.">
             <div className="space-y-3">
               {mockApplications.slice(0, 4).map((app) => (
-                <div key={app.id} className="rounded-[10px] border border-border px-3 py-2">
+                <div key={app.id} className="rounded-xl border-2 border-border px-4 py-3 hover:shadow-md hover:border-primary/20 transition-all duration-200 bg-card/50 backdrop-blur-sm">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-semibold text-foreground">{app.candidateName}</p>
@@ -119,7 +119,11 @@ export default function OrganizationDashboardPage() {
 }
 
 function Sparkline() {
-  return <div className="h-10 w-20 rounded-full bg-gradient-to-r from-[#E2E8F0] to-[#CBD5F5]" aria-hidden />
+  return (
+    <div className="h-10 w-20 rounded-full bg-gradient-to-r from-[#E2E8F0] via-[#CBD5F5] to-[#3182CE]/30 relative overflow-hidden" aria-hidden>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+    </div>
+  )
 }
 
 function getStatusTone(status: string) {

@@ -60,9 +60,9 @@ export function AvatarDropdown() {
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
-          className="inline-flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-[0_1px_4px_rgba(16,24,40,0.06)] hover:shadow-[0_6px_18px_rgba(16,24,40,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          className="inline-flex items-center gap-3 rounded-full border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-[0_2px_8px_rgba(16,24,40,0.08)] hover:shadow-[0_8px_24px_rgba(16,24,40,0.12)] hover:border-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all duration-200 hover:scale-[1.02]"
         >
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden bg-primary/10">
+          <div className="relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary/10">
             <Image
               src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face&auto=format"
               alt="Joanne Rose"
@@ -86,7 +86,7 @@ export function AvatarDropdown() {
               ref={dropdownRef}
               role="menu"
               aria-label="Account actions"
-              className="fixed z-[999999] w-56 rounded-lg border border-border bg-card p-2 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+              className="fixed z-[999999] w-56 rounded-xl border border-border bg-card/95 backdrop-blur-md p-2 shadow-[0_20px_40px_rgba(15,23,42,0.15)] animate-scale-in"
               style={{
                 top: `${position.top}px`,
                 right: `${position.right}px`,
@@ -116,7 +116,7 @@ function DropdownItem({
     <button
       role="menuitem"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-[6px] px-3 py-2 text-sm text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+      className="flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm text-foreground hover:bg-gradient-to-r hover:from-muted hover:to-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200 transition-all duration-200 hover:translate-x-1"
     >
       {icon}
       <span>{label}</span>

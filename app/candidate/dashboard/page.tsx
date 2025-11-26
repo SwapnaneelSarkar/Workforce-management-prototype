@@ -81,7 +81,7 @@ export default function CandidateDashboardPage() {
 
       {/* Readiness Status Banner */}
       {!isJobReady && (
-        <div className="rounded-2xl border border-warning/40 bg-warning/10 px-6 py-4">
+        <div className="rounded-2xl border-2 border-warning/40 bg-gradient-to-r from-warning/10 to-warning/5 px-6 py-5 shadow-lg backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-warning">Complete your profile to access job marketplace</p>
@@ -99,7 +99,7 @@ export default function CandidateDashboardPage() {
       )}
 
       {isJobReady && (
-        <div className="rounded-2xl border border-success/40 bg-success/10 px-6 py-4">
+        <div className="rounded-2xl border-2 border-success/40 bg-gradient-to-r from-success/10 to-success/5 px-6 py-5 shadow-lg backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-success">You're job ready!</p>
@@ -114,8 +114,8 @@ export default function CandidateDashboardPage() {
 
       <section className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-3">
-          {quickActions.map((action) => (
-            <Card key={action.label} className="shadow-[0_1px_4px_rgba(16,24,40,0.08)]">
+            {quickActions.map((action) => (
+            <Card key={action.label} className="shadow-[0_2px_8px_rgba(16,24,40,0.08)] hover:shadow-[0_8px_24px_rgba(16,24,40,0.12)]">
               <div className="ph5-label">{action.label}</div>
               <p className="text-sm text-muted-foreground">{action.description}</p>
               <Link href={action.href} className="text-sm font-semibold text-[#3182CE] underline-offset-4 hover:underline">
@@ -213,23 +213,31 @@ function CircularProgress({ value }: { value: number }) {
 
   return (
     <div className="relative h-36 w-36">
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={radius} stroke="#E2E8F0" strokeWidth="12" fill="transparent" />
+      <svg className="h-full w-full -rotate-90 transition-all duration-500" viewBox="0 0 140 140">
+        <circle cx="70" cy="70" r={radius} stroke="#E2E8F0" strokeWidth="12" fill="transparent" className="opacity-30" />
         <circle
           cx="70"
           cy="70"
           r={radius}
-          stroke="#3182CE"
-          strokeWidth="12"
+          stroke="url(#progressGradient)"
+          strokeWidth="14"
           strokeLinecap="round"
           fill="transparent"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
+          className="transition-all duration-500 ease-out"
         />
+        <defs>
+          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#3182CE" />
+            <stop offset="50%" stopColor="#4A9EFF" />
+            <stop offset="100%" stopColor="#2D3748" />
+          </linearGradient>
+        </defs>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-semibold text-foreground">{clamped}%</span>
-        <span className="text-xs text-muted-foreground">Complete</span>
+        <span className="text-3xl font-bold text-foreground bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text">{clamped}%</span>
+        <span className="text-xs font-medium text-muted-foreground mt-1">Complete</span>
       </div>
     </div>
   )
@@ -253,7 +261,7 @@ function DocumentCard({
         : "danger"
 
   return (
-    <div className="rounded-[10px] border border-border px-4 py-3">
+    <div className="rounded-xl border-2 border-border px-5 py-4 hover:shadow-md hover:border-primary/20 transition-all duration-200 bg-card/50 backdrop-blur-sm">
       <div className="flex items-center justify-between text-xs">
         <span className="inline-flex rounded-full bg-[#EDF2F7] px-2 py-0.5 font-semibold uppercase text-muted-foreground">{doc.type}</span>
         <StatusChip label={doc.status} tone={chipTone} />

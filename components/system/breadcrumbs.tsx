@@ -24,11 +24,11 @@ export function Breadcrumbs({ items }: BreadcrumbsProps) {
             <Fragment key={`${item.label}-${index}`}>
               <li aria-current={isLast ? "page" : undefined}>
                 {item.href && !isLast ? (
-                  <Link href={item.href} className="hover:text-foreground underline-offset-4 hover:underline">
+                  <Link href={item.href} className="hover:text-foreground underline-offset-4 hover:underline transition-colors duration-200 hover:text-primary">
                     {item.label}
                   </Link>
                 ) : (
-                  <span className={isLast ? "font-medium text-foreground" : undefined}>{item.label}</span>
+                  <span className={isLast ? "font-semibold text-foreground" : undefined}>{item.label}</span>
                 )}
               </li>
               {!isLast ? <span className="text-muted-foreground">/</span> : null}

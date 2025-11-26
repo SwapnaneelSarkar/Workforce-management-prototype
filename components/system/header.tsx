@@ -36,13 +36,13 @@ export function Header({ title, subtitle, breadcrumbs, actions = [], className, 
 
   return (
     <>
-      <header className={cn("fixed top-0 z-[99999] border-b border-border bg-card shadow-[0_1px_0_rgba(226,232,240,0.6)] transition-all duration-200 header-fixed left-0 right-0 md:left-[260px] overflow-x-hidden", className)}>
+      <header className={cn("fixed top-0 z-[99999] border-b border-border bg-card/95 backdrop-blur-md shadow-[0_2px_8px_rgba(16,24,40,0.08)] transition-all duration-300 header-fixed left-0 right-0 md:left-[260px] overflow-x-hidden", className)}>
         <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between overflow-x-hidden">
           <div className="flex flex-col gap-2">
             {breadcrumbs?.length ? <Breadcrumbs items={breadcrumbs} /> : null}
-            <div>
-              <h1 className="text-[28px] font-semibold text-foreground">{title}</h1>
-              {subtitle ? <p className="text-sm text-muted-foreground">{subtitle}</p> : null}
+            <div className="space-y-1">
+              <h1 className="text-[28px] font-semibold text-foreground bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">{title}</h1>
+              {subtitle ? <p className="text-sm text-muted-foreground leading-relaxed">{subtitle}</p> : null}
             </div>
           </div>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">

@@ -50,7 +50,7 @@ export function GlobalSearch() {
     <>
       <button
         type="button"
-        className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold text-muted-foreground shadow-sm transition hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="inline-flex items-center gap-2 rounded-full border-2 border-border bg-card px-4 py-2 text-sm font-semibold text-muted-foreground shadow-[0_2px_8px_rgba(16,24,40,0.08)] transition-all duration-200 hover:border-primary hover:shadow-[0_4px_12px_rgba(49,130,206,0.15)] hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         onClick={() => setOpen(true)}
         aria-label="Open global search"
       >

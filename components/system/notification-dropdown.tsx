@@ -97,11 +97,11 @@ export function NotificationDropdown() {
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-[0_1px_4px_rgba(16,24,40,0.06)] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-colors"
+          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-[0_2px_8px_rgba(16,24,40,0.08)] hover:bg-muted hover:text-foreground hover:shadow-[0_4px_12px_rgba(16,24,40,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 transition-all duration-200 hover:scale-105"
         >
           <Bell className="h-5 w-5" aria-hidden />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs font-semibold text-white">
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-xs font-semibold text-white shadow-lg animate-pulse">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -114,7 +114,7 @@ export function NotificationDropdown() {
               ref={dropdownRef}
               role="menu"
               aria-label="Notifications"
-              className="fixed z-[999999] w-96 rounded-lg border border-border bg-card shadow-[0_12px_30px_rgba(15,23,42,0.12)] overflow-hidden"
+              className="fixed z-[999999] w-96 rounded-xl border border-border bg-card/95 backdrop-blur-md shadow-[0_20px_40px_rgba(15,23,42,0.15)] overflow-hidden animate-scale-in"
               style={{
                 top: `${position.top}px`,
                 right: `${position.right}px`,
@@ -129,8 +129,8 @@ export function NotificationDropdown() {
               <div
                 key={notif.id}
                 className={cn(
-                  "flex items-start gap-3 p-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors cursor-pointer",
-                  !notif.read && "bg-blue-50/50"
+                  "flex items-start gap-3 p-4 border-b border-border/60 last:border-0 hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-transparent transition-all duration-200 cursor-pointer group",
+                  !notif.read && "bg-blue-50/30"
                 )}
                 onClick={() => {
                   // Try to mark as read if it exists in actual notifications
@@ -142,7 +142,7 @@ export function NotificationDropdown() {
                 }}
               >
                 <div className="flex-shrink-0 mt-0.5">
-                  <div className="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md group-hover:scale-110 transition-transform duration-200">
                     <Plus className="h-4 w-4 text-white" />
                   </div>
                 </div>
