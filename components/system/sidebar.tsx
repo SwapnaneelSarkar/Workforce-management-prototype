@@ -178,7 +178,7 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
         />
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 w-[260px] border-r border-border bg-card shadow-[0_24px_48px_rgba(15,23,42,0.18)] transition-transform duration-200",
+            "fixed inset-y-0 left-0 z-50 w-[260px] border-r border-border bg-gradient-to-b from-blue-50/30 via-blue-50/20 to-card shadow-[0_24px_48px_rgba(15,23,42,0.18)] transition-transform duration-200",
             drawerOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
@@ -191,7 +191,7 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "hidden fixed left-0 top-0 h-screen border-r border-border bg-card shadow-[0_0_40px_rgba(15,23,42,0.04)] transition-all duration-200 z-30 md:flex",
+        "hidden fixed left-0 top-0 h-screen border-r-2 border-border/80 bg-gradient-to-b from-blue-50/40 via-blue-50/25 to-card/95 backdrop-blur-sm shadow-[0_0_60px_rgba(15,23,42,0.06)] transition-all duration-200 z-30 md:flex",
         collapsed ? "w-[90px]" : "w-[260px]",
       )}
     >

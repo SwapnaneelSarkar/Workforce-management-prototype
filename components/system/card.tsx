@@ -17,14 +17,15 @@ export function Card({ title, subtitle, actions, children, footer, bleed, classN
   return (
     <section
       className={cn(
-        "rounded-[12px] border border-border bg-card transition-all duration-300 ease-out hover:shadow-[0_12px_32px_rgba(15,23,42,0.12)] hover:-translate-y-1 hover:border-primary/20 focus-within:shadow-[0_12px_32px_rgba(15,23,42,0.12)] focus-within:border-primary/20",
+        "rounded-[16px] border-2 border-border/80 bg-card transition-all duration-300 ease-out hover:shadow-[0_16px_40px_rgba(15,23,42,0.14)] hover:-translate-y-1.5 hover:border-primary/30 focus-within:shadow-[0_16px_40px_rgba(15,23,42,0.14)] focus-within:border-primary/30",
         bleed ? "p-0" : "p-6",
-        "flex flex-col gap-5 shadow-[0_2px_8px_rgba(16,24,40,0.06)]",
-        "relative overflow-hidden group",
+        "flex flex-col gap-5 shadow-[0_4px_12px_rgba(16,24,40,0.08)]",
+        "relative overflow-hidden group backdrop-blur-sm",
         className,
       )}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/0 via-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 via-blue-50/0 to-blue-100/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       {(title || subtitle || actions) && (
         <div
           className={cn(

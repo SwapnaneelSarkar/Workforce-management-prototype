@@ -21,4 +21,5 @@ export { DataTable } from "./table"
 export { ToastProvider, useToast } from "./toast"
 export { ThemeToggle } from "./theme-toggle"
 export { FilePreviewModal } from "./file-preview-modal"
+export { Map } from "./map"
 

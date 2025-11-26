@@ -56,10 +56,13 @@
   }
 
   body {
-    background-color: var(--bg-light);
+    background: linear-gradient(to bottom, #f8fafc 0%, var(--bg-light) 100%);
+    background-attachment: fixed;
     color: var(--primary-dark);
     font-family: var(--font-sans);
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1,
@@ -90,7 +93,8 @@
 @layer utilities {
   .page-shell {
     min-height: 100vh;
-    background: var(--bg-light);
+    background: linear-gradient(to bottom, #f8fafc 0%, var(--bg-light) 100%);
+    background-attachment: fixed;
   }
 
   .page-container {
@@ -253,20 +257,28 @@
 
   .ph5-input {
     width: 100%;
-    height: 40px;
-    padding: 10px 14px;
-    border-radius: var(--input-radius);
-    border: 1px solid var(--border);
-    background-color: #fff;
+    height: 44px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: linear-gradient(to bottom, #ffffff, #fafbfc);
     font-size: 14px;
     color: var(--primary-dark);
-    transition: border-color 150ms ease, box-shadow 150ms ease;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .ph5-input:hover {
+    border-color: rgba(49, 130, 206, 0.3);
+    box-shadow: 0 2px 6px rgba(49, 130, 206, 0.08);
   }
 
   .ph5-input:focus {
     border-color: var(--accent-blue);
-    box-shadow: 0 0 0 2px rgba(49, 130, 206, 0.25);
+    box-shadow: 0 0 0 4px rgba(49, 130, 206, 0.15), 0 4px 12px rgba(49, 130, 206, 0.2);
     outline: none;
+    background: #ffffff;
+    transform: translateY(-1px);
   }
 
   .ph5-input-error {
@@ -304,9 +316,9 @@
   }
 
   .ph5-card:hover {
-    box-shadow: var(--shadow-strong);
-    transform: translateY(-2px);
-    border-color: rgba(49, 130, 206, 0.2);
+    box-shadow: var(--shadow-strong), 0 0 0 1px rgba(49, 130, 206, 0.1);
+    transform: translateY(-3px) scale(1.002);
+    border-color: rgba(49, 130, 206, 0.25);
   }
 
   .ph5-card-header {
@@ -344,24 +356,33 @@
     font-weight: 600;
     text-transform: uppercase;
     color: var(--muted-text);
-    padding: 16px;
-    border-bottom: 1px solid var(--border);
+    padding: 18px 16px;
+    border-bottom: 2px solid var(--border);
+    letter-spacing: 0.05em;
   }
 
   .ph5-table td {
-    padding: 16px;
+    padding: 18px 16px;
     font-size: 14px;
     color: var(--secondary-gray);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--border)/60;
+    transition: color 0.2s ease;
+  }
+
+  .ph5-table tbody tr:hover td {
+    color: var(--primary-dark);
   }
 
   .ph5-table tbody tr {
-    transition: background-color 0.2s ease, transform 0.1s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 3px solid transparent;
   }
 
   .ph5-table tbody tr:hover {
-    background-color: #f8fafc;
-    transform: translateX(2px);
+    background: linear-gradient(to right, #f8fafc, #ffffff);
+    transform: translateX(4px);
+    border-left-color: rgba(49, 130, 206, 0.4);
+    box-shadow: -2px 0 8px rgba(49, 130, 206, 0.1);
   }
 
   .ph5-badge,
@@ -414,20 +435,22 @@
 
   .ph5-progress {
     width: 100%;
-    height: 8px;
+    height: 10px;
     border-radius: 999px;
-    background-color: rgba(226, 232, 240, 0.8);
+    background: linear-gradient(to right, rgba(226, 232, 240, 0.6), rgba(226, 232, 240, 0.8));
     overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
   }
 
   .ph5-progress-bar {
     height: 100%;
     background: linear-gradient(90deg, var(--accent-blue) 0%, #4A9EFF 50%, var(--primary-dark) 100%);
     border-radius: inherit;
-    transition: width 500ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
     animation: progress-pulse 2s ease-in-out infinite;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 2px 8px rgba(49, 130, 206, 0.3);
   }
 
   .ph5-progress-bar::after {
@@ -495,6 +518,47 @@
 
   .animate-scale-in {
     animation: scale-in 0.2s ease-out;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-4px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(49, 130, 206, 0.15);
+    }
+    50% {
+      box-shadow: 0 0 30px rgba(49, 130, 206, 0.25);
+    }
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slide-up 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   @keyframes fade-in-50 {

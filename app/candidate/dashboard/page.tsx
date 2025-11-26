@@ -81,7 +81,7 @@ export default function CandidateDashboardPage() {
 
       {/* Readiness Status Banner */}
       {!isJobReady && (
-        <div className="rounded-2xl border-2 border-warning/40 bg-gradient-to-r from-warning/10 to-warning/5 px-6 py-5 shadow-lg backdrop-blur-sm">
+        <div className="rounded-2xl border-2 border-warning/50 bg-gradient-to-r from-warning/15 via-warning/10 to-warning/5 px-6 py-5 shadow-xl backdrop-blur-sm animate-slide-up">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-warning">Complete your profile to access job marketplace</p>
@@ -99,7 +99,7 @@ export default function CandidateDashboardPage() {
       )}
 
       {isJobReady && (
-        <div className="rounded-2xl border-2 border-success/40 bg-gradient-to-r from-success/10 to-success/5 px-6 py-5 shadow-lg backdrop-blur-sm">
+        <div className="rounded-2xl border-2 border-success/50 bg-gradient-to-r from-success/15 via-success/10 to-success/5 px-6 py-5 shadow-xl backdrop-blur-sm animate-slide-up">
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-success">You're job ready!</p>

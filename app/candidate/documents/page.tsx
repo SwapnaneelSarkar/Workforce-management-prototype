@@ -117,7 +117,7 @@ export default function DocumentWalletPage() {
 
       {/* Completion Banner */}
       {isComplete && (
-        <div className="rounded-2xl border border-success/40 bg-success/10 px-6 py-4">
+        <div className="rounded-2xl border-2 border-success/50 bg-gradient-to-r from-success/15 via-success/10 to-success/5 px-6 py-5 shadow-lg backdrop-blur-sm animate-slide-up">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <CheckCircle2 className="h-5 w-5 text-success" />
@@ -187,7 +187,7 @@ export default function DocumentWalletPage() {
             <select
               value={type}
               onChange={(event) => setType(event.target.value)}
-              className="ph5-input w-full"
+              className="ph5-input w-full cursor-pointer"
               aria-label="Document type"
               disabled={uploading}
             >
@@ -236,8 +236,8 @@ export default function DocumentWalletPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
-            <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+          <div className="rounded-xl border-2 border-dashed border-primary/30 bg-gradient-to-br from-blue-50/50 via-muted/20 to-transparent p-8 text-center hover:border-primary/50 hover:bg-gradient-to-br hover:from-blue-50/70 hover:via-muted/30 transition-all duration-300 group">
+            <Upload className="mx-auto h-10 w-10 text-primary mb-3 group-hover:scale-110 group-hover:text-primary transition-all duration-300" />
             <p className="text-sm font-semibold text-foreground mb-1">Upload File (Mock)</p>
             <p className="text-xs text-muted-foreground mb-3">
               In production, this would allow file selection. For now, clicking upload will simulate the upload process.
@@ -294,9 +294,9 @@ export default function DocumentWalletPage() {
         <Card title="Document Wallet" subtitle="Manage existing documents. Replace invalid documents or view details.">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {candidate.documents.map((doc) => (
-              <div key={doc.id} className="rounded-[14px] border border-border p-4">
+              <div key={doc.id} className="rounded-xl border-2 border-border/80 p-5 hover:shadow-lg hover:border-primary/30 hover:-translate-y-1 transition-all duration-300 bg-card/80 backdrop-blur-sm group">
                 <div className="flex items-start justify-between text-xs mb-3">
-                  <span className="inline-flex rounded-full bg-[#EDF2F7] px-2 py-0.5 font-semibold uppercase text-muted-foreground">
+                  <span className="inline-flex rounded-full bg-gradient-to-r from-[#EDF2F7] to-[#E2E8F0] px-3 py-1 font-semibold uppercase text-muted-foreground shadow-sm">
                     {doc.type}
                   </span>
                   <StatusChip label={doc.status} tone={getStatusTone(doc.status)} />
@@ -326,20 +326,20 @@ export default function DocumentWalletPage() {
                   )}
                 </div>
                 {doc.status === "Pending Verification" && (
-                  <div className="mt-3 rounded-lg border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning">
-                    <p className="font-semibold">Awaiting verification</p>
+                  <div className="mt-3 rounded-xl border-2 border-warning/50 bg-gradient-to-r from-warning/10 to-warning/5 px-4 py-3 text-xs text-warning shadow-sm">
+                    <p className="font-semibold mb-1">Awaiting verification</p>
                     <p className="text-warning/80">Compliance team will review within 24 hours.</p>
                   </div>
                 )}
                 {doc.status === "Validation Failed" && (
-                  <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                    <p className="font-semibold">Validation failed</p>
+                  <div className="mt-3 rounded-xl border-2 border-destructive/50 bg-gradient-to-r from-destructive/10 to-destructive/5 px-4 py-3 text-xs text-destructive shadow-sm">
+                    <p className="font-semibold mb-1">Validation failed</p>
                     <p className="text-destructive/80">Please replace with a valid document.</p>
                   </div>
                 )}
                 {doc.status === "Expired" && (
-                  <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                    <p className="font-semibold">Expired</p>
+                  <div className="mt-3 rounded-xl border-2 border-destructive/50 bg-gradient-to-r from-destructive/10 to-destructive/5 px-4 py-3 text-xs text-destructive shadow-sm">
+                    <p className="font-semibold mb-1">Expired</p>
                     <p className="text-destructive/80">Please upload a renewed document.</p>
                   </div>
                 )}

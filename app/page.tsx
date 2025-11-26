@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Building2, Factory, UsersRound } from "lucide-react"
+import { ArrowRight, Building2, UsersRound } from "lucide-react"
 
 const roles = [
   {
@@ -21,15 +21,6 @@ const roles = [
     badge: "Enterprise Suite",
     icon: Building2,
     footnote: "Budget guardrails • Policy workflows",
-  },
-  {
-    title: "Vendor Performance Hub",
-    description: "Submit candidates, review feedback, and benchmark quality metrics with live data.",
-    stats: "120+ partner vendors",
-    href: "/vendor/login",
-    badge: "Partner Access",
-    icon: Factory,
-    footnote: "Instant scorecards • Shared benchmarks",
   },
 ]
 

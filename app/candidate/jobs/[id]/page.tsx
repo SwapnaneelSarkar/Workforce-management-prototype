@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { CheckCircle2, FileWarning, ShieldCheck, AlertCircle, XCircle, Clock, ChevronRight } from "lucide-react"
-import { Card, Header, Modal, SkeletonLoader, StatusChip } from "@/components/system"
+import { Card, Header, Modal, SkeletonLoader, StatusChip, Map } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useToast } from "@/components/system"
 import { checkJobReadiness, getReadinessChecklist } from "@/lib/readiness-engine"
@@ -115,17 +115,12 @@ export default function JobDetailsPage({ params }: PageProps) {
 
       {/* Map Section */}
       <Card className="p-0 overflow-hidden">
-        <div className="relative h-64 bg-gray-100 flex items-center justify-center">
-          <div className="text-center">
-            <div className="mb-4">
-              <div className="h-16 w-16 rounded-full bg-blue-500 mx-auto flex items-center justify-center">
-                <span className="text-white text-2xl">+</span>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">Map View</p>
-            <p className="text-xs text-muted-foreground mt-1">994 North Tustin Avenue</p>
-          </div>
-        </div>
+        <Map 
+          location={job.location}
+          address="994 North Tustin Avenue"
+          height="h-80"
+          interactive
+        />
       </Card>
 
       {/* Job Title */}
@@ -195,8 +190,9 @@ export default function JobDetailsPage({ params }: PageProps) {
             <Card>
               <div className="space-y-4">
                 <InfoRow label="Assignment Dates" value="10/1-12/31 - 13 Weeks" />
-                <InfoRow label="Shift Type" value="Day Shift" />
-                <InfoRow label="Location" value="994 North Tustin Avenue" />
+                <InfoRow label="Shift Type" value={job.shift} />
+                <InfoRow label="Location" value={job.location} />
+                <InfoRow label="Address" value="994 North Tustin Avenue" />
                 <InfoRow label="Software Familiarity & Usage" value="RX Software" />
                 <InfoRow label="Spoken Languages" value="English, Spanish" />
               </div>

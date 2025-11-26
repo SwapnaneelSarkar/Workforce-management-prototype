@@ -24,7 +24,7 @@ export function StatusChip({ label, tone = "neutral", className, ...rest }: Stat
     <span
       {...rest}
       className={cn(
-        "inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105",
+        "inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-lg hover:scale-110 hover:-translate-y-0.5",
         toneClasses[tone],
         className
       )}
