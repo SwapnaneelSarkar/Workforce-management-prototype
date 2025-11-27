@@ -6,12 +6,14 @@ import { Filter, Search, MapPin, List, Grid } from "lucide-react"
 import { Card, Header, SkeletonLoader, StatusChip, Map } from "@/components/system"
 import { FloatingActionButton } from "@/components/system/fab"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { useLocalDb } from "@/components/providers/local-db-provider"
 import { cn } from "@/lib/utils"
 
 type ViewMode = "list" | "map" | "grid"
 
 export default function JobListingPage() {
   const { organization } = useDemoData()
+  const { data: localDb } = useLocalDb()
   const [query, setQuery] = useState("")
   const [department, setDepartment] = useState("All")
   const [loading, setLoading] = useState(true)
@@ -35,6 +37,8 @@ export default function JobListingPage() {
       return matchesQuery && matchesDept
     })
   }, [organization.jobs, query, department])
+
+  const appliedJobs = localDb.jobApplications
 
   return (
     <div className="space-y-6">
@@ -168,8 +172,8 @@ export default function JobListingPage() {
                             <p className="text-xs text-muted-foreground ml-6">{job.department}</p>
                           </div>
                           <StatusChip 
-                            label={job.status === "Open" ? "Accepting" : job.status} 
-                            tone={job.status === "Open" ? "success" : "warning"} 
+                            label={appliedJobs[job.id] ? "Applied" : job.status === "Open" ? "Accepting" : job.status} 
+                            tone={appliedJobs[job.id] ? "info" : job.status === "Open" ? "success" : "warning"} 
                           />
                         </div>
                         <div className="flex items-center gap-3 ml-6 pt-2 border-t border-border">
@@ -214,7 +218,10 @@ export default function JobListingPage() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-border">
-                <StatusChip label={job.status === "Open" ? "Accepting" : job.status} tone={job.status === "Open" ? "success" : "warning"} />
+                <StatusChip
+                  label={appliedJobs[job.id] ? "Applied" : job.status === "Open" ? "Accepting" : job.status}
+                  tone={appliedJobs[job.id] ? "info" : job.status === "Open" ? "success" : "warning"}
+                />
                 <Link href={`/candidate/jobs/${job.id}`} className="ph5-button-primary text-sm">
                   View details
                 </Link>
@@ -259,7 +266,10 @@ export default function JobListingPage() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <StatusChip label={job.status === "Open" ? "Accepting" : job.status} tone={job.status === "Open" ? "success" : "warning"} />
+                <StatusChip
+                  label={appliedJobs[job.id] ? "Applied" : job.status === "Open" ? "Accepting" : job.status}
+                  tone={appliedJobs[job.id] ? "info" : job.status === "Open" ? "success" : "warning"}
+                />
                 <Link href={`/candidate/jobs/${job.id}`} className="ph5-button-primary">
                   View details
                 </Link>

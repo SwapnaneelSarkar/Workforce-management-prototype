@@ -23,7 +23,6 @@ export const candidateNavLinks: NavLink[] = [
   { href: "/candidate/jobs", label: "Jobs", icon: Briefcase },
   { href: "/candidate/applications", label: "Applications", icon: FileText },
   { href: "/candidate/documents", label: "Documents", icon: FolderOpen },
-  { href: "/candidate/onboarding", label: "Onboarding", icon: ClipboardCheck },
 ]
 
 export const organizationNavLinks: NavLink[] = [

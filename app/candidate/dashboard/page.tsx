@@ -3,33 +3,39 @@
 import Link from "next/link"
 import { Header, Card, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { useLocalDb } from "@/components/providers/local-db-provider"
 import { checkJobReadiness } from "@/lib/readiness-engine"
 
 export default function CandidateDashboardPage() {
   const { candidate, organization } = useDemoData()
+  const { data: localDb } = useLocalDb()
 
-  // Check if onboarding is complete
   const onboardingData = {
     personal: candidate.onboarding.personal || {},
     skills: candidate.onboarding.skills || {},
     availability: candidate.onboarding.availability || {},
   }
 
-  const isOnboardingComplete = () => {
-    const hasPersonal = !!(onboardingData.personal.firstName && onboardingData.personal.lastName && onboardingData.personal.email)
-    const hasSpecialty = !!(onboardingData.skills.specialty || candidate.profile.specialties.length > 0)
-    const hasSkills = Object.keys(onboardingData.skills).length > 0 || candidate.profile.skills.length > 0
-    const hasPreferences = !!(onboardingData.availability.shift || candidate.profile.shiftPreference)
-    return hasPersonal && hasSpecialty && hasSkills && hasPreferences
-  }
+  const onboardingAnswers = localDb.onboardingDetails
+  const hasPreferredLocations = Array.isArray(onboardingAnswers.preferredLocations) && onboardingAnswers.preferredLocations.length > 0
+  const hasWorkTypes = Array.isArray(onboardingAnswers.preferredWorkTypes) && onboardingAnswers.preferredWorkTypes.length > 0
+  const hasShifts = Array.isArray(onboardingAnswers.preferredShifts) && onboardingAnswers.preferredShifts.length > 0
+  const hasExperience = Boolean(onboardingAnswers.recentJobTitle && onboardingAnswers.totalExperienceYears)
+  const hasOccupation = Boolean(onboardingAnswers.occupation)
+  const hasComplianceBasics = Boolean(onboardingAnswers.licenseType && onboardingAnswers.dateOfBirth)
 
-  const isComplianceComplete = () => {
-    const requiredDocs = candidate.onboarding.requiredDocuments || []
-    if (requiredDocs.length === 0) return false
-    return requiredDocs.every((docType) =>
-      candidate.documents.some((doc) => doc.type === docType && doc.status === "Completed"),
-    )
-  }
+  const isOnboardingComplete = () =>
+    hasPreferredLocations && hasWorkTypes && hasShifts && hasExperience && hasOccupation && hasComplianceBasics
+
+  const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
+  const requiredDocs =
+    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
+  const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
+  const completedDocs = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
+  const totalDocs = requiredDocs.length
+  const progressPercent = totalDocs > 0 ? Math.round((completedDocs / totalDocs) * 100) : 0
+
+  const isComplianceComplete = () => totalDocs > 0 && completedDocs === totalDocs
 
   // Check readiness using a sample job
   const sampleJob = organization.jobs[0]
@@ -37,11 +43,7 @@ export default function CandidateDashboardPage() {
     ? checkJobReadiness(candidate.profile, sampleJob, onboardingData)
     : null
 
-  const isJobReady = readiness?.status === "Ready"
-
-  const completedDocs = candidate.documents.filter((doc) => doc.status === "Completed").length
-  const totalDocs = candidate.documents.length
-  const progressPercent = totalDocs > 0 ? Math.round((completedDocs / totalDocs) * 100) : 0
+  const isJobReady = readiness?.status === "Ready" && isComplianceComplete() && isOnboardingComplete()
 
   const quickActions = [
     { label: "Browse jobs", description: "Review matches and new postings", href: "/candidate/jobs", cta: "See roles" },

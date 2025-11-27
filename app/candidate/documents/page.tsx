@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Upload, CheckCircle2, XCircle, Clock, Eye, Calendar } from "lucide-react"
 import { Card, Header, SkeletonLoader, StatusChip, FilePreviewModal, DatePicker } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { useLocalDb } from "@/components/providers/local-db-provider"
 import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils"
 
 export default function DocumentWalletPage() {
   const { candidate, actions } = useDemoData()
+  const { data: localDb, markDocumentUploaded } = useLocalDb()
   const { pushToast } = useToast()
   const [name, setName] = useState("")
   const [type, setType] = useState("Active RN License")
@@ -24,10 +26,16 @@ export default function DocumentWalletPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const verifiedCount = candidate.documents.filter((doc) => doc.status === "Completed").length
-  const totalDocs = candidate.documents.length
-  const completionPercent = totalDocs > 0 ? Math.round((verifiedCount / totalDocs) * 100) : 0
-  const isComplete = completionPercent === 100 && totalDocs > 0
+  const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
+  const requiredDocs =
+    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
+  const uploadedDocEntries = localDb.uploadedDocuments
+  const uploadedDocSet = new Set(Object.keys(uploadedDocEntries))
+  const uploadedCount = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
+  const totalDocs = requiredDocs.length
+  const completionPercent = totalDocs > 0 ? Math.round((uploadedCount / totalDocs) * 100) : 0
+  const isComplete = totalDocs > 0 && uploadedCount === totalDocs
+  const verifiedCount = uploadedCount
 
   const onUpload = async () => {
     if (!name.trim()) {
@@ -44,6 +52,7 @@ export default function DocumentWalletPage() {
       const newDoc = await actions.uploadDocument({ name: name.trim(), type })
       // Update with expiry date
       await actions.replaceDocument(newDoc.id, { expiresOn: expiryDate, status: "Pending Verification" })
+      markDocumentUploaded(type, { name: name.trim(), source: "wallet" })
       pushToast({ title: "Document uploaded", description: "Awaiting verification. Compliance will review within 24 hours.", type: "success" })
       setName("")
       setExpiryDate("")
@@ -163,15 +172,11 @@ export default function DocumentWalletPage() {
             </div>
             <div className="flex items-center gap-1">
               <Clock className="h-3 w-3 text-warning" />
-              <span>
-                {candidate.documents.filter((d) => d.status === "Pending Verification").length} Pending Verification
-              </span>
+              <span>{Math.max(totalDocs - verifiedCount, 0)} Remaining</span>
             </div>
             <div className="flex items-center gap-1">
               <XCircle className="h-3 w-3 text-destructive" />
-              <span>
-                {candidate.documents.filter((d) => d.status === "Expired" || d.status === "Validation Failed").length} Issues
-              </span>
+              <span>0 Issues</span>
             </div>
           </div>
         </div>
@@ -265,25 +270,30 @@ export default function DocumentWalletPage() {
       </Card>
 
       {/* Required Documents List */}
-      {candidate.onboarding.requiredDocuments.length > 0 && (
+      {requiredDocs.length > 0 && (
         <Card title="Required Documents List" subtitle="Auto-generated based on your questionnaire answers.">
           <div className="space-y-2">
-            {candidate.onboarding.requiredDocuments.map((docType) => {
-              const doc = candidate.documents.find((d) => d.type === docType)
-              const hasDoc = doc && doc.status === "Completed"
+            {requiredDocs.map((docType) => {
+              const docUploaded = uploadedDocSet.has(docType)
+              const docMeta = uploadedDocEntries[docType]
               return (
                 <div
                   key={docType}
                   className={cn(
                     "flex items-center justify-between rounded-lg border px-3 py-2",
-                    hasDoc ? "border-success/40 bg-success/5" : "border-border",
+                    docUploaded ? "border-success/40 bg-success/5" : "border-border",
                   )}
                 >
-                  <span className={cn("text-sm text-foreground", hasDoc && "font-semibold")}>{docType}</span>
-                  {hasDoc ? (
+                  <div className="flex flex-col">
+                    <span className={cn("text-sm text-foreground", docUploaded && "font-semibold")}>{docType}</span>
+                    {docUploaded && docMeta?.uploadedAt && (
+                      <span className="text-xs text-muted-foreground">Uploaded {new Date(docMeta.uploadedAt).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                  {docUploaded ? (
                     <CheckCircle2 className="h-4 w-4 text-success" />
                   ) : (
-                    <StatusChip label={doc ? doc.status : "Pending Upload"} tone={doc ? getStatusTone(doc.status) : "warning"} />
+                    <StatusChip label="Pending Upload" tone="warning" />
                   )}
                 </div>
               )

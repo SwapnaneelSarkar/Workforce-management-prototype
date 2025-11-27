@@ -15,7 +15,7 @@ type MultiStepFormProps = {
   steps: StepDefinition[]
   activeStep: number
   onBack: () => void
-  onNext: () => void
+  onNext: () => Promise<void> | void
   onSave?: () => Promise<void>
   saving?: boolean
   nextLabel?: string
@@ -42,7 +42,7 @@ export function MultiStepForm({
     if (onSave) {
       await onSave()
     }
-    onNext()
+    await onNext()
   }
 
   return (

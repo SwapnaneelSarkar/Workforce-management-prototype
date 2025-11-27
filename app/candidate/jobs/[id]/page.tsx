@@ -5,6 +5,7 @@ import Link from "next/link"
 import { CheckCircle2, FileWarning, ShieldCheck, AlertCircle, XCircle, Clock, ChevronRight } from "lucide-react"
 import { Card, Header, Modal, SkeletonLoader, StatusChip, Map } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { useLocalDb } from "@/components/providers/local-db-provider"
 import { useToast } from "@/components/system"
 import { checkJobReadiness, getReadinessChecklist } from "@/lib/readiness-engine"
 import { cn } from "@/lib/utils"
@@ -16,6 +17,7 @@ type PageProps = {
 export default function JobDetailsPage({ params }: PageProps) {
   const { id } = React.use(params)
   const { organization, candidate, actions } = useDemoData()
+  const { data: localDb, markJobApplied } = useLocalDb()
   const { pushToast } = useToast()
   const job = organization.jobs.find((item) => item.id === id) ?? organization.jobs[0]
   const [showRequirements, setShowRequirements] = useState(true)
@@ -36,7 +38,8 @@ export default function JobDetailsPage({ params }: PageProps) {
 
   const checklist = useMemo(() => getReadinessChecklist(readiness), [readiness])
 
-  const canApply = readiness.status === "Ready"
+  const hasApplied = Boolean(localDb.jobApplications[job.id])
+  const canApply = readiness.status === "Ready" && !hasApplied
 
   useEffect(() => {
     if (readinessModalOpen && canApply) {
@@ -52,9 +55,14 @@ export default function JobDetailsPage({ params }: PageProps) {
 
     setApplying(true)
     try {
+      if (hasApplied) {
+        setConfirmationModalOpen(true)
+        return
+      }
       const application = await actions.submitJobApplication(job.id)
       setSubmittedApplication(application)
       setConfirmationModalOpen(true)
+      markJobApplied(job.id)
       pushToast({ title: "Application submitted", description: `${job.title} • ${job.location}`, type: "success" })
     } catch (error) {
       pushToast({ title: "Application failed", description: "Please try again.", type: "error" })
@@ -246,6 +254,8 @@ export default function JobDetailsPage({ params }: PageProps) {
               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
               Applying...
             </>
+          ) : hasApplied ? (
+            "Applied"
           ) : (
             "Apply"
           )}

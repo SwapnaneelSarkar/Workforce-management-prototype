@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Card, Header, StatusChip, Avatar } from "@/components/system"
+import { Card, Header, Avatar } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { useLocalDb } from "@/components/providers/local-db-provider"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,6 +12,7 @@ import { Edit2, CheckCircle2, AlertTriangle, ChevronRight } from "lucide-react"
 
 export default function CandidateProfilePage() {
   const { candidate, actions } = useDemoData()
+  const { data: localDb } = useLocalDb()
   const { pushToast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -39,30 +41,51 @@ export default function CandidateProfilePage() {
     }
   }
 
-  // Calculate onboarding progress (26/30 based on image)
-  const onboardingCompleted = 26
-  const onboardingTotal = 30
-  const onboardingPercent = Math.round((onboardingCompleted / onboardingTotal) * 100)
+  const onboardingAnswers = localDb.onboardingDetails
+  const onboardingRequirements = [
+    { id: "preferredLocations", label: "Preferred locations", completed: Array.isArray(onboardingAnswers.preferredLocations) && onboardingAnswers.preferredLocations.length > 0 },
+    { id: "preferredWorkTypes", label: "Preferred work types", completed: Array.isArray(onboardingAnswers.preferredWorkTypes) && onboardingAnswers.preferredWorkTypes.length > 0 },
+    { id: "preferredShifts", label: "Preferred shifts", completed: Array.isArray(onboardingAnswers.preferredShifts) && onboardingAnswers.preferredShifts.length > 0 },
+    { id: "recentJobTitle", label: "Recent job title", completed: Boolean(onboardingAnswers.recentJobTitle) },
+    { id: "totalExperienceYears", label: "Experience years", completed: Boolean(onboardingAnswers.totalExperienceYears) },
+    { id: "occupation", label: "Occupation", completed: Boolean(onboardingAnswers.occupation) },
+    { id: "licenseType", label: "License type", completed: Boolean(onboardingAnswers.licenseType) },
+    { id: "dateOfBirth", label: "Date of birth", completed: Boolean(onboardingAnswers.dateOfBirth) },
+  ]
+
+  const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
+  const requiredDocs =
+    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
+  const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
+  const docsCompleted = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
+  const docTotal = requiredDocs.length
+
+  const onboardingCompleted = onboardingRequirements.filter((req) => req.completed).length
+  const onboardingTotal = onboardingRequirements.length
+  const totalCompleted = onboardingCompleted + docsCompleted
+  const totalRequirements = onboardingTotal + docTotal || 1
+  const onboardingPercent = Math.round((totalCompleted / totalRequirements) * 100)
 
   // Profile categories with completion status
   const profileCategories = [
-    { name: "Background and Identification", completed: 12, total: 12 },
-    { name: "Employee Health", completed: 12, total: 12 },
-    { name: "Professional Credentials/License", completed: 12, total: 12 },
-    { name: "Immigration", completed: 12, total: 12 },
-    { name: "Education/Training", completed: 12, total: 12 },
-    { name: "Human Resources", completed: 12, total: 12 },
-    { name: "Other", completed: 12, total: 12 },
-    { name: "Certification", completed: 4, total: 12 },
-    { name: "Assessment", completed: 4, total: 12 },
+    ...onboardingRequirements.map((req) => ({
+      name: req.label,
+      completed: req.completed ? 1 : 0,
+      total: 1,
+    })),
+    ...requiredDocs.map((doc) => ({
+      name: doc,
+      completed: uploadedDocSet.has(doc) ? 1 : 0,
+      total: 1,
+    })),
   ]
 
   // Update profile action items
-  const updateProfileItems = [
-    "Provide 2 recent references",
-    "Skills checklist",
-    "Certification",
+  const outstandingItems = [
+    ...onboardingRequirements.filter((req) => !req.completed).map((req) => req.label),
+    ...requiredDocs.filter((doc) => !uploadedDocSet.has(doc)),
   ]
+  const updateProfileItems = outstandingItems.slice(0, 3)
 
   // Format birthday from email or use default
   const birthday = "Jul 2, 1990"
@@ -107,13 +130,21 @@ export default function CandidateProfilePage() {
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-foreground mb-1">Your Onboarding Progress</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              You have completed your onboarding progress, View Details to see more
+              {totalRequirements > 0
+                ? `You're ${onboardingPercent}% complete (${totalCompleted}/${totalRequirements}). Keep going to unlock applications.`
+                : "Start your onboarding checklist to unlock job submissions."}
             </p>
-            <Button variant="outline" className="bg-gray-800 text-white hover:bg-gray-700">
-              View detail
+            <Button
+              variant="outline"
+              className="bg-gray-800 text-white hover:bg-gray-700"
+              onClick={() => {
+                window.location.href = "/candidate/onboarding"
+              }}
+            >
+              Review checklist
             </Button>
           </div>
-          <CircularProgress value={onboardingCompleted} total={onboardingTotal} />
+          <CircularProgress value={totalCompleted} total={totalRequirements} />
         </div>
       </Card>
 
@@ -163,20 +194,30 @@ export default function CandidateProfilePage() {
           {/* Update Profile Section */}
           <Card>
             <h3 className="text-lg font-semibold text-foreground mb-1">Update your profile</h3>
-            <p className="text-sm text-muted-foreground mb-4">Your profile needs your attention, update the sections below.</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              {updateProfileItems.length > 0
+                ? "Your profile needs your attention, update the sections below."
+                : "All onboarding tasks are complete. Great work!"}
+            </p>
             <div className="space-y-2">
-              {updateProfileItems.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between rounded-lg border border-border px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                    <span className="text-sm text-foreground">{item}</span>
+              {updateProfileItems.length > 0 ? (
+                updateProfileItems.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 hover:bg-muted/50 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                      <span className="text-sm text-foreground">{item}</span>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                ))
+              ) : (
+                <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground bg-muted/30">
+                  Nothing pending right now.
                 </div>
-              ))}
+              )}
             </div>
           </Card>
         </div>
