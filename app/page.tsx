@@ -68,10 +68,7 @@ export default function LandingPage() {
         </div>
 
         <footer className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 md:flex md:items-center md:justify-between">
-          <p className="max-w-2xl">
-            Need to add a new stakeholder? Share this page so they can select the right workspace without extra setup.
-          </p>
-          <Link href="/FEATURES_DOCUMENTATION.md" className="mt-4 inline-flex items-center gap-2 text-slate-800 hover:text-slate-900 md:mt-0">
+          <Link href="/FEATURES_DOCUMENTATION.md" className="inline-flex items-center gap-2 text-slate-800 hover:text-slate-900">
             Explore documentation
             <ArrowRight className="h-4 w-4" />
           </Link>
