@@ -27,13 +27,35 @@ export default function CandidateDashboardPage() {
   const isOnboardingComplete = () =>
     hasPreferredLocations && hasWorkTypes && hasShifts && hasExperience && hasOccupation && hasComplianceBasics
 
+  // Calculate onboarding form completion based on localDB
+  const onboardingRequirements = [
+    { id: "preferredLocations", label: "Preferred locations", completed: hasPreferredLocations },
+    { id: "preferredWorkTypes", label: "Preferred work types", completed: hasWorkTypes },
+    { id: "preferredShifts", label: "Preferred shifts", completed: hasShifts },
+    { id: "contractLength", label: "Contract length", completed: Boolean(onboardingAnswers.contractLength) },
+    { id: "availableStart", label: "Available start date", completed: Boolean(onboardingAnswers.availableStart) },
+    { id: "recentJobTitle", label: "Recent job title", completed: Boolean(onboardingAnswers.recentJobTitle) },
+    { id: "totalExperienceYears", label: "Experience years", completed: Boolean(onboardingAnswers.totalExperienceYears) },
+    { id: "occupation", label: "Occupation", completed: hasOccupation },
+    { id: "licenseType", label: "License type", completed: Boolean(onboardingAnswers.licenseType) },
+    { id: "dateOfBirth", label: "Date of birth", completed: Boolean(onboardingAnswers.dateOfBirth) },
+  ]
+
+  const onboardingCompleted = onboardingRequirements.filter((req) => req.completed).length
+  const onboardingTotal = onboardingRequirements.length
+
+  // Calculate document completion
   const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
   const requiredDocs =
     candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
   const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
   const completedDocs = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
   const totalDocs = requiredDocs.length
-  const progressPercent = totalDocs > 0 ? Math.round((completedDocs / totalDocs) * 100) : 0
+
+  // Calculate combined progress (onboarding form + documents)
+  const totalCompleted = onboardingCompleted + completedDocs
+  const totalRequirements = onboardingTotal + totalDocs || 1
+  const progressPercent = Math.round((totalCompleted / totalRequirements) * 100)
 
   const isComplianceComplete = () => totalDocs > 0 && completedDocs === totalDocs
 
@@ -109,15 +131,31 @@ export default function CandidateDashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.8fr,1fr]">
-          <Card title="Onboarding progress" subtitle={`${completedDocs} of ${totalDocs} requirements`}>
+          <Card title="Onboarding progress" subtitle={`${totalCompleted} of ${totalRequirements} requirements complete`}>
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
               <CircularProgress value={progressPercent} />
               <div className="flex-1 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Your compliance coach reviews new uploads within 24 hours. Keep the wheel green to unlock instant job submissions.
+                  {progressPercent === 100
+                    ? "Congratulations! Your onboarding is complete. You're ready to apply for jobs."
+                    : `Complete your profile information (${onboardingCompleted}/${onboardingTotal}) and upload required documents (${completedDocs}/${totalDocs}) to unlock job applications.`}
                 </p>
                 <div className="ph5-progress">
                   <div className="ph5-progress-bar" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Profile information: {onboardingCompleted}/{onboardingTotal}</span>
+                    <span className={onboardingCompleted === onboardingTotal ? "text-success" : ""}>
+                      {onboardingCompleted === onboardingTotal ? "✓ Complete" : "Incomplete"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Documents: {completedDocs}/{totalDocs}</span>
+                    <span className={completedDocs === totalDocs ? "text-success" : ""}>
+                      {completedDocs === totalDocs ? "✓ Complete" : "Incomplete"}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-3">
                   <Link href="/candidate/onboarding" className="ph5-button-primary">
@@ -161,9 +199,10 @@ export default function CandidateDashboardPage() {
           <Card title="Recent jobs for you" subtitle="High-signal roles based on your profile.">
             <div className="space-y-3">
               {organization.jobs.slice(0, 3).map((job) => (
-                <div
+                <Link
                   key={job.id}
-                  className="flex items-start justify-between rounded-xl border border-border px-4 py-3 hover:border-primary/30 hover:shadow-sm transition-all"
+                  href={`/candidate/jobs/${job.id}`}
+                  className="flex items-start justify-between rounded-xl border border-border px-4 py-3 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
                 >
                   <div>
                     <p className="text-sm font-semibold text-foreground">{job.title}</p>
@@ -176,7 +215,7 @@ export default function CandidateDashboardPage() {
                     <span className="text-sm font-semibold text-foreground">{job.billRate}</span>
                     <StatusChip label={job.status} tone={job.status === "Open" ? "success" : "neutral"} />
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </Card>
