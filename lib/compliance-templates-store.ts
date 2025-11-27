@@ -19,6 +19,7 @@ type ComplianceTemplateState = {
   templates: ComplianceTemplate[]
   addTemplate: (template: Omit<ComplianceTemplate, "id">) => ComplianceTemplate
   updateTemplate: (id: string, updates: Partial<Omit<ComplianceTemplate, "id">>) => void
+  deleteTemplate: (id: string) => void
 }
 
 const initialTemplates: ComplianceTemplate[] = [
@@ -88,6 +89,11 @@ export const useComplianceTemplatesStore = create<ComplianceTemplateState>((set,
       templates: state.templates.map((template) =>
         template.id === id ? { ...template, ...updates } : template,
       ),
+    }))
+  },
+  deleteTemplate: (id) => {
+    set((state) => ({
+      templates: state.templates.filter((template) => template.id !== id),
     }))
   },
 }))

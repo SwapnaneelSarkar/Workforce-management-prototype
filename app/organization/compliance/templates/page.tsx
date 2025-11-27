@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Header, Card } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,28 +11,42 @@ import {
 } from "@/lib/compliance-templates-store"
 
 export default function ComplianceTemplatesPage() {
-  const { templates, addTemplate, updateTemplate } = useComplianceTemplatesStore()
+  const { templates, addTemplate, updateTemplate, deleteTemplate } = useComplianceTemplatesStore()
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(templates[0]?.id ?? null)
+  const [draftTemplate, setDraftTemplate] = useState<ComplianceTemplate | null>(null)
 
-  const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? templates[0] ?? null
+  const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? null
+
+  // Sync draft with active template when it changes (only for existing templates, not temp ones)
+  useEffect(() => {
+    if (activeTemplateId?.startsWith("temp-")) {
+      // Don't sync temp templates - they're already in draft state
+      return
+    }
+    if (activeTemplate) {
+      setDraftTemplate({ ...activeTemplate })
+    } else {
+      setDraftTemplate(null)
+    }
+  }, [activeTemplateId, activeTemplate])
 
   const handleSelectTemplate = (id: string) => {
     setActiveTemplateId(id)
   }
 
   const handleFieldChange = (field: keyof Omit<ComplianceTemplate, "id" | "items">, value: string) => {
-    if (!activeTemplate) return
-    updateTemplate(activeTemplate.id, { [field]: value })
+    if (!draftTemplate) return
+    setDraftTemplate({ ...draftTemplate, [field]: value })
   }
 
   const handleItemChange = (itemId: string, updates: Partial<ComplianceItem>) => {
-    if (!activeTemplate) return
-    const items = activeTemplate.items.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
-    updateTemplate(activeTemplate.id, { items })
+    if (!draftTemplate) return
+    const items = draftTemplate.items.map((item) => (item.id === itemId ? { ...item, ...updates } : item))
+    setDraftTemplate({ ...draftTemplate, items })
   }
 
   const handleAddItem = () => {
-    if (!activeTemplate) return
+    if (!draftTemplate) return
     const newItem: ComplianceItem = {
       id: crypto.randomUUID(),
       name: "",
@@ -40,21 +54,57 @@ export default function ComplianceTemplatesPage() {
       expirationType: "None",
       requiredAtSubmission: false,
     }
-    updateTemplate(activeTemplate.id, { items: [...activeTemplate.items, newItem] })
+    setDraftTemplate({ ...draftTemplate, items: [...draftTemplate.items, newItem] })
   }
 
   const handleRemoveItem = (itemId: string) => {
-    if (!activeTemplate) return
-    updateTemplate(activeTemplate.id, { items: activeTemplate.items.filter((item) => item.id !== itemId) })
+    if (!draftTemplate) return
+    setDraftTemplate({ ...draftTemplate, items: draftTemplate.items.filter((item) => item.id !== itemId) })
+  }
+
+  const handleSave = () => {
+    if (!draftTemplate) return
+    
+    // Check if this is a new template (temp ID) or an existing one
+    if (activeTemplateId?.startsWith("temp-")) {
+      // Create new template
+      const newTemplate = addTemplate({
+        name: draftTemplate.name,
+        description: draftTemplate.description,
+        items: draftTemplate.items,
+      })
+      setActiveTemplateId(newTemplate.id)
+    } else if (activeTemplateId) {
+      // Update existing template
+      updateTemplate(activeTemplateId, {
+        name: draftTemplate.name,
+        description: draftTemplate.description,
+        items: draftTemplate.items,
+      })
+    }
   }
 
   const handleCreateTemplate = () => {
-    const next = addTemplate({
-      name: "New compliance template",
+    // Create a temporary template that won't be saved until user clicks Save
+    const tempId = `temp-${crypto.randomUUID()}`
+    const tempTemplate: ComplianceTemplate = {
+      id: tempId,
+      name: "",
       description: "",
       items: [],
-    })
-    setActiveTemplateId(next.id)
+    }
+    setDraftTemplate(tempTemplate)
+    setActiveTemplateId(tempId)
+  }
+
+  const handleDeleteTemplate = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (activeTemplateId === id) {
+      // If deleting the active template, switch to another one or null
+      const remainingTemplates = templates.filter((t) => t.id !== id)
+      setActiveTemplateId(remainingTemplates[0]?.id ?? null)
+    }
+    deleteTemplate(id)
   }
 
   return (
@@ -76,19 +126,33 @@ export default function ComplianceTemplatesPage() {
             </button>
             <div className="space-y-1">
               {templates.map((template) => (
-                <button
+                <div
                   key={template.id}
-                  type="button"
-                  onClick={() => handleSelectTemplate(template.id)}
-                  className={`w-full rounded-md px-3 py-2 text-left text-sm ${
-                    activeTemplate?.id === template.id ? "bg-muted font-semibold" : "hover:bg-muted/80"
+                  className={`group flex items-center gap-2 rounded-md ${
+                    activeTemplate?.id === template.id ? "bg-muted" : "hover:bg-muted/80"
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span>{template.name}</span>
-                    <span className="text-xs text-muted-foreground">{template.items.length} items</span>
-                  </div>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTemplate(template.id)}
+                    className={`flex-1 rounded-md px-3 py-2 text-left text-sm ${
+                      activeTemplate?.id === template.id ? "font-semibold" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span>{template.name || "New compliance template"}</span>
+                      <span className="text-xs text-muted-foreground">{template.items.length} items</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteTemplate(template.id, e)}
+                    className="mr-2 rounded-md px-2 py-1 text-xs text-destructive opacity-0 transition-opacity hover:bg-destructive/10 group-hover:opacity-100"
+                    title="Delete template"
+                  >
+                    Delete
+                  </button>
+                </div>
               ))}
               {!templates.length && (
                 <p className="text-sm text-muted-foreground">No templates yet. Create one to get started.</p>
@@ -98,20 +162,20 @@ export default function ComplianceTemplatesPage() {
         </Card>
 
         <Card title="Template details">
-          {activeTemplate ? (
+          {draftTemplate ? (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Template name</label>
                 <Input
-                  value={activeTemplate.name}
+                  value={draftTemplate.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
-                  placeholder="ICU Core Checklist"
+                  placeholder="New compliance template"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-foreground">Description (optional)</label>
                 <Textarea
-                  value={activeTemplate.description ?? ""}
+                  value={draftTemplate.description ?? ""}
                   onChange={(event) => handleFieldChange("description", event.target.value)}
                   rows={3}
                   placeholder="Short description for how and when this template is used."
@@ -125,7 +189,7 @@ export default function ComplianceTemplatesPage() {
                     Add item
                   </button>
                 </div>
-                {activeTemplate.items.map((item) => (
+                {draftTemplate.items.map((item) => (
                   <div key={item.id} className="space-y-2 rounded-md border border-border p-3">
                     <div className="flex items-center justify-between gap-2">
                       <Input
@@ -181,11 +245,17 @@ export default function ComplianceTemplatesPage() {
                     </div>
                   </div>
                 ))}
-                {!activeTemplate.items.length && (
+                {!draftTemplate.items.length && (
                   <p className="text-sm text-muted-foreground">
                     No items yet. Add compliance items such as &quot;RN License&quot; or &quot;BLS Certificate&quot;.
                   </p>
                 )}
+              </div>
+
+              <div className="flex justify-end pt-4 border-t">
+                <button type="button" className="ph5-button-primary" onClick={handleSave}>
+                  Save template
+                </button>
               </div>
             </div>
           ) : (
