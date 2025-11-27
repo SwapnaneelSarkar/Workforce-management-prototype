@@ -66,13 +66,6 @@ export default function LandingPage() {
             )
           })}
         </div>
-
-        <footer className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600 md:flex md:items-center md:justify-between">
-          <Link href="/FEATURES_DOCUMENTATION.md" className="inline-flex items-center gap-2 text-slate-800 hover:text-slate-900">
-            Explore documentation
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </footer>
       </div>
     </div>
   )
