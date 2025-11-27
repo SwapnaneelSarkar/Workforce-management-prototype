@@ -13,6 +13,7 @@ import {
   Building2,
   TrendingUp,
   Gavel,
+  Plus,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -36,5 +37,10 @@ export const vendorNavLinks: NavLink[] = [
   { href: "/vendor/vendors", label: "Vendor Directory", icon: Building2 },
   { href: "/vendor/performance", label: "Performance", icon: TrendingUp },
   { href: "/vendor/bids", label: "Bids", icon: Gavel },
+]
+
+export const adminNavLinks: NavLink[] = [
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/organizations/add", label: "Add Organization", icon: Plus },
 ]
 

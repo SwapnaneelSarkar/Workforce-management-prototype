@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { ArrowRight, Building2, UsersRound } from "lucide-react"
+import { ArrowRight, Building2, UsersRound, Shield } from "lucide-react"
 
 const roles = [
   {
@@ -22,6 +22,15 @@ const roles = [
     icon: Building2,
     footnote: "Budget guardrails • Policy workflows",
   },
+  {
+    title: "Admin Portal",
+    description: "Manage organizations, monitor system health, and oversee platform operations.",
+    stats: "Full access",
+    href: "/admin/login",
+    badge: "Administration",
+    icon: Shield,
+    footnote: "Organization management • System monitoring",
+  },
 ]
 
 export default function LandingPage() {
@@ -37,7 +46,7 @@ export default function LandingPage() {
           </p>
         </header>
 
-        <div className="mx-auto grid w-full max-w-3xl gap-6 sm:grid-cols-2">
+        <div className="mx-auto grid w-full max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {roles.map((role) => {
             const Icon = role.icon
             return (

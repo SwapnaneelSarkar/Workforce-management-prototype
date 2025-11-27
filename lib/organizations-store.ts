@@ -1,0 +1,25 @@
+// Re-export types and functions from admin-local-db for backward compatibility
+// This file acts as a compatibility layer to avoid breaking existing imports
+import type {
+  AdminLocalDbOrganizationLocation,
+  AdminLocalDbOrganizationEntry,
+} from "./admin-local-db"
+import {
+  getAllOrganizations,
+  getOrganizationById,
+  addOrganization,
+  updateOrganization,
+  deleteOrganization,
+} from "./admin-local-db"
+
+export type OrganizationLocation = AdminLocalDbOrganizationLocation
+export type Organization = AdminLocalDbOrganizationEntry
+
+export {
+  getAllOrganizations as readOrganizations,
+  getOrganizationById,
+  addOrganization,
+  updateOrganization,
+  deleteOrganization,
+}
+
