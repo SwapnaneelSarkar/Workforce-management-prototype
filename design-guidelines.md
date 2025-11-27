@@ -27,3 +27,4 @@
 - Action column aligned right with icon buttons; progress bars aligned to baseline inside cells.
 
 
+
