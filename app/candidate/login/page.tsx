@@ -22,7 +22,6 @@ export default function CandidateLoginPage() {
   })
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [authMethod, setAuthMethod] = useState<"password" | "sso" | null>(null)
   const [retryCount, setRetryCount] = useState(0)
   const [showRetry, setShowRetry] = useState(false)
 
@@ -43,8 +42,7 @@ export default function CandidateLoginPage() {
       setShowRetry(false)
     }
 
-  const simulateAuth = async (method: "password" | "sso") => {
-    setAuthMethod(method)
+  const simulateAuth = async () => {
     setError(null)
     setIsSubmitting(true)
     setShowRetry(false)
@@ -59,11 +57,7 @@ export default function CandidateLoginPage() {
     if (shouldFail) {
       setIsSubmitting(false)
       setError(
-        method === "sso"
-          ? "SSO authentication failed. Please try again or use password login."
-          : isSignUp
-            ? "Sign up failed. Please try again."
-            : "Invalid credentials. Please check your email and password.",
+        isSignUp ? "Sign up failed. Please try again." : "Invalid credentials. Please check your email and password.",
       )
       setShowRetry(true)
       setRetryCount((prev) => prev + 1)
@@ -103,19 +97,11 @@ export default function CandidateLoginPage() {
       }
     }
 
-    simulateAuth("password")
-  }
-
-  const handleSSO = () => {
-    simulateAuth("sso")
+    simulateAuth()
   }
 
   const handleRetry = () => {
-    if (authMethod === "sso") {
-      handleSSO()
-    } else {
-      handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>)
-    }
+    handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>)
   }
 
   return (
@@ -237,11 +223,7 @@ export default function CandidateLoginPage() {
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
                   <span className="font-semibold">
-                    {authMethod === "sso"
-                      ? "Connecting to SSO provider..."
-                      : isSignUp
-                        ? "Creating your account..."
-                        : "Authenticating..."}
+                    {isSignUp ? "Creating your account..." : "Authenticating..."}
                   </span>
                 </div>
               </div>
@@ -359,7 +341,7 @@ export default function CandidateLoginPage() {
                 disabled={isSubmitting}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-base font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting && authMethod === "password" ? (
+                {isSubmitting ? (
                   <>
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     {isSignUp ? "Creating account..." : "Authenticating..."}
@@ -372,33 +354,6 @@ export default function CandidateLoginPage() {
                 )}
               </button>
 
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-slate-500">Or continue with</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleSSO}
-                disabled={isSubmitting}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSubmitting && authMethod === "sso" ? (
-                  <>
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-transparent" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Shield className="h-4 w-4" />
-                    Sign in with SSO
-                  </>
-                )}
-              </button>
             </div>
 
             <p className="flex items-center gap-2 text-xs text-slate-500">
