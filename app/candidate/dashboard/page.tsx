@@ -280,7 +280,7 @@ function DocumentCard({
     <div className="rounded-xl border-2 border-border px-5 py-4 hover:shadow-md hover:border-primary/20 transition-all duration-200 bg-card/50 backdrop-blur-sm">
       <div className="flex items-center justify-between text-xs">
         <span className="inline-flex rounded-full bg-[#EDF2F7] px-2 py-0.5 font-semibold uppercase text-muted-foreground">{doc.type}</span>
-        <StatusChip label={doc.status} tone={chipTone} />
+        <StatusChip label={doc.status} tone={chipTone} className="min-w-[96px] justify-center" />
       </div>
       <p className="mt-2 text-sm font-semibold text-foreground">{doc.name}</p>
       <p className="text-xs text-muted-foreground">Expires {doc.expiresOn}</p>

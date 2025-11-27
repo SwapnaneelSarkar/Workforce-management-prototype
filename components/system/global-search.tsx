@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { Search } from "lucide-react"
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem, CommandShortcut } from "@/components/ui/command"
 import { useDemoData } from "@/components/providers/demo-data-provider"
@@ -9,11 +9,17 @@ import { useDemoData } from "@/components/providers/demo-data-provider"
 export function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const { organization, vendor } = useDemoData()
 
   const { jobs, candidates } = organization
   const vendorList = vendor.vendors
   const applications = organization.applications
+
+  // Detect current portal context
+  const isCandidatePortal = pathname?.startsWith("/candidate")
+  const isVendorPortal = pathname?.startsWith("/vendor")
+  const isOrganizationPortal = pathname?.startsWith("/organization")
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -46,6 +52,24 @@ export function GlobalSearch() {
     router.push(href)
   }
 
+  // Get navigation path based on portal context
+  const getJobPath = (jobId: string) => {
+    if (isCandidatePortal) {
+      return `/candidate/jobs/${jobId}`
+    }
+    return "/organization/jobs"
+  }
+
+  const getCandidatePath = (applicationId?: string) => {
+    if (isCandidatePortal) {
+      return "/candidate/applications"
+    }
+    if (applicationId) {
+      return `/organization/applications/${applicationId}`
+    }
+    return "/organization/applications"
+  }
+
   return (
     <>
       <button
@@ -58,38 +82,42 @@ export function GlobalSearch() {
         Search
         <kbd className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">⌘K</kbd>
       </button>
-      <CommandDialog open={open} onOpenChange={setOpen} title="Global search" description="Jump to jobs, candidates, or vendors.">
-        <CommandInput placeholder="Search jobs, candidates, vendors…" />
+      <CommandDialog open={open} onOpenChange={setOpen} title="Global search" description={isCandidatePortal ? "Search for jobs and applications." : "Jump to jobs, candidates, or vendors."}>
+        <CommandInput placeholder={isCandidatePortal ? "Search jobs…" : "Search jobs, candidates, vendors…"} />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Jobs">
             {jobs.map((job) => (
-              <CommandItem key={`job-${job.id}`} value={`job ${job.title} ${job.location}`} onSelect={() => closeAndNavigate("/organization/jobs")}>
+              <CommandItem key={`job-${job.id}`} value={`job ${job.title} ${job.location}`} onSelect={() => closeAndNavigate(getJobPath(job.id))}>
                 <span className="font-semibold text-foreground">{job.title}</span>
                 <CommandShortcut>{job.location}</CommandShortcut>
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandGroup heading="Candidates">
-            {candidateItems.map((candidate) => (
-              <CommandItem
-                key={`candidate-${candidate.id}`}
-                value={`candidate ${candidate.name} ${candidate.role}`}
-                onSelect={() => closeAndNavigate(candidate.applicationId ? `/organization/applications/${candidate.applicationId}` : "/organization/applications")}
-              >
-                <span className="font-semibold text-foreground">{candidate.name}</span>
-                <CommandShortcut>{candidate.role}</CommandShortcut>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading="Vendors">
-            {vendorList.map((item) => (
-              <CommandItem key={`vendor-${item.id}`} value={`vendor ${item.name}`} onSelect={() => closeAndNavigate(`/vendor/vendors/${item.id}`)}>
-                <span className="font-semibold text-foreground">{item.name}</span>
-                <CommandShortcut>{item.tier}</CommandShortcut>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          {!isCandidatePortal && (
+            <CommandGroup heading="Candidates">
+              {candidateItems.map((candidate) => (
+                <CommandItem
+                  key={`candidate-${candidate.id}`}
+                  value={`candidate ${candidate.name} ${candidate.role}`}
+                  onSelect={() => closeAndNavigate(getCandidatePath(candidate.applicationId))}
+                >
+                  <span className="font-semibold text-foreground">{candidate.name}</span>
+                  <CommandShortcut>{candidate.role}</CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          {!isCandidatePortal && (
+            <CommandGroup heading="Vendors">
+              {vendorList.map((item) => (
+                <CommandItem key={`vendor-${item.id}`} value={`vendor ${item.name}`} onSelect={() => closeAndNavigate(`/vendor/vendors/${item.id}`)}>
+                  <span className="font-semibold text-foreground">{item.name}</span>
+                  <CommandShortcut>{item.tier}</CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
         </CommandList>
       </CommandDialog>
     </>

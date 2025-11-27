@@ -69,7 +69,7 @@ export function MultiStepForm({
           type="button"
           variant="outline"
           onClick={onBack}
-          disabled={activeStep === 0 || saving}
+          disabled={saving}
           aria-label="Go to previous step"
         >
           Back

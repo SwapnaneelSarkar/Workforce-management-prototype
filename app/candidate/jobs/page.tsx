@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Filter, Search, MapPin, List, Grid } from "lucide-react"
-import { Card, Header, SkeletonLoader, StatusChip, Map } from "@/components/system"
+import { Card, Header, SkeletonLoader, StatusChip } from "@/components/system"
 import { FloatingActionButton } from "@/components/system/fab"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
 import { cn } from "@/lib/utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 type ViewMode = "list" | "map" | "grid"
 
@@ -18,6 +19,8 @@ export default function JobListingPage() {
   const [department, setDepartment] = useState("All")
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("list")
+  const filterControlClass =
+    "flex h-11 w-full items-center rounded-2xl border border-border/70 bg-white/95 text-sm font-medium tracking-tight shadow-[0_6px_20px_rgba(15,23,42,0.08)] backdrop-blur supports-backdrop-blur:bg-white/85"
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 360)
@@ -51,38 +54,54 @@ export default function JobListingPage() {
         ]}
       />
 
-      <Card className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by role, facility, or keyword"
-            className="ph5-input rounded-[999px] border-none bg-[#F7F7F9] pl-10"
-            aria-label="Search jobs"
-          />
-        </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Filter className="h-4 w-4" aria-hidden />
-          <span>{filteredJobs.length} openings</span>
-        </div>
-        <select
-          value={department}
-          onChange={(event) => setDepartment(event.target.value)}
-          className="ph5-input w-full max-w-[220px] rounded-[999px] bg-[#F7F7F9]"
-          aria-label="Filter by department"
-        >
-          {departments.map((dept) => (
-            <option key={dept}>{dept}</option>
-          ))}
-        </select>
-        {/* View mode toggle */}
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-muted p-1">
+      <Card className="flex flex-col gap-4 rounded-[28px] border border-border/60 bg-gradient-to-br from-white via-white to-slate-50 p-4 shadow-[0_12px_35px_rgba(15,23,42,0.08)] sm:p-6">
+        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.3fr)_auto_auto] lg:items-center">
+          <div className="md:col-span-2 lg:col-span-1">
+            <div className={cn("relative px-4", filterControlClass)}>
+              <Search className="pointer-events-none absolute left-7 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by role, facility, or keyword"
+                className="ph5-input h-8 w-full rounded-full border-none bg-transparent pl-7 pr-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none"
+                aria-label="Search jobs"
+              />
+            </div>
+          </div>
+          <div className="md:col-span-2 lg:col-span-1">
+            <Select value={department} onValueChange={setDepartment}>
+              <SelectTrigger
+                className={cn(filterControlClass, "justify-between px-4 text-foreground")}
+                aria-label="Filter by department"
+              >
+                <SelectValue placeholder="All departments" />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl border border-border bg-white shadow-2xl" position="popper" sideOffset={6} avoidCollisions>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center justify-center">
+            <div className="flex h-11 w-full min-w-[190px] items-center justify-between rounded-2xl border border-dashed border-[#BFD2FF] bg-[#F5F8FF] px-4 text-sm font-semibold text-[#1F3B8A] shadow-inner">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-[#4C6EF5]" aria-hidden />
+                <span>Openings</span>
+              </div>
+              <span className="text-base">{filteredJobs.length}</span>
+            </div>
+          </div>
+          {/* View mode toggle */}
+          <div className="flex items-center justify-end">
+            <div className={cn("gap-1 border border-border/70 bg-white/90 px-1", filterControlClass, "h-auto p-1 justify-center shadow-none")}>
           <button
             onClick={() => setViewMode("list")}
             className={cn(
-              "p-2 rounded-md transition-colors",
+              "rounded-md p-1.5 transition-colors",
               viewMode === "list" 
                 ? "bg-background text-foreground shadow-sm" 
                 : "text-muted-foreground hover:text-foreground"
@@ -118,6 +137,8 @@ export default function JobListingPage() {
           >
             <MapPin className="h-4 w-4" />
           </button>
+          </div>
+        </div>
         </div>
       </Card>
 
@@ -127,11 +148,10 @@ export default function JobListingPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <Card className="p-0 overflow-hidden">
-              <Map 
-                location={filteredJobs.length > 0 ? filteredJobs[0].location : "No locations"} 
-                address={filteredJobs.length > 0 ? filteredJobs[0].location : undefined}
-                height="h-[600px]"
-                interactive
+              <img
+                src="/maps/candidate-map.png"
+                alt="Centralized facility map"
+                className="h-[600px] w-full object-cover"
               />
             </Card>
           </div>

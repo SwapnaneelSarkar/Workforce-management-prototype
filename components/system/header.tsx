@@ -36,12 +36,19 @@ export function Header({ title, subtitle, breadcrumbs, actions = [], className, 
 
   return (
     <>
-      <header className={cn("fixed top-0 z-[99999] border-b-2 border-border/80 bg-card/98 backdrop-blur-xl shadow-[0_4px_16px_rgba(16,24,40,0.1)] transition-all duration-300 header-fixed left-0 right-0 md:left-[260px] overflow-x-hidden", className)}>
+      <header
+        className={cn(
+          "fixed top-0 z-[99999] border-b-2 border-border/80 bg-card/98 backdrop-blur-xl shadow-[0_4px_16px_rgba(16,24,40,0.1)] transition-all duration-300 header-fixed left-0 right-0 md:left-[260px] overflow-x-hidden",
+          className,
+        )}
+      >
         <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between overflow-x-hidden">
           <div className="flex flex-col gap-2">
             {breadcrumbs?.length ? <Breadcrumbs items={breadcrumbs} /> : null}
             <div className="space-y-1.5">
-              <h1 className="text-[28px] font-bold text-foreground bg-gradient-to-r from-foreground via-foreground to-foreground/85 bg-clip-text tracking-tight">{title}</h1>
+              <h1 className="text-[28px] font-bold text-foreground bg-gradient-to-r from-foreground via-foreground to-foreground/85 bg-clip-text tracking-tight">
+                {title}
+              </h1>
               {subtitle ? <p className="text-sm text-muted-foreground leading-relaxed font-medium">{subtitle}</p> : null}
             </div>
           </div>

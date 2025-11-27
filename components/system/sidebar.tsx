@@ -5,7 +5,7 @@ import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
-import { Menu, PanelLeftClose, PanelLeftOpen, LayoutDashboard } from "lucide-react"
+import { Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import type { LucideIcon } from "lucide-react"
@@ -26,7 +26,6 @@ type SidebarProps = {
 export function Sidebar({ items, header, footer }: SidebarProps) {
   const pathname = usePathname()
   const [viewport, setViewport] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth))
-  const [isDesktopCollapsed, setDesktopCollapsed] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -38,18 +37,14 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
 
   const isMobile = viewport < 768
   const isTablet = viewport >= 768 && viewport < 1024
-  const collapsed = isTablet || (viewport >= 1024 && isDesktopCollapsed)
+  const collapsed = isTablet
 
   useEffect(() => {
     document.body.style.overflow = drawerOpen ? "hidden" : ""
-    // Add data attribute for collapsed state
-    if (!isMobile && !isTablet) {
-      document.documentElement.setAttribute("data-sidebar-collapsed", isDesktopCollapsed ? "true" : "false")
-    }
     return () => {
       document.body.style.overflow = ""
     }
-  }, [drawerOpen, isDesktopCollapsed, isMobile, isTablet])
+  }, [drawerOpen])
 
   const navContent = useMemo(
     () => (
@@ -134,28 +129,9 @@ export function Sidebar({ items, header, footer }: SidebarProps) {
           </ul>
         </nav>
         <div className={cn("border-t border-border px-5 py-4", collapsed && "px-3")}>{footer}</div>
-        {!(isMobile || isTablet) ? (
-          <button
-            type="button"
-            className="mx-4 mb-4 flex items-center justify-center gap-2 rounded-[8px] border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-[#eef0f4] hover:text-foreground hover:shadow-sm transition-all duration-200"
-            onClick={() => setDesktopCollapsed((prev) => !prev)}
-          >
-            {isDesktopCollapsed ? (
-              <>
-                <PanelLeftOpen className="h-4 w-4" aria-hidden />
-                <span className="hidden lg:inline">Expand</span>
-              </>
-            ) : (
-              <>
-                <PanelLeftClose className="h-4 w-4" aria-hidden />
-                <span className="hidden lg:inline">Collapse</span>
-              </>
-            )}
-          </button>
-        ) : null}
       </div>
     ),
-    [collapsed, footer, header, isDesktopCollapsed, isTablet, items, pathname],
+    [collapsed, footer, header, items, pathname],
   )
 
   if (isMobile) {

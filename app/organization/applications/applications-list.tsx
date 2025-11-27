@@ -141,7 +141,11 @@ function CandidateDetailsModal({ open, onClose, applicationId, organization, tem
             {documents.map((doc) => (
               <div key={doc.id} className="flex items-center justify-between text-xs">
                 <span>{doc.name}</span>
-                <StatusChip label={doc.status} tone={doc.status === "Completed" ? "success" : "warning"} />
+                <StatusChip
+                  label={doc.status}
+                  tone={doc.status === "Completed" ? "success" : "warning"}
+                  className="min-w-[96px] justify-center"
+                />
               </div>
             ))}
             {!documents.length && <p className="text-xs text-muted-foreground">No documents uploaded.</p>}

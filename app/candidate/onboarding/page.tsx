@@ -555,7 +555,15 @@ export default function OnboardingPage() {
           <MultiStepForm
             steps={steps}
             activeStep={activeStep}
-            onBack={() => setActiveStep((prev) => Math.max(0, prev - 1))}
+            onBack={() => {
+              if (activeStep === 0) {
+                // If on first step, go back to previous page
+                router.back()
+              } else {
+                // Otherwise, go to previous step
+                setActiveStep((prev) => Math.max(0, prev - 1))
+              }
+            }}
             onNext={async () => {
               const nextStep = activeStep + 1
               await handleNext(nextStep)

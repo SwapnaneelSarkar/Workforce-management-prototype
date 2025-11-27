@@ -40,6 +40,8 @@ export type Job = {
   description: string
   requirements: string[]
   tags: string[]
+  complianceTemplateId?: string
+  startDate?: string
 }
 
 export type Application = {
@@ -53,6 +55,7 @@ export type Application = {
   vendorName?: string
   matchScore?: number
   submittedRelative?: string
+  missingDocuments?: string[]
 }
 
 export type Vendor = {
@@ -353,6 +356,8 @@ export const jobs: Job[] = [
       "Registered Nurse needed for ICU unit at Memorial Main Campus. Full-time night shift role focused on high-acuity patient care.",
     requirements: ["Active RN License", "Background Check", "Drug Screening", "ACLS Certification"],
     tags: ["Night Shift", "13 Weeks", "$88/hr"],
+    complianceTemplateId: "tmpl-icu-core",
+    startDate: "2025-12-02",
   },
   {
     id: "job-002",
@@ -367,6 +372,8 @@ export const jobs: Job[] = [
     description: "Progressive Care Unit nurse to support step-down patients transitioning from ICU.",
     requirements: ["Active RN License", "Background Check", "CPR Certification"],
     tags: ["Day Shift", "Ongoing", "$76/hr"],
+    complianceTemplateId: "tmpl-med-surg",
+    startDate: "2025-12-09",
   },
   {
     id: "job-003",
@@ -381,6 +388,8 @@ export const jobs: Job[] = [
     description: "Emergency Room nurse with flexible scheduling. Fast-paced environment.",
     requirements: ["Active RN License", "Background Check", "Drug Screening", "ACLS Certification"],
     tags: ["Variable Shift", "8 Weeks", "$90/hr"],
+    complianceTemplateId: "tmpl-icu-core",
+    startDate: "2025-12-05",
   },
   {
     id: "job-004",
@@ -395,6 +404,8 @@ export const jobs: Job[] = [
     description: "Medical-Surgical nurse supporting post-operative patients.",
     requirements: ["Active RN License", "Background Check"],
     tags: ["Day Shift", "Ongoing", "$74/hr"],
+    complianceTemplateId: "tmpl-med-surg",
+    startDate: "2025-12-15",
   },
   {
     id: "job-005",
@@ -409,6 +420,8 @@ export const jobs: Job[] = [
     description: "Telemetry nurse focusing on cardiac monitoring.",
     requirements: ["Active RN License", "ACLS Certification", "Background Check"],
     tags: ["Evening Shift", "12 Weeks", "$82/hr"],
+    complianceTemplateId: "tmpl-icu-core",
+    startDate: "2025-12-11",
   },
 ]
 
@@ -424,6 +437,7 @@ export const applications: Application[] = [
     vendorName: "QuickCheck Solutions",
     matchScore: 82,
     submittedRelative: "2d ago",
+    missingDocuments: ["Drug Screening", "Background Check"],
   },
   {
     id: "app-002",
@@ -436,6 +450,7 @@ export const applications: Application[] = [
     vendorName: "HealthVerify Pro",
     matchScore: 74,
     submittedRelative: "5d ago",
+    missingDocuments: [],
   },
   {
     id: "app-003",
@@ -448,6 +463,7 @@ export const applications: Application[] = [
     vendorName: "LicenseCheck Pro",
     matchScore: 69,
     submittedRelative: "4d ago",
+    missingDocuments: ["Drug Screening"],
   },
   {
     id: "app-004",
@@ -460,6 +476,7 @@ export const applications: Application[] = [
     vendorName: "QuickCheck Solutions",
     matchScore: 91,
     submittedRelative: "1w ago",
+    missingDocuments: [],
   },
 ]
 

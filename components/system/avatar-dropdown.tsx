@@ -3,10 +3,21 @@
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import Image from "next/image"
+import { usePathname } from "next/navigation"
 import { ChevronDown, LogOut, Settings, UserRound } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export function AvatarDropdown() {
+  const pathname = usePathname()
+  const isOrganizationPage = pathname?.startsWith("/organization") && pathname !== "/organization/login"
+  const isCandidatePage = pathname?.startsWith("/candidate") && pathname !== "/candidate/login"
+  
+  const displayName = isOrganizationPage ? "Recovered Health" : isCandidatePage ? "Joanne Rose" : "User"
+  const displayRole = isOrganizationPage ? "Organization" : isCandidatePage ? "Candidate" : "User"
+  const avatarImage = isOrganizationPage 
+    ? "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop&auto=format"
+    : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face&auto=format"
+  
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -64,8 +75,8 @@ export function AvatarDropdown() {
         >
           <div className="relative flex h-10 w-10 items-center justify-center rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary/10">
             <Image
-              src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face&auto=format"
-              alt="Joanne Rose"
+              src={avatarImage}
+              alt={displayName}
               width={40}
               height={40}
               className="object-cover"
@@ -73,8 +84,8 @@ export function AvatarDropdown() {
             />
           </div>
           <div className="flex flex-col items-start leading-tight">
-            <span className="text-sm font-semibold text-foreground">Joanne Rose</span>
-            <span className="text-xs text-muted-foreground">Candidate</span>
+            <span className="text-sm font-semibold text-foreground">{displayName}</span>
+            <span className="text-xs text-muted-foreground">{displayRole}</span>
           </div>
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
         </button>

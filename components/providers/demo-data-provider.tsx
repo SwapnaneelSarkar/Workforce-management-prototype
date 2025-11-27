@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react"
 import type { ReactNode } from "react"
+import { useComplianceTemplatesStore } from "@/lib/compliance-templates-store"
 import type {
   Application,
   ApplicationInsight,
@@ -85,9 +86,10 @@ type DemoDataContextValue = {
       requirements: string[]
       tags: string[]
       status?: Job["status"]
-        complianceTemplateId?: string
-      }) => Promise<Job>
-      updateJob: (id: string, updates: Partial<Job>) => void
+      complianceTemplateId?: string
+      startDate?: string
+    }) => Promise<Job>
+    updateJob: (id: string, updates: Partial<Job>) => void
     updateApplicationStatus: (id: string, status: Application["status"]) => void
     rejectApplication: (id: string) => void
     submitVendorBid: (payload: { jobId: string; vendorName: string; rate: string; availability: string }) => Promise<VendorBid>
@@ -127,6 +129,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
   const [bidsState, setBids] = useState<VendorBid[]>(initialVendorBids)
   const [notificationList, setNotificationList] = useState<Notification[]>(initialNotifications)
   const [vendorDetailsState] = useState<VendorDetail[]>(initialVendorDetails)
+  const templates = useComplianceTemplatesStore((state) => state.templates)
 
   const primaryCandidate = useMemo(() => ({ ...profile, documents }), [profile, documents])
   const candidatePool = useMemo(() => [primaryCandidate, ...initialCandidates.slice(1)], [primaryCandidate])
@@ -242,17 +245,29 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return existing
       }
+
+      const template = job.complianceTemplateId ? templates.find((item) => item.id === job.complianceTemplateId) : undefined
+      const templateRequirements = template
+        ? template.items.filter((item) => item.requiredAtSubmission).map((item) => item.name)
+        : []
+      const requirementNames = (templateRequirements.length ? templateRequirements : job.requirements) ?? []
+      const availableDocTypes = documents.map((doc) => doc.type)
+      const missingDocuments = requirementNames.filter((req) => !availableDocTypes.includes(req))
+      const documentStatus: Application["documentStatus"] = missingDocuments.length ? "Missing" : "Complete"
+      const submissionTimestamp = new Date().toISOString()
+
       const application: Application = {
         id: crypto.randomUUID(),
         jobId,
         candidateId: profile.id,
         candidateName: profile.name,
         status: "Submitted",
-        submittedAt: new Date().toISOString().slice(0, 10),
-        documentStatus: "Complete",
+        submittedAt: submissionTimestamp,
+        documentStatus,
         vendorName: "Internal Talent",
         matchScore: 78,
         submittedRelative: "Just now",
+        missingDocuments,
       }
       setApplicationsState((prev) => [...prev, application])
       setNotificationList((prev) => [
@@ -261,7 +276,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       ])
       return application
     },
-    [applicationsState, jobsState, profile.id, profile.name],
+    [applicationsState, documents, jobsState, profile.id, profile.name, templates],
   )
 
   const createJob = useCallback(
@@ -278,12 +293,14 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       tags: string[]
       status?: Job["status"]
       complianceTemplateId?: string
+      startDate?: string
     }) => {
       await simulateDelay(400, 900)
       const job: Job = {
         id: crypto.randomUUID(),
         ...payload,
         status: payload.status ?? "Draft",
+        startDate: payload.startDate ?? new Date().toISOString().slice(0, 10),
       }
       setJobsState((prev) => [...prev, job])
       return job

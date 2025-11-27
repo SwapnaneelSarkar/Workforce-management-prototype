@@ -14,6 +14,7 @@ export default function DocumentWalletPage() {
   const { candidate, actions } = useDemoData()
   const { data: localDb, markDocumentUploaded } = useLocalDb()
   const { pushToast } = useToast()
+  const today = new Date().toISOString().split("T")[0]
   const [name, setName] = useState("")
   const [type, setType] = useState("Active RN License")
   const [expiryDate, setExpiryDate] = useState("")
@@ -114,13 +115,6 @@ export default function DocumentWalletPage() {
         breadcrumbs={[
           { label: "Candidate Portal", href: "/candidate/dashboard" },
           { label: "Documents" },
-        ]}
-        actions={[
-          {
-            id: "verified",
-            label: `${verifiedCount} of ${totalDocs} verified`,
-            variant: "secondary",
-          },
         ]}
       />
 
@@ -242,6 +236,7 @@ export default function DocumentWalletPage() {
                 label=""
                 value={expiryDate}
                 onChange={setExpiryDate}
+                min={today}
               />
             </div>
           </div>
@@ -314,7 +309,7 @@ export default function DocumentWalletPage() {
                   <span className="inline-flex rounded-full bg-gradient-to-r from-[#EDF2F7] to-[#E2E8F0] px-3 py-1 font-semibold uppercase text-muted-foreground shadow-sm">
                     {doc.type}
                   </span>
-                  <StatusChip label={doc.status} tone={getStatusTone(doc.status)} />
+                  <StatusChip label={doc.status} tone={getStatusTone(doc.status)} className="min-w-[96px] justify-center" />
                 </div>
                 <p className="text-sm font-semibold text-foreground mb-1">{doc.name}</p>
                 <p className="text-xs text-muted-foreground mb-3">Updated {doc.lastUpdated}</p>

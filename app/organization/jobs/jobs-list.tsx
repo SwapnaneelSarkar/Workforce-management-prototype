@@ -100,7 +100,7 @@ export default function JobsList() {
                     </span>
                   </td>
                   <td className="ph5-table-cell text-sm text-muted-foreground">
-                    {getTemplateName((job as any).complianceTemplateId)}
+                    {getTemplateName(job.complianceTemplateId)}
                   </td>
                   <td className="ph5-table-cell text-sm text-muted-foreground">{(job as any).applicationCount}</td>
                   <td className="ph5-table-cell">
