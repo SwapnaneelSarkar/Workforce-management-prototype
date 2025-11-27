@@ -30,6 +30,20 @@ const SPECIALTIES = [
 ]
 const LICENSE_TYPES = ["Compact State", "Single State"]
 const CERTIFICATIONS = ["BLS", "ACLS", "PALS", "CPR", "CNA Certification", "RN License"]
+const MINIMUM_AGE_YEARS = 16
+
+const getDobMaxDate = () => {
+  const today = new Date()
+  const cutoff = new Date(today.getFullYear() - MINIMUM_AGE_YEARS, today.getMonth(), today.getDate())
+  return cutoff.toISOString().split("T")[0]
+}
+
+const getDobError = (value: string, maxDate: string) => {
+  if (!value) {
+    return ""
+  }
+  return value > maxDate ? `Must be ${MINIMUM_AGE_YEARS}+ years old` : ""
+}
 
 type MultiSelectFieldProps = {
   options: string[]
@@ -77,6 +91,7 @@ function MultiSelectChips({ options, value, onChange, maxSelections }: MultiSele
 }
 
 export default function OnboardingPage() {
+  const dobMaxDate = getDobMaxDate()
   const router = useRouter()
   const { candidate, actions } = useDemoData()
   const [saving, setSaving] = useState(false)
@@ -100,6 +115,8 @@ export default function OnboardingPage() {
     requestedTimeOff1: "",
     requestedTimeOff2: "",
   })
+
+  const dobError = getDobError(answers.dateOfBirth, dobMaxDate)
 
   const steps = [
     {
@@ -232,6 +249,9 @@ export default function OnboardingPage() {
             label="Date of birth"
             value={answers.dateOfBirth}
             onChange={(value) => setAnswers((prev) => ({ ...prev, dateOfBirth: value }))}
+            helper={`Must be ${MINIMUM_AGE_YEARS}+ years old`}
+            max={dobMaxDate}
+            error={dobError}
           />
         </div>
       ),
@@ -367,6 +387,7 @@ export default function OnboardingPage() {
             saving={saving}
             nextLabel="Next question"
             finishLabel="Continue"
+            primaryDisabled={steps[activeStep]?.id === "license-compliance" && Boolean(dobError)}
           />
         ) : (
           <div className="space-y-6">

@@ -20,6 +20,7 @@ type MultiStepFormProps = {
   saving?: boolean
   nextLabel?: string
   finishLabel?: string
+  primaryDisabled?: boolean
 }
 
 export function MultiStepForm({
@@ -31,6 +32,7 @@ export function MultiStepForm({
   saving,
   nextLabel = "Save & Continue",
   finishLabel = "Finish",
+  primaryDisabled = false,
 }: MultiStepFormProps) {
   const step = steps[activeStep]
   const progressValue = Math.round(((activeStep + 1) / steps.length) * 100)
@@ -72,7 +74,12 @@ export function MultiStepForm({
         >
           Back
         </Button>
-        <Button type="button" onClick={handlePrimary} disabled={saving} aria-label={isLast ? finishLabel : nextLabel}>
+        <Button
+          type="button"
+          onClick={handlePrimary}
+          disabled={saving || primaryDisabled}
+          aria-label={isLast ? finishLabel : nextLabel}
+        >
           {saving ? "Saving..." : isLast ? finishLabel : nextLabel}
         </Button>
       </div>
