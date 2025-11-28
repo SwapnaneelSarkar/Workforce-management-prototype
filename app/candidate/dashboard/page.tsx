@@ -68,9 +68,19 @@ export default function CandidateDashboardPage() {
   const isJobReady = readiness?.status === "Ready" && isComplianceComplete() && isOnboardingComplete()
 
   const quickActions = [
-    { label: "Browse jobs", description: "Review matches and new postings", href: "/candidate/jobs", cta: "See roles" },
-    { label: "Upload credentials", description: "Keep wallet green", href: "/candidate/documents", cta: "Update docs" },
-    { label: "View applications", description: "Check statuses and next steps", href: "/candidate/applications", cta: "Open tracker" },
+    { label: "Browse Jobs", description: "Review matches and new postings", href: "/candidate/jobs", cta: "See roles" },
+    {
+      label: "Manage Preferences",
+      description: "Tune job preferences, saved searches, and AutoApply criteria",
+      href: "/candidate/onboarding",
+      cta: "Update settings",
+    },
+    {
+      label: "Manage Compliance",
+      description: "Handle credentials, verifications, and all compliance tasks",
+      href: "/candidate/documents",
+      cta: "Open wallet",
+    },
   ]
 
   return (
@@ -131,7 +141,7 @@ export default function CandidateDashboardPage() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.8fr,1fr]">
-          <Card title="Onboarding progress" subtitle={`${totalCompleted} of ${totalRequirements} requirements complete`}>
+          <Card title="Profile Progress" subtitle={`${totalCompleted} of ${totalRequirements} requirements complete`}>
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
               <CircularProgress value={progressPercent} />
               <div className="flex-1 space-y-4">

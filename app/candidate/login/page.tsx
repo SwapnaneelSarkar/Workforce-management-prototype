@@ -2,10 +2,56 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react"
 import { ArrowLeft, ArrowRight, CheckCircle2, Shield, RefreshCw, AlertCircle, UserPlus, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+
+type SupportedSsoProvider = "google" | "apple" | "microsoft"
+
+const SSO_PROVIDERS: Array<{
+  id: SupportedSsoProvider
+  label: string
+  helper: string
+  icon: ReactNode
+}> = [
+  {
+    id: "google",
+    label: "Google",
+    helper: "Work email",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.2-2 2.9v2.4h3.2c1.9-1.8 3-4.5 3-7.5 0-.7-.1-1.3-.2-1.9H12z" />
+        <path fill="#4285F4" d="M12 21c2.7 0 5-1 6.6-2.7l-3.2-2.4c-.9.6-2 1-3.4 1-2.6 0-4.9-1.8-5.7-4.2H3v2.6C4.7 18.9 8.1 21 12 21z" />
+        <path fill="#FBBC05" d="M6.3 12c-.2-.6-.3-1.2-.3-1.8s.1-1.2.3-1.8V5.8H3A9 9 0 0 0 3 18.2l3.3-2.6c-.2-.6-.3-1.2-.3-1.6z" />
+        <path fill="#34A853" d="M12 4.5c1.5 0 2.8.5 3.8 1.5l2.9-2.9C17 1.2 14.7 0 12 0 8.1 0 4.7 2.1 3 5.8l3.3 2.6C7.1 5.4 9.4 4.5 12 4.5z" />
+      </svg>
+    ),
+  },
+  {
+    id: "apple",
+    label: "Apple",
+    helper: "Company devices",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
+        <path d="M16.3 2c0 1-.4 1.9-1 2.6a3.2 3.2 0 0 1-2.5 1.2c0-1.1.4-2 1-2.8S15.7 2 16.3 2zm4.2 15.3c-.4 1.1-.6 1.6-1.2 2.5-.8 1.3-1.8 3-3.2 3-1.2 0-1.6-.8-3-.8-1.5 0-2 .7-3.1.8-1.3.1-2.2-1.4-3-2.7-1.6-2.4-2.8-6.7-1.2-9.6.8-1.4 2.1-2.3 3.5-2.3 1.3 0 2.4.9 3.1.9.7 0 2-.9 3.4-.9.6 0 2.3.2 3.4 1.8-.1.1-2 1.2-2 3.6 0 2.8 2.5 3.8 2.6 3.9z" />
+      </svg>
+    ),
+  },
+  {
+    id: "microsoft",
+    label: "Microsoft",
+    helper: "Entra ID",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
+        <path fill="#F25022" d="M11.5 11.5H2V2h9.5z" />
+        <path fill="#00A4EF" d="M22 11.5h-9.5V2H22z" />
+        <path fill="#7FBA00" d="M11.5 22H2v-9.5h9.5z" />
+        <path fill="#FFB900" d="M22 22h-9.5v-9.5H22z" />
+      </svg>
+    ),
+  },
+]
 
 export default function CandidateLoginPage() {
   const router = useRouter()
@@ -14,7 +60,8 @@ export default function CandidateLoginPage() {
   const [formState, setFormState] = useState({
     firstName: "",
     lastName: "",
-    phone: "",
+    occupation: "",
+    specialty: "",
     email: "joanne.rose@email.com",
     password: "password",
     confirmPassword: "",
@@ -34,7 +81,9 @@ export default function CandidateLoginPage() {
   }, [])
 
   const handleChange =
-  (field: "firstName" | "lastName" | "phone" | "email" | "password" | "confirmPassword" | "remember") =>
+  (
+    field: "firstName" | "lastName" | "occupation" | "specialty" | "email" | "password" | "confirmPassword" | "remember",
+  ) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = field === "remember" ? event.target.checked : event.target.value
       setFormState((prev) => ({ ...prev, [field]: value }))
@@ -83,8 +132,8 @@ export default function CandidateLoginPage() {
     }
 
     if (isSignUp) {
-      if (!formState.firstName || !formState.lastName || !formState.phone) {
-        setError("Please complete your name and phone number to create your account.")
+      if (!formState.firstName || !formState.lastName || !formState.occupation || !formState.specialty) {
+        setError("Please complete your name, occupation, and specialty to create your account.")
         return
       }
       if (formState.password !== formState.confirmPassword) {
@@ -102,6 +151,25 @@ export default function CandidateLoginPage() {
 
   const handleRetry = () => {
     handleSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>)
+  }
+
+  const handleSsoSignIn = async (providerId: SupportedSsoProvider) => {
+    if (isSubmitting) return
+
+    if (redirectTimeout.current) {
+      clearTimeout(redirectTimeout.current)
+    }
+
+    setError(null)
+    setIsSubmitting(true)
+    setShowRetry(false)
+
+    // Placeholder for real provider SDK handoff
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    redirectTimeout.current = setTimeout(() => {
+      router.push(`/candidate/dashboard?sso=${providerId}`)
+    }, 300)
   }
 
   return (
@@ -274,18 +342,33 @@ export default function CandidateLoginPage() {
               </label>
 
               {isSignUp && (
-                <label className="block text-sm font-medium text-slate-700">
-                  Phone number
-                  <input
-                    type="tel"
-                    autoComplete="tel"
-                    value={formState.phone}
-                    onChange={handleChange("phone")}
-                    disabled={isSubmitting}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    placeholder="+1 (555) 123-4567"
-                  />
-                </label>
+                <>
+                  <label className="block text-sm font-medium text-slate-700">
+                    Occupation
+                    <input
+                      type="text"
+                      autoComplete="organization-title"
+                      value={formState.occupation}
+                      onChange={handleChange("occupation")}
+                      disabled={isSubmitting}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="Travel Nurse"
+                    />
+                  </label>
+
+                  <label className="block text-sm font-medium text-slate-700">
+                    Specialty
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      value={formState.specialty}
+                      onChange={handleChange("specialty")}
+                      disabled={isSubmitting}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      placeholder="ICU"
+                    />
+                  </label>
+                </>
               )}
 
               <label className="block text-sm font-medium text-slate-700">
@@ -354,6 +437,33 @@ export default function CandidateLoginPage() {
                 )}
               </button>
 
+              {!isSignUp && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    <span className="h-px flex-1 bg-slate-200" />
+                    Or continue with
+                    <span className="h-px flex-1 bg-slate-200" />
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {SSO_PROVIDERS.map((provider) => (
+                      <Button
+                        key={provider.id}
+                        variant="outline"
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => handleSsoSignIn(provider.id)}
+                        className="flex w-full flex-col items-center gap-2 rounded-2xl border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white">
+                          {provider.icon}
+                        </span>
+                        <span className="text-slate-900">{provider.label}</span>
+                        <span className="text-xs font-normal text-slate-500">{provider.helper}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <p className="flex items-center gap-2 text-xs text-slate-500">

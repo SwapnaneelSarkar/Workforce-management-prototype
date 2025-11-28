@@ -124,15 +124,15 @@ export default function CandidateProfilePage() {
         ]}
       />
 
-      {/* Onboarding Progress Section */}
+      {/* Profile Progress Section */}
       <Card>
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-foreground mb-1">Your Onboarding Progress</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Your Profile Progress</h3>
             <p className="text-sm text-muted-foreground mb-4">
               {totalRequirements > 0
                 ? `You're ${onboardingPercent}% complete (${totalCompleted}/${totalRequirements}). Keep going to unlock applications.`
-                : "Start your onboarding checklist to unlock job submissions."}
+                : "Start your profile checklist to unlock job submissions."}
             </p>
             <Button
               variant="outline"
