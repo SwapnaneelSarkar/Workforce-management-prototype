@@ -1,7 +1,7 @@
 "use client"
 
 import { type ChangeEvent, useEffect, useRef, useState } from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, CheckCircle2, Circle, Sparkles, TrendingUp, FileText, MapPin, Briefcase, Calendar, Award, User, Clock } from "lucide-react"
 import { StatusChip } from "@/components/system"
 import { DatePicker } from "@/components/system/date-picker"
 import { useDemoData } from "@/components/providers/demo-data-provider"
@@ -9,6 +9,8 @@ import { useLocalDb } from "@/components/providers/local-db-provider"
 import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { useNavigation } from "@/lib/use-navigation"
 
 const PREFERRED_LOCATIONS = ["California", "Texas", "Florida", "New York", "Washington", "Arizona", "Remote"]
 const WORK_TYPES = ["Full-time", "Part-time", "Contract", "Travel", "Per Diem"]
@@ -176,6 +178,7 @@ export default function OnboardingPage() {
     markDocumentUploaded,
   } = useLocalDb()
   const { pushToast } = useToast()
+  const { goCandidateDashboard } = useNavigation()
   const resumeInputRef = useRef<HTMLInputElement>(null)
   const [answers, setAnswers] = useState<AnswersState>(initialAnswers)
   const [errors, setErrors] = useState<ErrorsState>({})
@@ -615,69 +618,135 @@ export default function OnboardingPage() {
         requestedTimeOff2: answers.requestedTimeOff2,
       })
       pushToast({ title: "Questionnaire saved", description: "We captured your additional context.", type: "success" })
+      // Navigate to dashboard after successful save
+      goCandidateDashboard()
     } catch (error) {
       pushToast({ title: "Save failed", description: "Please try again.", type: "error" })
-    } finally {
       setQuestionnaireSaving(false)
     }
   }
 
+  const getItemIcon = (itemId: ChecklistItemId) => {
+    const iconMap: Record<ChecklistItemId, typeof MapPin> = {
+      preferredLocations: MapPin,
+      preferredWorkTypes: Briefcase,
+      preferredShifts: Clock,
+      contractLength: Calendar,
+      availableStart: Calendar,
+      recentJobTitle: Briefcase,
+      totalExperienceYears: TrendingUp,
+      occupation: User,
+      licenseType: Award,
+      dateOfBirth: User,
+      resumeFileName: FileText,
+    }
+    return iconMap[itemId] || Circle
+  }
+
   return (
     <div className="space-y-8 p-8">
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Candidate / Profile Progress
-        </p>
-        <h1 className="text-2xl font-semibold text-foreground">Profile Progress Checklist</h1>
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10">
+            <Sparkles className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Candidate / Profile Progress
+            </p>
+            <h1 className="text-3xl font-bold text-foreground mt-1">Let's get to know u better</h1>
+          </div>
+        </div>
+        <p className="text-base text-muted-foreground max-w-2xl">
           Complete any requirement in any order. Each save updates your readiness instantly.
         </p>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr,1fr]">
-        <div className="rounded-3xl border border-border bg-card/70 p-6 shadow-sm backdrop-blur">
-          <div className="sticky top-0 z-20 mb-6 -mx-6 -mt-6 flex flex-col gap-2 rounded-t-3xl border-b border-border/60 bg-card/98 px-6 py-4 backdrop-blur sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Interactive checklist</p>
-              <p className="text-sm text-muted-foreground">Open any item to update its details. Save to lock progress.</p>
+        <div className="rounded-3xl border-2 border-border/50 bg-gradient-to-br from-card/90 via-card/70 to-card/50 p-6 shadow-xl backdrop-blur-sm">
+          <div className="sticky top-0 z-20 mb-6 -mx-6 -mt-6 flex flex-col gap-3 rounded-t-3xl border-b-2 border-border/40 bg-gradient-to-r from-card/98 via-card/95 to-card/98 px-6 py-5 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-foreground">Interactive Checklist</p>
+              <p className="text-xs text-muted-foreground">Open any item to update its details. Save to lock progress.</p>
             </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-foreground">{completedChecklistItems}</p>
-              <p className="text-xs text-muted-foreground">of {totalChecklistItems} complete</p>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">{completedChecklistItems}</p>
+                <p className="text-xs font-medium text-muted-foreground">of {totalChecklistItems} complete</p>
+              </div>
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                <CheckCircle2 className={cn("h-6 w-6", completedChecklistItems === totalChecklistItems ? "text-success" : "text-primary/60")} />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {checklistOrder.map((itemId) => {
               const item = checklistMeta[itemId]
               const isExpanded = expandedItem === itemId
               const { label: statusLabel, tone: statusTone } = getItemStatus(itemId)
               const isSaving = savingItem === itemId
               const disableSave = isSaving || (itemId === "resumeFileName" && uploadingResume)
+              const isComplete = isItemComplete(itemId)
+              const Icon = getItemIcon(itemId)
               return (
-                <div key={itemId} className="rounded-2xl border border-border/70 bg-background/80">
+                <div 
+                  key={itemId} 
+                  className={cn(
+                    "rounded-2xl border-2 transition-all duration-300",
+                    isComplete 
+                      ? "border-success/40 bg-gradient-to-br from-success/10 via-success/5 to-transparent shadow-md" 
+                      : isExpanded
+                      ? "border-primary/40 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent shadow-lg scale-[1.01]"
+                      : "border-border/60 bg-gradient-to-br from-background/90 via-background/80 to-background/70 hover:border-primary/30 hover:shadow-md hover:-translate-y-0.5"
+                  )}
+                >
                   <button
                     type="button"
-                    className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+                    className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left group"
                     onClick={() => setExpandedItem((current) => (current === itemId ? null : itemId))}
                   >
-                    <div>
-                      <p className="font-semibold text-foreground">{item.label}</p>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-300 mt-0.5",
+                        isComplete 
+                          ? "bg-success/20 text-success" 
+                          : "bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                      )}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className={cn("font-semibold text-foreground mb-1", isComplete && "text-success")}>{item.label}</p>
+                        <p className="text-sm text-muted-foreground">{item.description}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-3">
                       <StatusChip label={statusLabel} tone={statusTone} />
                       <ChevronDown
-                        className={`h-5 w-5 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                        className={cn(
+                          "h-5 w-5 text-muted-foreground transition-all duration-300",
+                          isExpanded && "rotate-180 text-primary"
+                        )}
                       />
                     </div>
                   </button>
                   {isExpanded && (
-                    <div className="space-y-4 border-t border-border bg-muted/20 px-5 py-5">
+                    <div className="space-y-4 border-t-2 border-border/40 bg-gradient-to-br from-muted/30 via-muted/20 to-muted/10 px-5 py-5 animate-in slide-in-from-top-2 duration-300">
                       {renderItemContent(itemId)}
-                      <div className="flex justify-end">
-                        <Button onClick={() => handleItemSave(itemId)} disabled={disableSave}>
-                          {isSaving ? "Saving..." : "Save item"}
+                      <div className="flex justify-end pt-2">
+                        <Button 
+                          onClick={() => handleItemSave(itemId)} 
+                          disabled={disableSave}
+                          className="min-w-[120px] bg-primary hover:bg-primary/90"
+                        >
+                          {isSaving ? (
+                            <>
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              Saving...
+                            </>
+                          ) : (
+                            "Save item"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -688,28 +757,73 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="rounded-3xl border border-border bg-card/70 p-6 shadow-sm backdrop-blur">
-          <p className="text-sm font-semibold text-foreground">Progress snapshot</p>
-          <p className="text-sm text-muted-foreground">Keep every tile green to unlock auto-matching.</p>
-          <div className="mt-6 rounded-2xl border border-border/70 bg-background/80 p-6 text-center">
-            <p className="text-4xl font-bold text-foreground">{completionPercent}%</p>
-            <p className="text-sm text-muted-foreground">complete</p>
-            <div className="mt-4 h-2 rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${completionPercent}%` }} />
+        <div className="rounded-3xl border-2 border-border/50 bg-gradient-to-br from-card/90 via-card/70 to-card/50 p-6 shadow-xl backdrop-blur-sm">
+          <div className="space-y-2 mb-6">
+            <p className="text-sm font-bold text-foreground">Progress Snapshot</p>
+            <p className="text-xs text-muted-foreground">Keep every tile green to unlock auto-matching.</p>
+          </div>
+          <div className="mt-6 rounded-2xl border-2 border-border/60 bg-gradient-to-br from-background/90 via-background/80 to-background/70 p-8 text-center shadow-inner">
+            <div className="relative inline-flex items-center justify-center mb-4">
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 blur-xl" />
+              <div className="relative h-24 w-24 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border-4 border-primary/20">
+                <p className="text-4xl font-bold bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent">{completionPercent}%</p>
+              </div>
+            </div>
+            <p className="text-sm font-semibold text-foreground mb-4">Complete</p>
+            <div className="mt-4 h-3 rounded-full bg-muted/60 overflow-hidden shadow-inner">
+              <div 
+                className={cn(
+                  "h-full rounded-full transition-all duration-500 ease-out shadow-sm",
+                  completionPercent === 100 
+                    ? "bg-gradient-to-r from-success to-success/80" 
+                    : completionPercent >= 75
+                    ? "bg-gradient-to-r from-primary to-primary/80"
+                    : "bg-gradient-to-r from-warning to-warning/80"
+                )} 
+                style={{ width: `${completionPercent}%` }} 
+              />
+            </div>
+            <div className="mt-6 pt-6 border-t border-border/40">
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="space-y-1">
+                  <p className="font-semibold text-foreground">{completedChecklistItems}</p>
+                  <p className="text-muted-foreground">Completed</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="font-semibold text-foreground">{totalChecklistItems - completedChecklistItems}</p>
+                  <p className="text-muted-foreground">Remaining</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-6 space-y-3 text-sm text-muted-foreground">
-            <p>• Save each item independently. Changes persist instantly.</p>
-            <p>• Resume is required for recruiters to review your profile.</p>
-            <p>• Compliance and preferences feed recommendations and AutoApply.</p>
+          <div className="mt-6 space-y-3 text-xs text-muted-foreground bg-muted/30 rounded-xl p-4 border border-border/40">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+              <p>Save each item independently. Changes persist instantly.</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <FileText className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <p>Resume is required for recruiters to review your profile.</p>
+            </div>
+            <div className="flex items-start gap-2">
+              <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <p>Compliance and preferences feed recommendations and AutoApply.</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-border bg-card/70 p-6 shadow-sm backdrop-blur">
-        <div className="mb-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Additional candidate questionnaire</p>
-          <h2 className="text-xl font-semibold text-foreground">Tell us anything else we should know</h2>
+      <div className="rounded-3xl border-2 border-border/50 bg-gradient-to-br from-card/90 via-card/70 to-card/50 p-6 shadow-xl backdrop-blur-sm">
+        <div className="mb-6 space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10">
+              <FileText className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Additional candidate questionnaire</p>
+              <h2 className="text-xl font-bold text-foreground mt-1">Tell us anything else we should know</h2>
+            </div>
+          </div>
           <p className="text-sm text-muted-foreground">
             Use this space to highlight context for recruiters, requested time off, or upcoming plans.
           </p>
@@ -720,7 +834,7 @@ export default function OnboardingPage() {
             onChange={(event) => updateAnswer("summaryNote", event.target.value)}
             placeholder="Quick summary (optional, up to 200 characters)"
             maxLength={200}
-            className="w-full min-h-[100px] rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300"
+            className="w-full min-h-[100px] rounded-xl border-2 border-border/60 bg-background/80 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all"
           />
           <div className="grid gap-4 md:grid-cols-2">
             <DatePicker label="Requested time off 1" value={answers.requestedTimeOff1} onChange={(value) => updateAnswer("requestedTimeOff1", value)} />
@@ -728,8 +842,19 @@ export default function OnboardingPage() {
           </div>
         </div>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <Button onClick={handleQuestionnaireSave} disabled={questionnaireSaving}>
-            {questionnaireSaving ? "Saving..." : "Save questionnaire"}
+          <Button 
+            onClick={handleQuestionnaireSave} 
+            disabled={questionnaireSaving}
+            className="min-w-[160px] bg-primary hover:bg-primary/90"
+          >
+            {questionnaireSaving ? (
+              <>
+                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Saving...
+              </>
+            ) : (
+              "Save questionnaire"
+            )}
           </Button>
         </div>
       </div>
