@@ -13,12 +13,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 type ViewMode = "list" | "map" | "grid"
 
 export default function JobListingPage() {
-  const { organization } = useDemoData()
+  const { allJobs } = useDemoData()
   const { data: localDb } = useLocalDb()
   const [query, setQuery] = useState("")
   const [department, setDepartment] = useState("All")
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>("list")
+  
+  // Get candidate's occupation
+  const candidateOccupation = localDb.onboardingDetails?.occupation as string | undefined
   const filterControlClass =
     "flex h-11 w-full items-center rounded-2xl border border-border/70 bg-white/95 text-sm font-medium tracking-tight shadow-[0_6px_20px_rgba(15,23,42,0.08)] backdrop-blur supports-backdrop-blur:bg-white/85"
 
@@ -27,19 +30,46 @@ export default function JobListingPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  const departments = useMemo(() => ["All", ...new Set(organization.jobs.map((job) => job.department))], [organization.jobs])
+  const departments = useMemo(() => ["All", ...new Set(allJobs.map((job) => job.department))], [allJobs])
 
   const filteredJobs = useMemo(() => {
     const normalized = query.toLowerCase()
-    return organization.jobs.filter((job) => {
+    return allJobs.filter((job) => {
       const matchesQuery =
         job.title.toLowerCase().includes(normalized) ||
         job.location.toLowerCase().includes(normalized) ||
         job.tags.some((tag) => tag.toLowerCase().includes(normalized))
       const matchesDept = department === "All" || job.department === department
-      return matchesQuery && matchesDept
+      
+      // Filter by occupation if candidate has one selected
+      // Match exactly by occupation code if job has occupation field set
+      let matchesOccupation = true
+      if (candidateOccupation && candidateOccupation.trim() !== "") {
+        const candidateOcc = candidateOccupation.trim()
+        if (job.occupation && job.occupation.trim() !== "") {
+          // Exact match by occupation code when job has occupation set (case-insensitive)
+          matchesOccupation = job.occupation.trim().toLowerCase() === candidateOcc.toLowerCase()
+        } else {
+          // Fallback: if job doesn't have occupation field, use fuzzy matching for backward compatibility
+          const occLower = candidateOcc.toLowerCase()
+          matchesOccupation = 
+            job.title.toLowerCase().includes(occLower) ||
+            job.department.toLowerCase().includes(occLower) ||
+            job.tags.some((tag) => tag.toLowerCase().includes(occLower)) ||
+            // Also check for common occupation mappings
+            (occLower.includes("rn") && (job.title.toLowerCase().includes("nurse") || job.title.toLowerCase().includes("rn"))) ||
+            (occLower.includes("lpn") && job.title.toLowerCase().includes("lpn")) ||
+            (occLower.includes("cna") && job.title.toLowerCase().includes("cna")) ||
+            (occLower.includes("pt") && (job.title.toLowerCase().includes("physical therapist") || job.title.toLowerCase().includes("pt"))) ||
+            (occLower.includes("ot") && (job.title.toLowerCase().includes("occupational therapist") || job.title.toLowerCase().includes("ot"))) ||
+            (occLower.includes("rt") && (job.title.toLowerCase().includes("respiratory") || job.title.toLowerCase().includes("rt")))
+        }
+      }
+      // If candidate doesn't have occupation set, show all jobs (no filtering)
+      
+      return matchesQuery && matchesDept && matchesOccupation
     })
-  }, [organization.jobs, query, department])
+  }, [allJobs, query, department, candidateOccupation])
 
   const appliedJobs = localDb.jobApplications
 

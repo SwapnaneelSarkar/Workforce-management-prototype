@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useComplianceTemplatesStore } from "@/lib/compliance-templates-store"
 import { Header, Card } from "@/components/system"
@@ -13,6 +13,12 @@ export default function JobsList() {
   const sortBy = searchParams.get("sort") ?? "created"
   const { organization, actions } = useDemoData()
   const { templates } = useComplianceTemplatesStore()
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const jobs = React.useMemo(() => {
     const withCounts = organization.jobs.map((job) => ({
@@ -24,6 +30,25 @@ export default function JobsList() {
     }
     return withCounts
   }, [organization.jobs, organization.applications, sortBy])
+
+  // Show loading state during hydration
+  if (!isMounted) {
+    return (
+      <div className="space-y-6 p-8">
+        <Header
+          title="Jobs"
+          subtitle="Review open and draft jobs and access applicants."
+          breadcrumbs={[
+            { label: "Organization", href: "/organization/dashboard" },
+            { label: "Jobs" },
+          ]}
+        />
+        <Card>
+          <div className="h-64 animate-pulse rounded-md bg-muted" />
+        </Card>
+      </div>
+    )
+  }
 
   const getTemplateName = (templateId?: string) => templates.find((t) => t.id === templateId)?.name ?? "—"
 

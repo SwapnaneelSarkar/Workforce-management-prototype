@@ -11,6 +11,7 @@ import { AdminAddItemModal } from "@/components/compliance/admin-add-item-modal"
 import type { ComplianceItem } from "@/lib/compliance-templates-store"
 import { complianceItemsByCategory } from "@/lib/compliance-items"
 import { getAllDepartments } from "@/lib/organizations-store"
+import { getActiveOccupations } from "@/lib/admin-local-db"
 import { Trash2, Edit } from "lucide-react"
 import { useToast } from "@/components/system"
 
@@ -48,11 +49,22 @@ export default function AdminRequisitionTemplateDetailPage() {
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
   const [isEditingName, setIsEditingName] = useState(false)
   const [isEditingDepartment, setIsEditingDepartment] = useState(false)
+  const [isEditingOccupation, setIsEditingOccupation] = useState(false)
   const [departments, setDepartments] = useState<string[]>([])
+  const [occupations, setOccupations] = useState<Array<{ label: string; value: string }>>([])
 
   useEffect(() => {
     const allDepartments = getAllDepartments()
     setDepartments(allDepartments)
+    
+    if (typeof window !== "undefined") {
+      try {
+        const occs = getActiveOccupations()
+        setOccupations(occs.map((occ) => ({ label: occ.name, value: occ.code })))
+      } catch (error) {
+        console.warn("Failed to load occupations", error)
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -97,6 +109,18 @@ export default function AdminRequisitionTemplateDetailPage() {
     })
     setIsEditingDepartment(false)
     pushToast({ title: "Success", description: "Department updated." })
+  }
+
+  const handleSaveOccupation = () => {
+    if (!draftTemplate.occupation) {
+      pushToast({ title: "Validation Error", description: "Occupation is required." })
+      return
+    }
+    actions.updateRequisitionTemplate(templateId, {
+      occupation: draftTemplate.occupation,
+    })
+    setIsEditingOccupation(false)
+    pushToast({ title: "Success", description: "Occupation updated." })
   }
 
   const handleAddItem = (item: ComplianceItem) => {
@@ -204,6 +228,59 @@ export default function AdminRequisitionTemplateDetailPage() {
                 </div>
               ) : (
                 <p className="text-sm text-foreground">{draftTemplate.name}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground">Occupation</Label>
+                {!isEditingOccupation && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingOccupation(true)}
+                    className="p-1 rounded-md hover:bg-muted transition-colors"
+                  >
+                    <Edit className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+              {isEditingOccupation ? (
+                <div className="space-y-2">
+                  <select
+                    value={draftTemplate.occupation || ""}
+                    onChange={(e) => handleFieldChange("occupation", e.target.value)}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    autoFocus
+                  >
+                    <option value="">Select occupation</option>
+                    {occupations.map((occ) => (
+                      <option key={occ.value} value={occ.value}>
+                        {occ.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="ph5-button-primary text-xs"
+                      onClick={handleSaveOccupation}
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      className="ph5-button-secondary text-xs"
+                      onClick={() => {
+                        setIsEditingOccupation(false)
+                        setDraftTemplate({ ...draftTemplate, occupation: template?.occupation || "" })
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-foreground">{draftTemplate.occupation || "—"}</p>
               )}
             </div>
 

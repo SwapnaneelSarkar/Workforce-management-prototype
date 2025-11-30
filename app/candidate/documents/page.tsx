@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Upload, CheckCircle2, XCircle, Clock, Eye, Calendar } from "lucide-react"
+import { useEffect, useState, useMemo } from "react"
+import { Upload, CheckCircle2, XCircle, Clock, Eye, Calendar, Trash2 } from "lucide-react"
 import { Card, Header, SkeletonLoader, StatusChip, FilePreviewModal, DatePicker } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
@@ -9,10 +9,11 @@ import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { getOccupationByCode, getActiveOccupations } from "@/lib/admin-local-db"
 
 export default function DocumentWalletPage() {
-  const { candidate, actions } = useDemoData()
-  const { data: localDb, markDocumentUploaded } = useLocalDb()
+  const { candidate, actions, organization } = useDemoData()
+  const { data: localDb, markDocumentUploaded, removeDocumentUploaded, saveOnboardingDetails } = useLocalDb()
   const { pushToast } = useToast()
   const today = new Date().toISOString().split("T")[0]
   const [name, setName] = useState("")
@@ -21,15 +22,69 @@ export default function DocumentWalletPage() {
   const [uploading, setUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [previewDoc, setPreviewDoc] = useState<{ name: string; type: string; size?: string } | null>(null)
+  const [occupationOptions, setOccupationOptions] = useState<Array<{ label: string; value: string }>>([])
 
   useEffect(() => {
     const timer = setTimeout(() => setLoading(false), 420)
     return () => clearTimeout(timer)
   }, [])
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const occupations = getActiveOccupations()
+        setOccupationOptions(occupations.map((occ) => ({ label: occ.name, value: occ.code })))
+      } catch (error) {
+        console.warn("Failed to load occupations", error)
+      }
+    }
+  }, [])
+
+  const currentOccupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
+
+  // Get compliance wallet items based on occupation
+  const complianceWalletItems = useMemo(() => {
+    if (!currentOccupationCode) {
+      return []
+    }
+    
+    const occupation = getOccupationByCode(currentOccupationCode)
+    if (!occupation) {
+      return []
+    }
+
+    // Find wallet template for this occupation
+    const walletTemplate = organization.walletTemplates.find(
+      (t) => t.occupation === occupation.code
+    )
+
+    if (!walletTemplate || !walletTemplate.items.length) {
+      return []
+    }
+
+    return walletTemplate.items.map((item) => item.name)
+  }, [currentOccupationCode, organization.walletTemplates])
+
+  const handleOccupationChange = (occupationCode: string) => {
+    saveOnboardingDetails({ occupation: occupationCode })
+    // Initialize wallet with the selected occupation
+    if (occupationCode) {
+      actions.initializeCandidateWalletWithOccupation(occupationCode)
+    }
+    pushToast({ 
+      title: "Occupation selected", 
+      description: "Compliance wallet has been updated based on your occupation.", 
+      type: "success" 
+    })
+  }
+
   const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
-  const requiredDocs =
-    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
+  // Use compliance wallet items if available, otherwise fall back to onboarding required docs
+  const requiredDocs = complianceWalletItems.length > 0 
+    ? complianceWalletItems 
+    : candidate.onboarding.requiredDocuments.length > 0 
+      ? candidate.onboarding.requiredDocuments 
+      : fallbackRequiredDocs
   const uploadedDocEntries = localDb.uploadedDocuments
   const uploadedDocSet = new Set(Object.keys(uploadedDocEntries))
   const uploadedCount = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
@@ -82,6 +137,21 @@ export default function DocumentWalletPage() {
     }
   }
 
+  const handleDeleteDocument = async (docId: string) => {
+    if (!confirm("Are you sure you want to delete this document? This action cannot be undone.")) {
+      return
+    }
+    try {
+      const deletedDoc = await actions.deleteDocument(docId)
+      if (deletedDoc) {
+        removeDocumentUploaded(deletedDoc.type)
+        pushToast({ title: "Document deleted", description: "The document has been removed from your compliance wallet.", type: "success" })
+      }
+    } catch (error) {
+      pushToast({ title: "Delete failed", description: "Please try again.", type: "error" })
+    }
+  }
+
   const handlePreview = (doc: { name: string; type: string; status: string }) => {
     setPreviewDoc({
       name: doc.name,
@@ -117,6 +187,37 @@ export default function DocumentWalletPage() {
           { label: "Documents" },
         ]}
       />
+
+      {/* Occupation Selection */}
+      {!currentOccupationCode && (
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Select Your Occupation</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Please select your occupation to load the appropriate compliance wallet template.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-foreground">
+                Occupation <span className="text-destructive">*</span>
+              </label>
+              <select
+                value=""
+                onChange={(e) => handleOccupationChange(e.target.value)}
+                className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
+              >
+                <option value="">Select your occupation</option>
+                {occupationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Completion Banner */}
       {isComplete && (
@@ -190,28 +291,34 @@ export default function DocumentWalletPage() {
               aria-label="Document type"
               disabled={uploading}
             >
-              {[
-                "Resume",
-                "Date of birth proof",
-                "Certifications",
-                "References",
-                "License",
-                "Active RN License",
-                "Background Check",
-                "Drug Screening",
-                "CPR Certification",
-                "ACLS Certification",
-                "BLS Certification",
-                "PALS Certification",
-                "TNCC Certification",
-                "Reference",
-                "Skills Checklist",
-                "Travel Agreement",
-                "Immunization Record",
-                "Fatigue Acknowledgement",
-              ].map((option) => (
-                <option key={option}>{option}</option>
-              ))}
+              {requiredDocs.length > 0 ? (
+                requiredDocs.map((option) => (
+                  <option key={option}>{option}</option>
+                ))
+              ) : (
+                [
+                  "Resume",
+                  "Date of birth proof",
+                  "Certifications",
+                  "References",
+                  "License",
+                  "Active RN License",
+                  "Background Check",
+                  "Drug Screening",
+                  "CPR Certification",
+                  "ACLS Certification",
+                  "BLS Certification",
+                  "PALS Certification",
+                  "TNCC Certification",
+                  "Reference",
+                  "Skills Checklist",
+                  "Travel Agreement",
+                  "Immunization Record",
+                  "Fatigue Acknowledgement",
+                ].map((option) => (
+                  <option key={option}>{option}</option>
+                ))
+              )}
             </select>
           </div>
 
@@ -334,6 +441,15 @@ export default function DocumentWalletPage() {
                       Replace
                     </Button>
                   )}
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => handleDeleteDocument(doc.id)}
+                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Delete document"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
                 {doc.status === "Pending Verification" && (
                   <div className="mt-3 rounded-xl border-2 border-warning/50 bg-gradient-to-r from-warning/10 to-warning/5 px-4 py-3 text-xs text-warning shadow-sm">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Header, Card } from "@/components/system"
-import { Building2, Plus, MapPin } from "lucide-react"
+import { Building2, Plus, MapPin, Briefcase } from "lucide-react"
 import { readOrganizations, type Organization } from "@/lib/organizations-store"
 // Note: organizations-store.ts re-exports from admin-local-db.ts which follows the same pattern as local-db.ts
 
@@ -36,6 +36,14 @@ export default function AdminDashboardPage() {
             <Link href="/admin/organizations/add" className="ph5-button-primary">
               <Plus className="h-4 w-4 mr-2" />
               Add Organization
+            </Link>
+            <Link href="/admin/occupations" className="ph5-button-secondary">
+              <Briefcase className="h-4 w-4 mr-2" />
+              Manage Occupations
+            </Link>
+            <Link href="/admin/compliance/templates" className="ph5-button-secondary">
+              <Plus className="h-4 w-4 mr-2" />
+              Compliance Templates
             </Link>
           </div>
         </Card>

@@ -1,6 +1,7 @@
 "use client"
 
 import { type ChangeEvent, useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { ChevronDown, CheckCircle2, Circle, Sparkles, TrendingUp, FileText, MapPin, Briefcase, Calendar, Award, User, Clock } from "lucide-react"
 import { StatusChip } from "@/components/system"
 import { DatePicker } from "@/components/system/date-picker"
@@ -11,6 +12,14 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useNavigation } from "@/lib/use-navigation"
+import { 
+  getActiveOccupations, 
+  getOccupationByCode,
+  getQuestionnaireByOccupationId,
+  getGeneralQuestionnaire,
+  type OccupationQuestionnaire,
+  type GeneralQuestionnaire,
+} from "@/lib/admin-local-db"
 
 const PREFERRED_LOCATIONS = ["California", "Texas", "Florida", "New York", "Washington", "Arizona", "Remote"]
 const WORK_TYPES = ["Full-time", "Part-time", "Contract", "Travel", "Per Diem"]
@@ -170,17 +179,14 @@ function MultiSelectChips({ options, value, onChange, maxSelections }: MultiSele
 }
 
 export default function OnboardingPage() {
-  const { actions } = useDemoData()
-  const {
-    data: localDb,
-    hydrated: dbHydrated,
-    saveOnboardingDetails: persistOnboardingDetails,
-    markDocumentUploaded,
-  } = useLocalDb()
-  const { pushToast } = useToast()
-  const { goCandidateDashboard } = useNavigation()
-  const resumeInputRef = useRef<HTMLInputElement>(null)
-  const [answers, setAnswers] = useState<AnswersState>(initialAnswers)
+  const router = useRouter()
+  
+  // Redirect to questionnaire page - the checklist is the questionnaire itself
+  useEffect(() => {
+    router.replace("/candidate/questionnaire")
+  }, [router])
+  
+  return null
   const [errors, setErrors] = useState<ErrorsState>({})
   const [prefilledAnswers, setPrefilledAnswers] = useState(false)
   const [expandedItem, setExpandedItem] = useState<ChecklistItemId | null>("preferredLocations")
@@ -188,8 +194,40 @@ export default function OnboardingPage() {
   const [uploadedDocs, setUploadedDocs] = useState<string[]>([])
   const [uploadingResume, setUploadingResume] = useState(false)
   const [questionnaireSaving, setQuestionnaireSaving] = useState(false)
+  const [occupationOptions, setOccupationOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: "Select occupation", value: "" },
+  ])
   const today = new Date().toISOString().split("T")[0]
   const resumeUploaded = uploadedDocs.includes("Resume")
+
+  // Load occupation options from admin
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const occs = getActiveOccupations()
+        const options = [{ label: "Select occupation", value: "" }]
+        occs.forEach((occ) => {
+          options.push({ label: occ.name, value: occ.code })
+        })
+        setOccupationOptions(options)
+      } catch (error) {
+        // Fallback to default options
+        setOccupationOptions([
+          { label: "Select occupation", value: "" },
+          { label: "RN", value: "RN" },
+          { label: "LPN/LVN", value: "LPN/LVN" },
+          { label: "CNA", value: "CNA" },
+          { label: "Medical Assistant", value: "Medical Assistant" },
+          { label: "Surgical Tech", value: "Surgical Tech" },
+          { label: "Physical Therapist", value: "PT" },
+          { label: "Occupational Therapist", value: "OT" },
+          { label: "Respiratory Therapist", value: "RT" },
+          { label: "Nurse Practitioner", value: "Nurse Practitioner" },
+          { label: "Physician Assistant", value: "Physician Assistant" },
+        ])
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (!dbHydrated || prefilledAnswers) {
@@ -549,12 +587,18 @@ export default function OnboardingPage() {
         return (
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Occupation / specialty</label>
-            <Input
+            <select
               value={answers.occupation}
               onChange={(event) => updateAnswer("occupation", event.target.value)}
-              placeholder="e.g., ICU RN"
+              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               aria-invalid={Boolean(errors.occupation)}
-            />
+            >
+              {occupationOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             {renderErrorText("occupation")}
           </div>
         )

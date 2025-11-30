@@ -7,6 +7,7 @@ import type {
 import {
   getAllOrganizations,
   getOrganizationById,
+  getOrganizationByEmail,
   addOrganization,
   updateOrganization,
   deleteOrganization,
@@ -24,6 +25,7 @@ export type Organization = AdminLocalDbOrganizationEntry
 export {
   getAllOrganizations as readOrganizations,
   getOrganizationById,
+  getOrganizationByEmail,
   addOrganization,
   updateOrganization,
   deleteOrganization,

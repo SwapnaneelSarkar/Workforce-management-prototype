@@ -7,7 +7,9 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Shield, RefreshCw, AlertCircle, Us
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { useLocalDb } from "@/components/providers/local-db-provider"
 import { Dropdown, type DropdownOption } from "@/components/system/dropdown"
+import { getActiveOccupations } from "@/lib/admin-local-db"
 
 type SupportedSsoProvider = "google" | "apple" | "microsoft"
 
@@ -55,25 +57,43 @@ const SSO_PROVIDERS: Array<{
   },
 ]
 
-const OCCUPATION_OPTIONS = [
-  { label: "Select occupation", value: "" },
-  { label: "RN", value: "RN" },
-  { label: "LPN/LVN", value: "LPN/LVN" },
-  { label: "CNA", value: "CNA" },
-  { label: "Medical Assistant", value: "Medical Assistant" },
-  { label: "Surgical Tech", value: "Surgical Tech" },
-  { label: "Physical Therapist", value: "Physical Therapist" },
-  { label: "Occupational Therapist", value: "Occupational Therapist" },
-  { label: "Respiratory Therapist", value: "Respiratory Therapist" },
-  { label: "Nurse Practitioner", value: "Nurse Practitioner" },
-  { label: "Physician Assistant", value: "Physician Assistant" },
-]
+// Occupations are now managed in admin and loaded dynamically
+function getOccupationOptions() {
+  if (typeof window === "undefined") {
+    return [{ label: "Select occupation", value: "" }]
+  }
+  try {
+    const occupations = getActiveOccupations()
+    const options = [{ label: "Select occupation", value: "" }]
+    occupations.forEach((occ) => {
+      options.push({ label: occ.name, value: occ.code })
+    })
+    return options
+  } catch (error) {
+    // Fallback to default options if admin-local-db is not available
+    return [
+      { label: "Select occupation", value: "" },
+      { label: "RN", value: "RN" },
+      { label: "LPN/LVN", value: "LPN/LVN" },
+      { label: "CNA", value: "CNA" },
+      { label: "Medical Assistant", value: "Medical Assistant" },
+      { label: "Surgical Tech", value: "Surgical Tech" },
+      { label: "Physical Therapist", value: "Physical Therapist" },
+      { label: "Occupational Therapist", value: "Occupational Therapist" },
+      { label: "Respiratory Therapist", value: "Respiratory Therapist" },
+      { label: "Nurse Practitioner", value: "Nurse Practitioner" },
+      { label: "Physician Assistant", value: "Physician Assistant" },
+    ]
+  }
+}
 
 export default function CandidateLoginPage() {
   const router = useRouter()
   const { actions } = useDemoData()
+  const { saveOnboardingDetails } = useLocalDb()
   const redirectTimeout = useRef<NodeJS.Timeout | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [occupationOptions, setOccupationOptions] = useState(getOccupationOptions())
   const [formState, setFormState] = useState({
     firstName: "",
     lastName: "",
@@ -88,6 +108,13 @@ export default function CandidateLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [showRetry, setShowRetry] = useState(false)
+
+  // Update occupation options when component mounts (client-side)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setOccupationOptions(getOccupationOptions())
+    }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -136,20 +163,44 @@ export default function CandidateLoginPage() {
       return
     }
 
-    // On signup, initialize wallet with occupation
-    if (isSignUp && formState.occupation) {
+    // On signup, save all form data and initialize wallet with occupation
+    if (isSignUp) {
+      // Save all signup form data to local DB
+      saveOnboardingDetails({
+        firstName: formState.firstName,
+        lastName: formState.lastName,
+        email: formState.email,
+        occupation: formState.occupation,
+        specialty: formState.specialty,
+      })
+
+      // Update candidate profile email with signup data
       try {
-        await actions.initializeCandidateWalletWithOccupation(formState.occupation)
+        await actions.updateEmail(formState.email)
       } catch (error) {
-        console.error("Failed to initialize wallet:", error)
-        // Continue with signup even if wallet initialization fails
+        console.error("Failed to update profile email:", error)
+        // Continue with signup even if profile update fails
+      }
+
+      // Initialize wallet with occupation
+      if (formState.occupation) {
+        try {
+          await actions.initializeCandidateWalletWithOccupation(formState.occupation)
+        } catch (error) {
+          console.error("Failed to initialize wallet:", error)
+          // Continue with signup even if wallet initialization fails
+        }
       }
     }
 
     // Success - redirect based on auth flow
     redirectTimeout.current = setTimeout(() => {
       if (isSignUp) {
-        router.push("/candidate/dashboard")
+        // Store occupation in sessionStorage for questionnaire page
+        if (formState.occupation) {
+          sessionStorage.setItem("candidate_signup_occupation", formState.occupation)
+        }
+        router.push("/candidate/questionnaire")
       } else {
         router.push("/candidate/dashboard")
       }
@@ -381,7 +432,7 @@ export default function CandidateLoginPage() {
                       label="Occupation"
                       value={formState.occupation}
                       onChange={handleOccupationChange}
-                      options={OCCUPATION_OPTIONS as DropdownOption[]}
+                      options={occupationOptions as DropdownOption[]}
                       required
                       disabled={isSubmitting}
                     />

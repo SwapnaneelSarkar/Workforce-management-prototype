@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, Header, Modal, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
@@ -13,6 +13,12 @@ export default function ApplicationsList() {
   const { organization, actions } = useDemoData()
   const { templates } = useComplianceTemplatesStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const applicationList = useMemo(
     () =>
@@ -21,6 +27,25 @@ export default function ApplicationsList() {
       ),
     [organization.applications, jobIdFilter],
   )
+
+  // Show loading state during hydration
+  if (!isMounted) {
+    return (
+      <div className="space-y-6">
+        <Header
+          title="Applications"
+          subtitle="View applications per job and take basic actions."
+          breadcrumbs={[
+            { label: "Organization", href: "/organization/dashboard" },
+            { label: "Applications" },
+          ]}
+        />
+        <Card title="Applications" subtitle="Simple list of candidates and when they applied.">
+          <div className="h-64 animate-pulse rounded-md bg-muted" />
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -35,42 +60,64 @@ export default function ApplicationsList() {
 
       <Card title="Applications" subtitle="Simple list of candidates and when they applied.">
         <div className="space-y-3">
-          {applicationList.map((app) => (
-            <div key={app.id} className="flex flex-wrap items-center gap-4 rounded-[12px] border border-border px-4 py-3">
-              <div className="flex min-w-[200px] flex-1 items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EEF2F7] text-sm font-semibold text-muted-foreground">
-                  {initials(app.candidateName)}
+          {applicationList.map((app) => {
+            const isAccepted = app.status === "Accepted"
+            const isRejected = app.status === "Rejected"
+            const canModifyStatus = !isAccepted && !isRejected
+
+            return (
+              <div key={app.id} className="flex flex-wrap items-center gap-4 rounded-[12px] border border-border px-4 py-3">
+                <div className="flex min-w-[200px] flex-1 items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EEF2F7] text-sm font-semibold text-muted-foreground">
+                    {initials(app.candidateName)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{app.candidateName}</p>
+                    <p className="text-xs text-muted-foreground">{app.submittedRelative ?? app.submittedAt}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{app.candidateName}</p>
-                  <p className="text-xs text-muted-foreground">{app.submittedRelative ?? app.submittedAt}</p>
+                <div className="flex items-center gap-3">
+                  <StatusChip
+                    label={app.status}
+                    tone={
+                      app.status === "Accepted"
+                        ? "success"
+                        : app.status === "Rejected"
+                          ? "danger"
+                          : "info"
+                    }
+                  />
+                  <div className="flex gap-2">
+                    {canModifyStatus && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => actions.updateApplicationStatus(app.id, "Accepted")}
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => actions.rejectApplication(app.id)}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedId(app.id)}
+                    >
+                      View candidate
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => actions.updateApplicationStatus(app.id, "Accepted")}
-                >
-                  Accept
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => actions.rejectApplication(app.id)}
-                >
-                  Reject
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedId(app.id)}
-                >
-                  View candidate
-                </Button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
           {!applicationList.length ? <p className="text-sm text-muted-foreground">No applications yet.</p> : null}
         </div>
       </Card>
@@ -128,11 +175,25 @@ function CandidateDetailsModal({ open, onClose, applicationId, organization, tem
     >
       <div className="space-y-4">
         <section className="space-y-1">
-          <p className="text-sm font-semibold text-foreground">{candidate?.name ?? application.candidateName}</p>
-          <p className="text-xs text-muted-foreground">{job?.title ?? "Role"}</p>
-          <p className="text-xs text-muted-foreground">
-            {candidate?.email ?? "No email"} • {candidate?.phone ?? "No phone"}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-foreground">{candidate?.name ?? application.candidateName}</p>
+              <p className="text-xs text-muted-foreground">{job?.title ?? "Role"}</p>
+              <p className="text-xs text-muted-foreground">
+                {candidate?.email ?? "No email"} • {candidate?.phone ?? "No phone"}
+              </p>
+            </div>
+            <StatusChip
+              label={application.status}
+              tone={
+                application.status === "Accepted"
+                  ? "success"
+                  : application.status === "Rejected"
+                    ? "danger"
+                    : "info"
+              }
+            />
+          </div>
         </section>
 
         <section className="space-y-2">

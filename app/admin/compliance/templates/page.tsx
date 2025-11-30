@@ -18,6 +18,46 @@ export default function AdminComplianceTemplatesPage() {
     setTemplates(organization.requisitionTemplates)
   }, [organization.requisitionTemplates])
 
+  // Force initialize templates if none exist
+  const handleInitializeTemplates = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const { readOrganizationLocalDb, persistOrganizationLocalDb, createDefaultRequisitionTemplates } = require("@/lib/organization-local-db")
+        const state = readOrganizationLocalDb()
+        const adminTemplates = Object.values(state.requisitionTemplates || {}).filter(
+          (t: any) => t && t.organizationId === "admin"
+        )
+        
+        if (adminTemplates.length === 0) {
+          const defaultTemplates = createDefaultRequisitionTemplates("admin")
+          const updatedState = {
+            ...state,
+            requisitionTemplates: { ...state.requisitionTemplates, ...defaultTemplates },
+          }
+          persistOrganizationLocalDb(updatedState)
+          pushToast({ 
+            title: "Templates Initialized", 
+            description: "Default requisition templates have been created. Please refresh the page.", 
+            type: "success" 
+          })
+          // Refresh page after a short delay
+          setTimeout(() => {
+            window.location.reload()
+          }, 1000)
+        } else {
+          pushToast({ 
+            title: "Templates Already Exist", 
+            description: `${adminTemplates.length} templates found.`, 
+            type: "info" 
+          })
+        }
+      } catch (error) {
+        console.error("Error initializing templates:", error)
+        pushToast({ title: "Error", description: "Failed to initialize templates.", type: "error" })
+      }
+    }
+  }
+
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (confirm("Are you sure you want to delete this template?")) {
@@ -46,10 +86,21 @@ export default function AdminComplianceTemplatesPage() {
                 {templates.length} {templates.length === 1 ? "template" : "templates"}
               </p>
             </div>
-            <Link href="/admin/compliance/templates/create" className="ph5-button-primary">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Template
-            </Link>
+            <div className="flex items-center gap-2">
+              {templates.length === 0 && (
+                <button
+                  onClick={handleInitializeTemplates}
+                  className="ph5-button-secondary"
+                  type="button"
+                >
+                  Initialize Mock Templates
+                </button>
+              )}
+              <Link href="/admin/compliance/templates/create" className="ph5-button-primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Template
+              </Link>
+            </div>
           </div>
 
           {templates.length === 0 ? (
@@ -66,6 +117,8 @@ export default function AdminComplianceTemplatesPage() {
                 <thead>
                   <tr className="border-b border-border">
                     <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Template Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Occupation</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Department</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Number of Items</th>
                     <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
                   </tr>
@@ -79,6 +132,12 @@ export default function AdminComplianceTemplatesPage() {
                     >
                       <td className="py-3 px-4">
                         <span className="text-sm font-medium text-foreground">{template.name}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-muted-foreground">{template.occupation || "—"}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-muted-foreground">{template.department || "—"}</span>
                       </td>
                       <td className="py-3 px-4">
                         <span className="text-sm text-muted-foreground">{template.items.length}</span>

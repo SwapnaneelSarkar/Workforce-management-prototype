@@ -22,6 +22,7 @@ type LocalDbContextValue = {
   hydrated: boolean
   saveOnboardingDetails: (details: LocalDbOnboardingDetails) => void
   markDocumentUploaded: (docType: string, meta?: DocumentMeta) => void
+  removeDocumentUploaded: (docType: string) => void
   markJobApplied: (jobId: string) => void
   resetLocalDb: () => void
 }
@@ -86,6 +87,22 @@ export function LocalDbProvider({ children }: { children: ReactNode }) {
     [updateDb],
   )
 
+  const removeDocumentUploaded = useCallback(
+    (docType: string) => {
+      if (!docType) {
+        return
+      }
+      updateDb((prev) => {
+        const { [docType]: removed, ...remaining } = prev.uploadedDocuments
+        return {
+          ...prev,
+          uploadedDocuments: remaining,
+        }
+      })
+    },
+    [updateDb],
+  )
+
   const markJobApplied = useCallback(
     (jobId: string) => {
       if (!jobId) {
@@ -114,10 +131,11 @@ export function LocalDbProvider({ children }: { children: ReactNode }) {
       hydrated,
       saveOnboardingDetails,
       markDocumentUploaded,
+      removeDocumentUploaded,
       markJobApplied,
       resetLocalDb,
     }),
-    [data, hydrated, markDocumentUploaded, markJobApplied, resetLocalDb, saveOnboardingDetails],
+    [data, hydrated, markDocumentUploaded, removeDocumentUploaded, markJobApplied, resetLocalDb, saveOnboardingDetails],
   )
 
   return <LocalDbContext.Provider value={value}>{children}</LocalDbContext.Provider>

@@ -1,8 +1,28 @@
 "use client"
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { useComplianceTemplatesStore, type ComplianceItem } from "@/lib/compliance-templates-store"
+import {
+  getAllJobs,
+  getJobsByOrganization,
+  addJob as addJobToDb,
+  updateJob as updateJobInDb,
+  getWalletTemplatesByOrganization,
+  getRequisitionTemplatesByOrganization,
+  addWalletTemplate as addWalletTemplateToDb,
+  updateWalletTemplate as updateWalletTemplateInDb,
+  addRequisitionTemplate as addRequisitionTemplateToDb,
+  updateRequisitionTemplate as updateRequisitionTemplateInDb,
+  deleteRequisitionTemplate as deleteRequisitionTemplateFromDb,
+  getCurrentOrganization,
+  getAllApplications,
+  getApplicationsByOrganization,
+  addApplication as addApplicationToDb,
+  updateApplication as updateApplicationInDb,
+  ORGANIZATION_LOCAL_DB_KEY,
+  type OrganizationLocalDbJob,
+} from "@/lib/organization-local-db"
 import type {
   Application,
   ApplicationInsight,
@@ -54,6 +74,7 @@ export type RequisitionTemplate = {
   id: string
   name: string
   department?: string
+  occupation?: string
   items: ComplianceItem[]
 }
 
@@ -81,13 +102,17 @@ type DemoDataContextValue = {
     leaderboard: VendorLeaderboardRow[]
     details: VendorDetail[]
   }
+  // All jobs from all organizations (for candidate portal)
+  allJobs: Job[]
   actions: {
     uploadDocument: (payload: { name: string; type: string }) => Promise<CandidateDocument>
     replaceDocument: (docId: string, updates: Partial<CandidateDocument>) => Promise<void>
+    deleteDocument: (docId: string) => Promise<CandidateDocument | undefined>
     updateNotificationPrefs: (prefs: Partial<CandidatePreferences>) => void
     markAllNotificationsRead: () => void
     setNotificationRead: (id: string, read: boolean) => void
     updateEmail: (email: string) => Promise<void>
+    updateProfile: (updates: Partial<CandidateProfile>) => Promise<void>
     saveOnboardingStep: (step: keyof OnboardingState, data: Record<string, string | string[]>) => Promise<void>
     submitJobApplication: (jobId: string) => Promise<Application>
     createJob: (payload: {
@@ -102,8 +127,10 @@ type DemoDataContextValue = {
       requirements: string[]
       tags: string[]
       status?: Job["status"]
+      complianceItems?: ComplianceItem[]
       complianceTemplateId?: string
       startDate?: string
+      occupation?: string
     }) => Promise<Job>
     updateJob: (id: string, updates: Partial<Job>) => void
     updateApplicationStatus: (id: string, status: Application["status"]) => void
@@ -113,7 +140,7 @@ type DemoDataContextValue = {
     updateWalletTemplate: (id: string, updates: Partial<Omit<WalletTemplate, "id">>) => void
     addWalletTemplateItem: (templateId: string, item: ComplianceItem) => void
     removeWalletTemplateItem: (templateId: string, itemId: string) => void
-    createRequisitionTemplate: (payload: { name: string; department?: string }) => Promise<RequisitionTemplate>
+    createRequisitionTemplate: (payload: { name: string; department?: string; occupation?: string }) => Promise<RequisitionTemplate>
     updateRequisitionTemplate: (id: string, updates: Partial<Omit<RequisitionTemplate, "id">>) => void
     deleteRequisitionTemplate: (id: string) => void
     addRequisitionTemplateItem: (templateId: string, item: ComplianceItem) => void
@@ -149,15 +176,183 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     availability: {},
     requiredDocuments: ["Resume", "Date of birth proof", "Certifications", "References", "License"],
   })
-  const [applicationsState, setApplicationsState] = useState<Application[]>(initialApplications)
-  const [jobsState, setJobsState] = useState<Job[]>(initialJobs)
   const [vendorsState, setVendors] = useState<Vendor[]>(initialVendors)
   const [bidsState, setBids] = useState<VendorBid[]>(initialVendorBids)
   const [notificationList, setNotificationList] = useState<Notification[]>(initialNotifications)
   const [vendorDetailsState] = useState<VendorDetail[]>(initialVendorDetails)
-  const [walletTemplates, setWalletTemplates] = useState<WalletTemplate[]>([])
-  const [requisitionTemplates, setRequisitionTemplates] = useState<RequisitionTemplate[]>([])
   const templates = useComplianceTemplatesStore((state) => state.templates)
+
+  // Get current organization ID from local DB (reactive state)
+  const [currentOrganizationId, setCurrentOrganizationId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null
+    return getCurrentOrganization()
+  })
+
+  // Sync current organization ID from local DB periodically and on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const syncOrgId = () => {
+      const orgId = getCurrentOrganization()
+      setCurrentOrganizationId(orgId)
+    }
+    syncOrgId()
+    // Also listen for storage changes (in case another tab logs in)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === ORGANIZATION_LOCAL_DB_KEY) {
+        syncOrgId()
+      }
+    }
+    window.addEventListener("storage", handleStorageChange)
+    // Poll every 2 seconds to catch local changes (since storage event doesn't fire for same-tab changes)
+    const interval = setInterval(syncOrgId, 2000)
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Load jobs from organization-local-db
+  // Always initialize with initialJobs to prevent hydration mismatch
+  const [jobsState, setJobsState] = useState<Job[]>(initialJobs)
+
+  // Load applications from organization-local-db
+  // Always initialize with initialApplications to prevent hydration mismatch
+  const [applicationsState, setApplicationsState] = useState<Application[]>(initialApplications)
+
+  // Load wallet templates from organization-local-db
+  // Always initialize with empty array to prevent hydration mismatch
+  const [walletTemplates, setWalletTemplates] = useState<WalletTemplate[]>([])
+
+  // Load requisition templates from organization-local-db
+  // Always initialize with empty array to prevent hydration mismatch
+  // For admin context (no currentOrganizationId), load templates with organizationId "admin"
+  const [requisitionTemplates, setRequisitionTemplates] = useState<RequisitionTemplate[]>([])
+
+  // Sync jobs from local DB periodically and on mount
+  // This runs only on the client after hydration to prevent mismatch
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const syncJobs = () => {
+      try {
+        const allJobs = getAllJobs()
+        const jobs = allJobs.map((job) => ({
+          id: job.id,
+          title: job.title,
+          location: job.location,
+          department: job.department,
+          unit: job.unit,
+          shift: job.shift,
+          hours: job.hours,
+          billRate: job.billRate,
+          description: job.description,
+          requirements: job.requirements,
+          tags: job.tags,
+          status: job.status,
+          complianceItems: job.complianceItems,
+          complianceTemplateId: job.complianceTemplateId,
+          startDate: job.startDate,
+          occupation: job.occupation,
+        }))
+        setJobsState(jobs)
+      } catch (error) {
+        console.warn("Failed to sync jobs from local DB", error)
+      }
+    }
+    // Load from localStorage on mount (after hydration)
+    syncJobs()
+    // Listen for storage changes (cross-tab updates)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === ORGANIZATION_LOCAL_DB_KEY) {
+        syncJobs()
+      }
+    }
+    window.addEventListener("storage", handleStorageChange)
+    // Poll every 2 seconds to catch updates from same-tab operations
+    const interval = setInterval(syncJobs, 2000)
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Sync applications from local DB periodically and on mount
+  // This runs only on the client after hydration to prevent mismatch
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const syncApplications = () => {
+      try {
+        const allApps = getAllApplications()
+        const apps = allApps.map((app) => ({
+          id: app.id,
+          jobId: app.jobId,
+          candidateId: app.candidateId,
+          candidateName: app.candidateName,
+          status: app.status,
+          submittedAt: app.submittedAt,
+          documentStatus: app.documentStatus,
+          vendorName: app.vendorName,
+          matchScore: app.matchScore,
+          submittedRelative: app.submittedRelative,
+          missingDocuments: app.missingDocuments,
+        }))
+        setApplicationsState(apps)
+      } catch (error) {
+        console.warn("Failed to sync applications from local DB", error)
+      }
+    }
+    // Load from localStorage on mount (after hydration)
+    syncApplications()
+    // Listen for storage changes (cross-tab updates)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === ORGANIZATION_LOCAL_DB_KEY) {
+        syncApplications()
+      }
+    }
+    window.addEventListener("storage", handleStorageChange)
+    // Poll every 2 seconds to catch updates from same-tab operations
+    const interval = setInterval(syncApplications, 2000)
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Sync templates when organization changes and periodically
+  // For admin context (no currentOrganizationId), load templates with organizationId "admin"
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setWalletTemplates([])
+      setRequisitionTemplates([])
+      return
+    }
+    const syncTemplates = () => {
+      try {
+        const orgId = currentOrganizationId || "admin"
+        const walletTmpls = getWalletTemplatesByOrganization(orgId).map((tmpl) => ({
+          id: tmpl.id,
+          name: tmpl.name,
+          occupation: tmpl.occupation,
+          items: tmpl.items,
+        }))
+        setWalletTemplates(walletTmpls)
+
+        const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+          id: tmpl.id,
+          name: tmpl.name,
+          department: tmpl.department,
+          occupation: tmpl.occupation,
+          items: tmpl.items,
+        }))
+        setRequisitionTemplates(reqTmpls)
+      } catch (error) {
+        console.warn("Failed to sync templates from local DB", error)
+      }
+    }
+    syncTemplates()
+    // Poll every 2 seconds to catch updates
+    const interval = setInterval(syncTemplates, 2000)
+    return () => clearInterval(interval)
+  }, [currentOrganizationId])
 
   const primaryCandidate = useMemo(() => ({ ...profile, documents }), [profile, documents])
   const candidatePool = useMemo(() => [primaryCandidate, ...initialCandidates.slice(1)], [primaryCandidate])
@@ -223,6 +418,13 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
+  const deleteDocument = useCallback(async (docId: string) => {
+    await simulateDelay()
+    const docToDelete = documents.find((doc) => doc.id === docId)
+    setDocuments((prev) => prev.filter((doc) => doc.id !== docId))
+    return docToDelete
+  }, [documents])
+
   const updateNotificationPrefs = useCallback((prefs: Partial<CandidatePreferences>) => {
     setNotificationPrefs((prev) => ({ ...prev, ...prefs }))
   }, [])
@@ -238,6 +440,11 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
   const updateEmail = useCallback(async (email: string) => {
     await simulateDelay()
     setProfile((prev) => ({ ...prev, email }))
+  }, [])
+
+  const updateProfile = useCallback(async (updates: Partial<CandidateProfile>) => {
+    await simulateDelay()
+    setProfile((prev) => ({ ...prev, ...updates }))
   }, [])
 
   const saveOnboardingStep = useCallback(
@@ -284,6 +491,19 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       const documentStatus: Application["documentStatus"] = missingDocuments.length ? "Missing" : "Complete"
       const submissionTimestamp = new Date().toISOString()
 
+      // Get organization ID from job (need to find it from local DB)
+      let organizationId = currentOrganizationId || null
+      if (!organizationId && typeof window !== "undefined") {
+        try {
+          const dbJob = getAllJobs().find((j) => j.id === jobId)
+          if (dbJob) {
+            organizationId = dbJob.organizationId
+          }
+        } catch (error) {
+          console.warn("Failed to get organization ID from job", error)
+        }
+      }
+
       const application: Application = {
         id: crypto.randomUUID(),
         jobId,
@@ -297,14 +517,54 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         submittedRelative: "Just now",
         missingDocuments,
       }
-      setApplicationsState((prev) => [...prev, application])
+
+      // Save to organization-local-db if we have organization ID
+      if (organizationId && typeof window !== "undefined") {
+        try {
+          addApplicationToDb(organizationId, {
+            jobId: application.jobId,
+            candidateId: application.candidateId,
+            candidateName: application.candidateName,
+            status: application.status,
+            submittedAt: application.submittedAt,
+            documentStatus: application.documentStatus,
+            vendorName: application.vendorName,
+            matchScore: application.matchScore,
+            submittedRelative: application.submittedRelative,
+            missingDocuments: application.missingDocuments,
+          })
+          // Refresh applications from DB to ensure consistency
+          const allApps = getAllApplications()
+          const apps = allApps.map((app) => ({
+            id: app.id,
+            jobId: app.jobId,
+            candidateId: app.candidateId,
+            candidateName: app.candidateName,
+            status: app.status,
+            submittedAt: app.submittedAt,
+            documentStatus: app.documentStatus,
+            vendorName: app.vendorName,
+            matchScore: app.matchScore,
+            submittedRelative: app.submittedRelative,
+            missingDocuments: app.missingDocuments,
+          }))
+          setApplicationsState(apps)
+        } catch (error) {
+          console.warn("Failed to save application to local DB", error)
+          // Fallback: Update state directly if DB save fails
+          setApplicationsState((prev) => [...prev, application])
+        }
+      } else {
+        // Fallback: Update state directly if no organization ID
+        setApplicationsState((prev) => [...prev, application])
+      }
       setNotificationList((prev) => [
         { id: crypto.randomUUID(), title: "Application submitted", subtitle: job.title, time: "Just now", type: "job", read: false },
         ...prev,
       ])
       return application
     },
-    [applicationsState, documents, jobsState, profile.id, profile.name, templates],
+    [applicationsState, documents, jobsState, profile.id, profile.name, templates, currentOrganizationId],
   )
 
   const createJob = useCallback(
@@ -320,31 +580,182 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       requirements: string[]
       tags: string[]
       status?: Job["status"]
+      complianceItems?: ComplianceItem[]
       complianceTemplateId?: string
       startDate?: string
+      occupation?: string
     }) => {
       await simulateDelay(400, 900)
-      const job: Job = {
-        id: crypto.randomUUID(),
-        ...payload,
-        status: payload.status ?? "Draft",
-        startDate: payload.startDate ?? new Date().toISOString().slice(0, 10),
+      
+      if (!currentOrganizationId) {
+        throw new Error("No organization logged in")
       }
-      setJobsState((prev) => [...prev, job])
+
+      // Save to organization-local-db
+      const dbJob = addJobToDb(currentOrganizationId, {
+        title: payload.title,
+        location: payload.location,
+        department: payload.department,
+        unit: payload.unit,
+        shift: payload.shift,
+        hours: payload.hours,
+        billRate: payload.billRate,
+        description: payload.description,
+        requirements: payload.requirements,
+        tags: payload.tags,
+        status: payload.status ?? "Draft",
+        complianceItems: payload.complianceItems,
+        complianceTemplateId: payload.complianceTemplateId,
+        startDate: payload.startDate ?? new Date().toISOString().slice(0, 10),
+        occupation: payload.occupation,
+      })
+
+      // Convert to Job format and update state
+      const job: Job = {
+        id: dbJob.id,
+        title: dbJob.title,
+        location: dbJob.location,
+        department: dbJob.department,
+        unit: dbJob.unit,
+        shift: dbJob.shift,
+        hours: dbJob.hours,
+        billRate: dbJob.billRate,
+        description: dbJob.description,
+        requirements: dbJob.requirements,
+        tags: dbJob.tags,
+        status: dbJob.status,
+        complianceItems: dbJob.complianceItems,
+        complianceTemplateId: dbJob.complianceTemplateId,
+        startDate: dbJob.startDate,
+        occupation: dbJob.occupation,
+      }
+      
+      // Refresh jobs from DB to include the new job
+      if (typeof window !== "undefined") {
+        try {
+          const allJobs = getAllJobs()
+          const updatedJobs = allJobs.map((j) => ({
+            id: j.id,
+            title: j.title,
+            location: j.location,
+            department: j.department,
+            unit: j.unit,
+            shift: j.shift,
+            hours: j.hours,
+            billRate: j.billRate,
+            description: j.description,
+            requirements: j.requirements,
+            complianceItems: j.complianceItems,
+            tags: j.tags,
+            status: j.status,
+            complianceTemplateId: j.complianceTemplateId,
+            startDate: j.startDate,
+            occupation: j.occupation,
+          }))
+          setJobsState(updatedJobs)
+        } catch (error) {
+          console.warn("Failed to refresh jobs from local DB", error)
+          setJobsState((prev) => [...prev, job])
+        }
+      } else {
+        setJobsState((prev) => [...prev, job])
+      }
       return job
     },
-    [],
+    [currentOrganizationId],
   )
 
   const updateJob = useCallback((id: string, updates: Partial<Job>) => {
+    // Update in local DB
+    if (typeof window !== "undefined") {
+      try {
+        updateJobInDb(id, updates)
+        // Refresh jobs from DB to ensure consistency
+        const allJobs = getAllJobs()
+        const jobs = allJobs.map((job) => ({
+          id: job.id,
+          title: job.title,
+          location: job.location,
+          department: job.department,
+          unit: job.unit,
+          shift: job.shift,
+          hours: job.hours,
+          billRate: job.billRate,
+          description: job.description,
+          requirements: job.requirements,
+          tags: job.tags,
+          status: job.status,
+          complianceTemplateId: job.complianceTemplateId,
+          startDate: job.startDate,
+          occupation: job.occupation,
+        }))
+        setJobsState(jobs)
+        return
+      } catch (error) {
+        console.warn("Failed to update job in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setJobsState((prev) => prev.map((job) => (job.id === id ? { ...job, ...updates } : job)))
   }, [])
 
   const updateApplicationStatus = useCallback((id: string, status: Application["status"]) => {
+    // Update in local DB
+    if (typeof window !== "undefined") {
+      try {
+        updateApplicationInDb(id, { status })
+        // Refresh applications from DB to ensure consistency
+        const allApps = getAllApplications()
+        const apps = allApps.map((app) => ({
+          id: app.id,
+          jobId: app.jobId,
+          candidateId: app.candidateId,
+          candidateName: app.candidateName,
+          status: app.status,
+          submittedAt: app.submittedAt,
+          documentStatus: app.documentStatus,
+          vendorName: app.vendorName,
+          matchScore: app.matchScore,
+          submittedRelative: app.submittedRelative,
+          missingDocuments: app.missingDocuments,
+        }))
+        setApplicationsState(apps)
+        return
+      } catch (error) {
+        console.warn("Failed to update application in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setApplicationsState((prev) => prev.map((app) => (app.id === id ? { ...app, status } : app)))
   }, [])
 
   const rejectApplication = useCallback((id: string) => {
+    // Update in local DB
+    if (typeof window !== "undefined") {
+      try {
+        updateApplicationInDb(id, { status: "Rejected" })
+        // Refresh applications from DB to ensure consistency
+        const allApps = getAllApplications()
+        const apps = allApps.map((app) => ({
+          id: app.id,
+          jobId: app.jobId,
+          candidateId: app.candidateId,
+          candidateName: app.candidateName,
+          status: app.status,
+          submittedAt: app.submittedAt,
+          documentStatus: app.documentStatus,
+          vendorName: app.vendorName,
+          matchScore: app.matchScore,
+          submittedRelative: app.submittedRelative,
+          missingDocuments: app.missingDocuments,
+        }))
+        setApplicationsState(apps)
+        return
+      } catch (error) {
+        console.warn("Failed to update application in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setApplicationsState((prev) => prev.map((app) => (app.id === id ? { ...app, status: "Rejected" } : app)))
   }, [])
 
@@ -369,68 +780,231 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
   const createWalletTemplate = useCallback(
     async (payload: { name: string; occupation?: string }) => {
       await simulateDelay()
-      const template: WalletTemplate = {
-        id: crypto.randomUUID(),
+      
+      if (!currentOrganizationId) {
+        throw new Error("No organization logged in")
+      }
+
+      // Save to organization-local-db
+      const dbTemplate = addWalletTemplateToDb(currentOrganizationId, {
         name: payload.name,
         occupation: payload.occupation,
         items: [],
+      })
+
+      const template: WalletTemplate = {
+        id: dbTemplate.id,
+        name: dbTemplate.name,
+        occupation: dbTemplate.occupation,
+        items: dbTemplate.items,
       }
+      
       setWalletTemplates((prev) => [...prev, template])
       return template
     },
-    [],
+    [currentOrganizationId],
   )
 
   const updateWalletTemplate = useCallback((id: string, updates: Partial<Omit<WalletTemplate, "id">>) => {
+    // Update in local DB
+    if (typeof window !== "undefined" && currentOrganizationId) {
+      try {
+        updateWalletTemplateInDb(id, updates)
+        // Refresh templates from DB to ensure consistency
+        const walletTmpls = getWalletTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
+          id: tmpl.id,
+          name: tmpl.name,
+          occupation: tmpl.occupation,
+          items: tmpl.items,
+        }))
+        setWalletTemplates(walletTmpls)
+        return
+      } catch (error) {
+        console.warn("Failed to update wallet template in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setWalletTemplates((prev) => prev.map((template) => (template.id === id ? { ...template, ...updates } : template)))
-  }, [])
+  }, [currentOrganizationId])
 
   const addWalletTemplateItem = useCallback((templateId: string, item: ComplianceItem) => {
+    // Update in local DB
+    if (typeof window !== "undefined" && currentOrganizationId) {
+      try {
+        const current = walletTemplates.find((t) => t.id === templateId)
+        if (current) {
+          updateWalletTemplateInDb(templateId, { items: [...current.items, item] })
+          // Refresh templates from DB
+          const walletTmpls = getWalletTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
+            id: tmpl.id,
+            name: tmpl.name,
+            occupation: tmpl.occupation,
+            items: tmpl.items,
+          }))
+          setWalletTemplates(walletTmpls)
+          return
+        }
+      } catch (error) {
+        console.warn("Failed to update wallet template in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setWalletTemplates((prev) =>
       prev.map((template) => (template.id === templateId ? { ...template, items: [...template.items, item] } : template)),
     )
-  }, [])
+  }, [walletTemplates, currentOrganizationId])
 
   const removeWalletTemplateItem = useCallback((templateId: string, itemId: string) => {
+    // Update in local DB
+    if (typeof window !== "undefined" && currentOrganizationId) {
+      try {
+        const current = walletTemplates.find((t) => t.id === templateId)
+        if (current) {
+          updateWalletTemplateInDb(templateId, { items: current.items.filter((item) => item.id !== itemId) })
+          // Refresh templates from DB
+          const walletTmpls = getWalletTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
+            id: tmpl.id,
+            name: tmpl.name,
+            occupation: tmpl.occupation,
+            items: tmpl.items,
+          }))
+          setWalletTemplates(walletTmpls)
+          return
+        }
+      } catch (error) {
+        console.warn("Failed to update wallet template in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setWalletTemplates((prev) =>
       prev.map((template) => (template.id === templateId ? { ...template, items: template.items.filter((item) => item.id !== itemId) } : template)),
     )
-  }, [])
+  }, [walletTemplates, currentOrganizationId])
 
   const createRequisitionTemplate = useCallback(
-    async (payload: { name: string; department?: string }) => {
+    async (payload: { name: string; department?: string; occupation?: string }) => {
       await simulateDelay()
-      const template: RequisitionTemplate = {
-        id: crypto.randomUUID(),
+      
+      // For admin context (no currentOrganizationId), use "admin" as organizationId
+      const orgId = currentOrganizationId || "admin"
+
+      // Save to organization-local-db
+      const dbTemplate = addRequisitionTemplateToDb(orgId, {
         name: payload.name,
         department: payload.department,
+        occupation: payload.occupation,
         items: [],
+      })
+
+      const template: RequisitionTemplate = {
+        id: dbTemplate.id,
+        name: dbTemplate.name,
+        department: dbTemplate.department,
+        occupation: dbTemplate.occupation,
+        items: dbTemplate.items,
       }
+      
       setRequisitionTemplates((prev) => [...prev, template])
       return template
     },
-    [],
+    [currentOrganizationId],
   )
 
   const updateRequisitionTemplate = useCallback((id: string, updates: Partial<Omit<RequisitionTemplate, "id">>) => {
+    // Update in local DB
+    // For admin context (no currentOrganizationId), use "admin" as organizationId
+    if (typeof window !== "undefined") {
+      try {
+        const orgId = currentOrganizationId || "admin"
+        updateRequisitionTemplateInDb(id, updates)
+        // Refresh templates from DB
+        const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+          id: tmpl.id,
+          name: tmpl.name,
+          department: tmpl.department,
+          occupation: tmpl.occupation,
+          items: tmpl.items,
+        }))
+        setRequisitionTemplates(reqTmpls)
+        return
+      } catch (error) {
+        console.warn("Failed to update requisition template in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setRequisitionTemplates((prev) => prev.map((template) => (template.id === id ? { ...template, ...updates } : template)))
-  }, [])
+  }, [currentOrganizationId])
 
   const deleteRequisitionTemplate = useCallback((id: string) => {
+    // Delete from local DB
+    if (typeof window !== "undefined") {
+      try {
+        deleteRequisitionTemplateFromDb(id)
+      } catch (error) {
+        console.warn("Failed to delete requisition template from local DB", error)
+      }
+    }
+    // Update state
     setRequisitionTemplates((prev) => prev.filter((template) => template.id !== id))
   }, [])
 
   const addRequisitionTemplateItem = useCallback((templateId: string, item: ComplianceItem) => {
+    // Update in local DB
+    // For admin context (no currentOrganizationId), use "admin" as organizationId
+    if (typeof window !== "undefined") {
+      try {
+        const orgId = currentOrganizationId || "admin"
+        const current = requisitionTemplates.find((t) => t.id === templateId)
+        if (current) {
+          updateRequisitionTemplateInDb(templateId, { items: [...current.items, item] })
+          // Refresh templates from DB
+          const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+            id: tmpl.id,
+            name: tmpl.name,
+            department: tmpl.department,
+            items: tmpl.items,
+          }))
+          setRequisitionTemplates(reqTmpls)
+          return
+        }
+      } catch (error) {
+        console.warn("Failed to update requisition template in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setRequisitionTemplates((prev) =>
       prev.map((template) => (template.id === templateId ? { ...template, items: [...template.items, item] } : template)),
     )
-  }, [])
+  }, [requisitionTemplates, currentOrganizationId])
 
   const removeRequisitionTemplateItem = useCallback((templateId: string, itemId: string) => {
+    // Update in local DB
+    // For admin context (no currentOrganizationId), use "admin" as organizationId
+    if (typeof window !== "undefined") {
+      try {
+        const orgId = currentOrganizationId || "admin"
+        const current = requisitionTemplates.find((t) => t.id === templateId)
+        if (current) {
+          updateRequisitionTemplateInDb(templateId, { items: current.items.filter((item) => item.id !== itemId) })
+          // Refresh templates from DB
+          const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+            id: tmpl.id,
+            name: tmpl.name,
+            department: tmpl.department,
+            items: tmpl.items,
+          }))
+          setRequisitionTemplates(reqTmpls)
+          return
+        }
+      } catch (error) {
+        console.warn("Failed to update requisition template in local DB", error)
+      }
+    }
+    // Fallback: Update state directly if DB update fails
     setRequisitionTemplates((prev) =>
       prev.map((template) => (template.id === templateId ? { ...template, items: template.items.filter((item) => item.id !== itemId) } : template)),
     )
-  }, [])
+  }, [requisitionTemplates, currentOrganizationId])
 
   const initializeCandidateWalletWithOccupation = useCallback(
     async (occupation: string) => {
@@ -481,6 +1055,55 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     [walletTemplates, documents],
   )
 
+  // Filter jobs and applications for organization (only show their own data)
+  const organizationJobs = useMemo(() => {
+    if (!currentOrganizationId) return []
+    try {
+      return getJobsByOrganization(currentOrganizationId).map((job) => ({
+        id: job.id,
+        title: job.title,
+        location: job.location,
+        department: job.department,
+        unit: job.unit,
+        shift: job.shift,
+        hours: job.hours,
+        billRate: job.billRate,
+        description: job.description,
+        requirements: job.requirements,
+        tags: job.tags,
+        status: job.status,
+        complianceTemplateId: job.complianceTemplateId,
+        startDate: job.startDate,
+        occupation: job.occupation,
+      }))
+    } catch (error) {
+      console.warn("Failed to get organization jobs", error)
+      return []
+    }
+  }, [currentOrganizationId])
+
+  const organizationApplications = useMemo(() => {
+    if (!currentOrganizationId) return []
+    try {
+      return getApplicationsByOrganization(currentOrganizationId).map((app) => ({
+        id: app.id,
+        jobId: app.jobId,
+        candidateId: app.candidateId,
+        candidateName: app.candidateName,
+        status: app.status,
+        submittedAt: app.submittedAt,
+        documentStatus: app.documentStatus,
+        vendorName: app.vendorName,
+        matchScore: app.matchScore,
+        submittedRelative: app.submittedRelative,
+        missingDocuments: app.missingDocuments,
+      }))
+    } catch (error) {
+      console.warn("Failed to get organization applications", error)
+      return []
+    }
+  }, [currentOrganizationId, applicationsState.length])
+
   const value: DemoDataContextValue = useMemo(
     () => ({
       candidate: {
@@ -492,13 +1115,16 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         notifications: notificationList,
       },
       organization: {
-        jobs: jobsState,
-        applications: enrichedApplications,
+        // Organization sees only their jobs when logged in, otherwise show all (for candidate view)
+        jobs: currentOrganizationId ? organizationJobs : jobsState,
+        applications: currentOrganizationId ? organizationApplications : enrichedApplications,
         insights: applicationInsights,
         candidates: candidatePool,
         walletTemplates,
         requisitionTemplates,
       },
+      // Expose all jobs for candidate portal (all organizations) - only show "Open" status jobs
+      allJobs: jobsState.filter((job) => job.status === "Open"),
       vendor: {
         vendors: vendorsState,
         bids: bidsState,
@@ -509,10 +1135,12 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       actions: {
         uploadDocument,
         replaceDocument,
+        deleteDocument,
         updateNotificationPrefs,
         markAllNotificationsRead,
         setNotificationRead,
         updateEmail,
+        updateProfile,
         saveOnboardingStep,
         submitJobApplication,
         createJob,
@@ -539,16 +1167,21 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       enrichedApplications,
       bidsState,
       jobsState,
+      organizationJobs,
+      organizationApplications,
+      currentOrganizationId,
       notificationList,
       notificationPrefs,
       onboarding,
       primaryCandidate,
       uploadDocument,
       replaceDocument,
+      deleteDocument,
       updateNotificationPrefs,
       markAllNotificationsRead,
       setNotificationRead,
       updateEmail,
+      updateProfile,
       saveOnboardingStep,
       submitJobApplication,
       createJob,

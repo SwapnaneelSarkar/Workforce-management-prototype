@@ -122,7 +122,7 @@ export default function ComplianceTemplatesPage() {
     <div className="space-y-6 p-8">
       <Header
         title="Compliance Templates"
-        subtitle="Create and maintain reusable compliance templates for document wallets and requisitions."
+        subtitle="Create and maintain reusable compliance templates for compliance wallets and requisitions."
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
           { label: "Compliance templates" },
@@ -139,7 +139,7 @@ export default function ComplianceTemplatesPage() {
         }
       }}>
         <TabsList>
-          <TabsTrigger value="wallet">Document Wallet Templates</TabsTrigger>
+          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
           <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
           <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
         </TabsList>

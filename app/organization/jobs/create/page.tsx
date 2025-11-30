@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useDemoData } from "@/components/providers/demo-data-provider"
-import { useComplianceTemplatesStore } from "@/lib/compliance-templates-store"
+import { getActiveOccupations } from "@/lib/admin-local-db"
+import type { ComplianceItem } from "@/lib/compliance-templates-store"
 
 type JobDraft = {
   title: string
@@ -14,7 +15,12 @@ type JobDraft = {
   payRangeMin: string
   payRangeMax: string
   description: string
-  complianceTemplateId: string
+  requisitionTemplateId: string
+  occupation: string
+  department: string
+  unit: string
+  shift: string
+  hours: string
 }
 
 type FieldErrors = {
@@ -22,7 +28,12 @@ type FieldErrors = {
   location?: string
   payRangeMin?: string
   payRangeMax?: string
-  complianceTemplateId?: string
+  requisitionTemplateId?: string
+  occupation?: string
+  department?: string
+  unit?: string
+  shift?: string
+  hours?: string
 }
 
 const initialDraft: JobDraft = {
@@ -31,16 +42,44 @@ const initialDraft: JobDraft = {
   payRangeMin: "",
   payRangeMax: "",
   description: "",
-  complianceTemplateId: "",
+  requisitionTemplateId: "",
+  occupation: "",
+  department: "",
+  unit: "",
+  shift: "",
+  hours: "",
 }
 
 export default function CreateJobPage() {
   const router = useRouter()
-  const { actions } = useDemoData()
-  const { templates } = useComplianceTemplatesStore()
+  const { actions, organization } = useDemoData()
   const [draft, setDraft] = useState<JobDraft>(initialDraft)
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [occupationOptions, setOccupationOptions] = useState<Array<{ label: string; value: string }>>([
+    { label: "Select occupation", value: "" },
+  ])
+
+  // Get selected requisition template
+  const selectedTemplate = useMemo(() => {
+    if (!draft.requisitionTemplateId) return null
+    return organization.requisitionTemplates.find((t) => t.id === draft.requisitionTemplateId)
+  }, [draft.requisitionTemplateId, organization.requisitionTemplates])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const occupations = getActiveOccupations()
+        const options = [{ label: "Select occupation", value: "" }]
+        occupations.forEach((occ) => {
+          options.push({ label: occ.name, value: occ.code })
+        })
+        setOccupationOptions(options)
+      } catch (error) {
+        console.warn("Failed to load occupations", error)
+      }
+    }
+  }, [])
 
   const handleChange =
     (field: keyof JobDraft) =>
@@ -72,8 +111,11 @@ export default function CreateJobPage() {
       newErrors.payRangeMax = "Amount cannot be negative"
     }
 
-    if (!draft.complianceTemplateId) {
-      newErrors.complianceTemplateId = "Compliance template is required"
+    if (!draft.requisitionTemplateId) {
+      newErrors.requisitionTemplateId = "Requisition template is required"
+    }
+    if (!draft.occupation.trim()) {
+      newErrors.occupation = "Occupation is required"
     }
 
     setErrors(newErrors)
@@ -92,16 +134,18 @@ export default function CreateJobPage() {
     await actions.createJob({
       title: draft.title.trim(),
       location: draft.location.trim(),
-      department: "N/A",
-      unit: "N/A",
-      shift: "N/A",
-      hours: "N/A",
+      department: draft.department.trim() || "N/A",
+      unit: draft.unit.trim() || "N/A",
+      shift: draft.shift.trim() || "N/A",
+      hours: draft.hours.trim() || "N/A",
       billRate: payRange,
       description: draft.description.trim() || "To be provided.",
       requirements: [],
       tags: [],
       status: nextStatus === "Draft" ? "Draft" : "Open",
-      complianceTemplateId: draft.complianceTemplateId,
+      complianceTemplateId: draft.requisitionTemplateId,
+      complianceItems: selectedTemplate?.items || [],
+      occupation: draft.occupation.trim(),
     })
 
     setSaving(null)
@@ -112,7 +156,7 @@ export default function CreateJobPage() {
     <div className="space-y-6 p-8">
       <Header
         title="Create job"
-        subtitle="Capture the basics and attach a compliance checklist template."
+        subtitle="Capture the basics and select a requisition compliance template."
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
           { label: "Jobs", href: "/organization/jobs" },
@@ -196,19 +240,141 @@ export default function CreateJobPage() {
             />
           </Field>
 
-          <Field label="Compliance checklist template" error={errors.complianceTemplateId}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Occupation" error={errors.occupation}>
+              <select
+                value={draft.occupation}
+                onChange={(event) => handleChange("occupation")(event.target.value)}
+                className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
+              >
+                {occupationOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Department" error={errors.department}>
+              <Input
+                value={draft.department}
+                onChange={(event) => handleChange("department")(event.target.value)}
+                placeholder="e.g., Emergency, ICU, Med-Surg"
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Unit" error={errors.unit}>
+              <Input
+                value={draft.unit}
+                onChange={(event) => handleChange("unit")(event.target.value)}
+                placeholder="e.g., 3A, ICU-1, ER-Bay"
+              />
+            </Field>
+            <Field label="Shift" error={errors.shift}>
+              <select
+                value={draft.shift}
+                onChange={(event) => handleChange("shift")(event.target.value)}
+                className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
+              >
+                <option value="">Select shift</option>
+                <option value="Day Shift">Day Shift</option>
+                <option value="Night Shift">Night Shift</option>
+                <option value="Evening Shift">Evening Shift</option>
+                <option value="Rotational Shift">Rotational Shift</option>
+                <option value="Weekend Shift">Weekend Shift</option>
+                <option value="Variable Shift">Variable Shift</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Hours" error={errors.hours}>
+            <Input
+              value={draft.hours}
+              onChange={(event) => handleChange("hours")(event.target.value)}
+              placeholder="e.g., 40/week, 12-hour shifts, Part-time"
+            />
+          </Field>
+
+          <Field label="Requisition Compliance Template" error={errors.requisitionTemplateId}>
             <select
-              value={draft.complianceTemplateId}
-              onChange={(event) => handleChange("complianceTemplateId")(event.target.value)}
+              value={draft.requisitionTemplateId}
+              onChange={(event) => handleChange("requisitionTemplateId")(event.target.value)}
               className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
             >
-              <option value="">Select a template</option>
-              {templates.map((template) => (
+              <option value="">Select a requisition template</option>
+              {organization.requisitionTemplates.map((template) => (
                 <option key={template.id} value={template.id}>
-                  {template.name}
+                  {template.name} {template.department ? `(${template.department})` : ""} - {template.items.length} items
                 </option>
               ))}
             </select>
+            {draft.requisitionTemplateId && selectedTemplate && (
+              <div className="mt-3 rounded-lg border border-border p-4 bg-muted/30">
+                <p className="text-sm font-semibold text-foreground mb-2">
+                  Selected Template: {selectedTemplate.name}
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  This template includes {selectedTemplate.items.length} compliance requirement{selectedTemplate.items.length !== 1 ? "s" : ""}.
+                </p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedTemplate.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 bg-background"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">{item.name}</span>
+                          <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
+                            {item.type}
+                          </span>
+                          {item.requiredAtSubmission && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-warning/10 text-warning">
+                              Required at submission
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  <a
+                    href={`/organization/compliance/requisition-templates/${selectedTemplate.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Edit this template
+                  </a>
+                  {" or "}
+                  <a
+                    href="/organization/compliance/requisition-templates"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    create a new one
+                  </a>
+                </p>
+              </div>
+            )}
+            {organization.requisitionTemplates.length === 0 && (
+              <div className="mt-3 rounded-lg border-2 border-dashed border-border p-4 text-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  No requisition templates found.
+                </p>
+                <a
+                  href="/organization/compliance/requisition-templates"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline"
+                >
+                  Create a requisition template first
+                </a>
+              </div>
+            )}
           </Field>
 
           <div className="flex flex-wrap gap-3 pt-4">

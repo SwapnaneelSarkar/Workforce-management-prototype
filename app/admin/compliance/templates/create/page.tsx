@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { getAllDepartments } from "@/lib/organizations-store"
 import { useToast } from "@/components/system"
+import { getActiveOccupations } from "@/lib/admin-local-db"
 
 export default function CreateRequisitionTemplatePage() {
   const router = useRouter()
@@ -15,12 +16,23 @@ export default function CreateRequisitionTemplatePage() {
   const { pushToast } = useToast()
   const [templateName, setTemplateName] = useState("")
   const [department, setDepartment] = useState<string>("")
+  const [occupation, setOccupation] = useState<string>("")
   const [departments, setDepartments] = useState<string[]>([])
+  const [occupations, setOccupations] = useState<Array<{ label: string; value: string }>>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const allDepartments = getAllDepartments()
     setDepartments(allDepartments)
+    
+    if (typeof window !== "undefined") {
+      try {
+        const occs = getActiveOccupations()
+        setOccupations(occs.map((occ) => ({ label: occ.name, value: occ.code })))
+      } catch (error) {
+        console.warn("Failed to load occupations", error)
+      }
+    }
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,15 +48,22 @@ export default function CreateRequisitionTemplatePage() {
       return
     }
 
+    if (!occupation) {
+      pushToast({ title: "Validation Error", description: "Occupation is required." })
+      return
+    }
+
     setLoading(true)
     try {
       const template = await actions.createRequisitionTemplate({
         name: templateName.trim(),
         department: department,
+        occupation: occupation,
       })
       pushToast({ title: "Success", description: "Template created successfully." })
       router.push(`/admin/compliance/templates/${template.id}`)
     } catch (error) {
+      console.error("Failed to create template:", error)
       pushToast({ title: "Error", description: "Failed to create template. Please try again." })
       setLoading(false)
     }
@@ -75,6 +94,26 @@ export default function CreateRequisitionTemplatePage() {
               placeholder="e.g., ICU Core Requirements"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="occupation" className="text-sm font-semibold text-foreground">
+              Occupation <span className="text-destructive">*</span>
+            </Label>
+            <select
+              id="occupation"
+              value={occupation}
+              onChange={(e) => setOccupation(e.target.value)}
+              className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              required
+            >
+              <option value="">Select occupation</option>
+              {occupations.map((occ) => (
+                <option key={occ.value} value={occ.value}>
+                  {occ.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-2">

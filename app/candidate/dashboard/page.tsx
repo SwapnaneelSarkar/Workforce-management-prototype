@@ -5,9 +5,11 @@ import { Header, Card, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
 import { checkJobReadiness } from "@/lib/readiness-engine"
+import { getQuestionnaireByOccupationId, getOccupationByCode } from "@/lib/admin-local-db"
+import { useMemo } from "react"
 
 export default function CandidateDashboardPage() {
-  const { candidate, organization } = useDemoData()
+  const { candidate, organization, allJobs } = useDemoData()
   const { data: localDb } = useLocalDb()
 
   const onboardingData = {
@@ -16,33 +18,8 @@ export default function CandidateDashboardPage() {
     availability: candidate.onboarding.availability || {},
   }
 
+  // Profile information has been removed - only questionnaires and documents are tracked now
   const onboardingAnswers = localDb.onboardingDetails
-  const hasPreferredLocations = Array.isArray(onboardingAnswers.preferredLocations) && onboardingAnswers.preferredLocations.length > 0
-  const hasWorkTypes = Array.isArray(onboardingAnswers.preferredWorkTypes) && onboardingAnswers.preferredWorkTypes.length > 0
-  const hasShifts = Array.isArray(onboardingAnswers.preferredShifts) && onboardingAnswers.preferredShifts.length > 0
-  const hasExperience = Boolean(onboardingAnswers.recentJobTitle && onboardingAnswers.totalExperienceYears)
-  const hasOccupation = Boolean(onboardingAnswers.occupation)
-  const hasComplianceBasics = Boolean(onboardingAnswers.licenseType && onboardingAnswers.dateOfBirth)
-
-  const isOnboardingComplete = () =>
-    hasPreferredLocations && hasWorkTypes && hasShifts && hasExperience && hasOccupation && hasComplianceBasics
-
-  // Calculate onboarding form completion based on localDB
-  const onboardingRequirements = [
-    { id: "preferredLocations", label: "Preferred locations", completed: hasPreferredLocations },
-    { id: "preferredWorkTypes", label: "Preferred work types", completed: hasWorkTypes },
-    { id: "preferredShifts", label: "Preferred shifts", completed: hasShifts },
-    { id: "contractLength", label: "Contract length", completed: Boolean(onboardingAnswers.contractLength) },
-    { id: "availableStart", label: "Available start date", completed: Boolean(onboardingAnswers.availableStart) },
-    { id: "recentJobTitle", label: "Recent job title", completed: Boolean(onboardingAnswers.recentJobTitle) },
-    { id: "totalExperienceYears", label: "Experience years", completed: Boolean(onboardingAnswers.totalExperienceYears) },
-    { id: "occupation", label: "Occupation", completed: hasOccupation },
-    { id: "licenseType", label: "License type", completed: Boolean(onboardingAnswers.licenseType) },
-    { id: "dateOfBirth", label: "Date of birth", completed: Boolean(onboardingAnswers.dateOfBirth) },
-  ]
-
-  const onboardingCompleted = onboardingRequirements.filter((req) => req.completed).length
-  const onboardingTotal = onboardingRequirements.length
 
   // Calculate document completion
   const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
@@ -52,20 +29,60 @@ export default function CandidateDashboardPage() {
   const completedDocs = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
   const totalDocs = requiredDocs.length
 
-  // Calculate combined progress (onboarding form + documents)
-  const totalCompleted = onboardingCompleted + completedDocs
-  const totalRequirements = onboardingTotal + totalDocs || 1
+  // Calculate questionnaire completion (only occupation questionnaires count, general are skippable)
+  const questionnaireCompletion = useMemo(() => {
+    const occupationCode = onboardingAnswers.occupation as string | undefined
+    if (!occupationCode) {
+      return { completed: 0, total: 0 }
+    }
+
+    const occupation = getOccupationByCode(occupationCode)
+    const occupationQuestionnaire = occupation ? getQuestionnaireByOccupationId(occupation.id) : null
+
+    // Only count occupation questionnaire questions (general questionnaires are skippable)
+    const occupationQuestions = occupationQuestionnaire?.questions || []
+
+    if (occupationQuestions.length === 0) {
+      return { completed: 0, total: 0 }
+    }
+
+    const questionnaireAnswers = (localDb.onboardingDetails?.questionnaireAnswers || {}) as Record<string, string | string[]>
+    const requiredQuestions = occupationQuestions.filter((q) => q.required)
+    const totalRequired = requiredQuestions.length
+
+    if (totalRequired === 0) {
+      // If no required questions, check if all occupation questions are answered
+      const allAnswered = occupationQuestions.every((q) => {
+        const answer = questionnaireAnswers[q.id]
+        return answer !== undefined && answer !== null && answer !== "" && 
+               (!Array.isArray(answer) || answer.length > 0)
+      })
+      return { completed: allAnswered ? occupationQuestions.length : 0, total: occupationQuestions.length }
+    }
+
+    const completedRequired = requiredQuestions.filter((q) => {
+      const answer = questionnaireAnswers[q.id]
+      return answer !== undefined && answer !== null && answer !== "" && 
+             (!Array.isArray(answer) || answer.length > 0)
+    }).length
+
+    return { completed: completedRequired, total: totalRequired }
+  }, [onboardingAnswers.occupation, localDb.onboardingDetails?.questionnaireAnswers])
+
+  // Calculate combined progress (questionnaires + documents only)
+  const totalCompleted = completedDocs + questionnaireCompletion.completed
+  const totalRequirements = totalDocs + questionnaireCompletion.total || 1
   const progressPercent = Math.round((totalCompleted / totalRequirements) * 100)
 
   const isComplianceComplete = () => totalDocs > 0 && completedDocs === totalDocs
 
   // Check readiness using a sample job
-  const sampleJob = organization.jobs[0]
+  const sampleJob = allJobs[0]
   const readiness = sampleJob
     ? checkJobReadiness(candidate.profile, sampleJob, onboardingData)
     : null
 
-  const isJobReady = readiness?.status === "Ready" && isComplianceComplete() && isOnboardingComplete()
+  const isJobReady = readiness?.status === "Ready" && isComplianceComplete() && questionnaireCompletion.completed === questionnaireCompletion.total
 
   const quickActions = [
     { label: "Browse Jobs", description: "Review matches and new postings", href: "/candidate/jobs", cta: "See roles" },
@@ -94,8 +111,8 @@ export default function CandidateDashboardPage() {
         ]}
       />
 
-      {/* Readiness Status Banner */}
-      {!isJobReady && (
+      {/* Readiness Status Banner - Hide if questionnaire is 100% complete */}
+      {!isJobReady && questionnaireCompletion.completed < questionnaireCompletion.total && (
         <div className="rounded-2xl border-2 border-warning/50 bg-gradient-to-r from-warning/15 via-warning/10 to-warning/5 px-6 py-5 shadow-xl backdrop-blur-sm animate-slide-up">
           <div className="flex items-center justify-between">
             <div>
@@ -103,11 +120,13 @@ export default function CandidateDashboardPage() {
               <p className="text-sm text-warning/80 mt-1">
                 {!isComplianceComplete()
                   ? "Upload all required documents to become job ready."
-                  : "Complete all onboarding steps to unlock job applications."}
+                  : questionnaireCompletion.completed < questionnaireCompletion.total
+                    ? "Complete questionnaires to unlock job applications."
+                    : "Complete all onboarding steps to unlock job applications."}
               </p>
             </div>
             <Link href={!isComplianceComplete() ? "/candidate/documents" : "/candidate/onboarding"} className="ph5-button-primary">
-              {!isComplianceComplete() ? "Upload Documents" : "Complete Onboarding"}
+              {!isComplianceComplete() ? "Upload Documents" : "Complete Questionnaires"}
             </Link>
           </div>
         </div>
@@ -148,18 +167,20 @@ export default function CandidateDashboardPage() {
                 <p className="text-sm text-muted-foreground">
                   {progressPercent === 100
                     ? "Congratulations! Your onboarding is complete. You're ready to apply for jobs."
-                    : `Complete your profile information (${onboardingCompleted}/${onboardingTotal}) and upload required documents (${completedDocs}/${totalDocs}) to unlock job applications.`}
+                    : `Answer questionnaires (${questionnaireCompletion.completed}/${questionnaireCompletion.total}) and upload required documents (${completedDocs}/${totalDocs}) to unlock job applications.`}
                 </p>
                 <div className="ph5-progress">
                   <div className="ph5-progress-bar" style={{ width: `${progressPercent}%` }} />
                 </div>
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Profile information: {onboardingCompleted}/{onboardingTotal}</span>
-                    <span className={onboardingCompleted === onboardingTotal ? "text-success" : ""}>
-                      {onboardingCompleted === onboardingTotal ? "✓ Complete" : "Incomplete"}
-                    </span>
-                  </div>
+                  {questionnaireCompletion.total > 0 && (
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Questionnaires: {questionnaireCompletion.completed}/{questionnaireCompletion.total}</span>
+                      <span className={questionnaireCompletion.completed === questionnaireCompletion.total ? "text-success" : ""}>
+                        {questionnaireCompletion.completed === questionnaireCompletion.total ? "✓ Complete" : "Incomplete"}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Documents: {completedDocs}/{totalDocs}</span>
                     <span className={completedDocs === totalDocs ? "text-success" : ""}>
@@ -208,7 +229,7 @@ export default function CandidateDashboardPage() {
         <div className="grid gap-6 lg:grid-cols-[2fr,1.2fr]">
           <Card title="Recent jobs for you" subtitle="High-signal roles based on your profile.">
             <div className="space-y-3">
-              {organization.jobs.slice(0, 3).map((job) => (
+              {allJobs.slice(0, 3).map((job) => (
                 <Link
                   key={job.id}
                   href={`/candidate/jobs/${job.id}`}

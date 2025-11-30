@@ -4,16 +4,21 @@ import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react"
 import { ArrowRight, Building2, CheckCircle2 } from "lucide-react"
 import { useToast } from "@/components/system"
+import { getOrganizationByEmail } from "@/lib/admin-local-db"
+import { setCurrentOrganization } from "@/lib/organization-local-db"
+
+const CONSTANT_OTP = "123456"
 
 export default function OrganizationLoginPage() {
   const router = useRouter()
   const { pushToast } = useToast()
   const redirectTimeout = useRef<NodeJS.Timeout | null>(null)
-  const [email, setEmail] = useState("admin@novahealth.com")
+  const [email, setEmail] = useState("")
   const [otp, setOtp] = useState("")
   const [step, setStep] = useState<"email" | "otp">("email")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [organizationId, setOrganizationId] = useState<string | null>(null)
 
   useEffect(() => {
     return () => {
@@ -40,8 +45,17 @@ export default function OrganizationLoginPage() {
       setError("Enter a work email to receive your OTP.")
       return
     }
+    
+    // Check if organization exists with this email
+    const org = getOrganizationByEmail(email.trim())
+    if (!org) {
+      setError("No organization found with this email. Please contact admin to create an organization account.")
+      return
+    }
+    
+    setOrganizationId(org.id)
     setError(null)
-    pushToast({ title: "OTP sent to your email" })
+    pushToast({ title: "OTP sent to your email", description: `Use OTP: ${CONSTANT_OTP}` })
     setStep("otp")
   }
 
@@ -51,6 +65,22 @@ export default function OrganizationLoginPage() {
       setError("Enter the 6-digit OTP from your email.")
       return
     }
+    
+    // Verify OTP (constant: 123456)
+    if (otp !== CONSTANT_OTP) {
+      setError("Invalid OTP. Please enter the correct 6-digit code.")
+      return
+    }
+    
+    if (!organizationId) {
+      setError("Session expired. Please start over.")
+      setStep("email")
+      return
+    }
+    
+    // Set current organization in local DB
+    setCurrentOrganization(organizationId)
+    
     setError(null)
     setIsSubmitting(true)
     redirectTimeout.current = setTimeout(() => {
@@ -123,7 +153,7 @@ export default function OrganizationLoginPage() {
               <div>
                 <p className="text-sm font-medium text-slate-500">Step 2 of 2</p>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-900">Enter OTP</h2>
-                <p className="mt-2 text-sm text-slate-600">We sent a 6-digit code to {email}. Any 6 digits will be accepted in this demo.</p>
+                <p className="mt-2 text-sm text-slate-600">We sent a 6-digit code to {email}. Use OTP: <strong>123456</strong></p>
               </div>
 
               {error && (

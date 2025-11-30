@@ -62,7 +62,7 @@ export default function RequisitionTemplatesPage() {
         }
       }}>
         <TabsList>
-          <TabsTrigger value="wallet">Document Wallet Templates</TabsTrigger>
+          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
           <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
           <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
         </TabsList>

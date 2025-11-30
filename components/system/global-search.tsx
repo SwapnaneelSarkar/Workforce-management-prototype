@@ -10,9 +10,11 @@ export function GlobalSearch() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const { organization, vendor } = useDemoData()
+  const { organization, vendor, allJobs } = useDemoData()
 
-  const { jobs, candidates } = organization
+  // Use allJobs for candidate portal, organization.jobs for org portal
+  const jobs = pathname?.startsWith("/candidate") ? allJobs : organization.jobs
+  const { candidates } = organization
   const vendorList = vendor.vendors
   const applications = organization.applications
 

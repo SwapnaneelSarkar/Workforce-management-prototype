@@ -10,6 +10,7 @@ import type { WalletTemplate } from "@/components/providers/demo-data-provider"
 import { AddItemModal } from "@/components/compliance/add-item-modal"
 import type { ComplianceItem } from "@/lib/compliance-templates-store"
 import { complianceItemsByCategory } from "@/lib/compliance-items"
+import { getActiveOccupations } from "@/lib/admin-local-db"
 
 export default function WalletTemplateDetailPage() {
   const router = useRouter()
@@ -21,6 +22,19 @@ export default function WalletTemplateDetailPage() {
   const template = organization.walletTemplates.find((t) => t.id === templateId)
   const [draftTemplate, setDraftTemplate] = useState<WalletTemplate | null>(null)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
+  const [occupations, setOccupations] = useState<string[]>([])
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const occs = getActiveOccupations()
+        setOccupations(occs.map((occ) => occ.code))
+      } catch (error) {
+        // Fallback to default occupations
+        setOccupations(["RN", "LPN", "CNA", "PT", "OT", "RT", "ST", "MT"])
+      }
+    }
+  }, [])
 
   const activeTab = pathname?.includes("wallet-templates")
     ? "wallet"
@@ -78,7 +92,6 @@ export default function WalletTemplateDetailPage() {
     return item.id
   })
 
-  const occupations = ["RN", "LPN", "CNA", "PT", "OT", "RT", "ST", "MT"]
 
   // Group items by category
   const itemsByCategory = draftTemplate.items.reduce((acc, item) => {
@@ -93,12 +106,12 @@ export default function WalletTemplateDetailPage() {
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="Edit Wallet Template"
+        title="Edit Compliance Wallet Template"
         subtitle="Manage template details and compliance items."
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
           { label: "Compliance templates", href: "/organization/compliance/templates" },
-          { label: "Document Wallet Templates", href: "/organization/compliance/wallet-templates" },
+          { label: "Compliance Wallet Templates", href: "/organization/compliance/wallet-templates" },
           { label: draftTemplate.name },
         ]}
       />
@@ -113,7 +126,7 @@ export default function WalletTemplateDetailPage() {
         }
       }}>
         <TabsList>
-          <TabsTrigger value="wallet">Document Wallet Templates</TabsTrigger>
+          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
           <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
           <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
         </TabsList>

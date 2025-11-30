@@ -2,12 +2,39 @@
 
 import { Header, Card, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
+import { getJobById } from "@/lib/organization-local-db"
 
 export default function CandidateApplicationsPage() {
-  const { candidate, organization } = useDemoData()
+  const { candidate, allJobs } = useDemoData()
 
   const applications = candidate.applications.map((application) => {
-    const job = organization.jobs.find((entry) => entry.id === application.jobId)
+    // First try to find in allJobs (Open jobs), then try to get from DB (in case job was closed)
+    let job = allJobs.find((entry) => entry.id === application.jobId)
+    if (!job && typeof window !== "undefined") {
+      try {
+        const dbJob = getJobById(application.jobId)
+        if (dbJob) {
+          job = {
+            id: dbJob.id,
+            title: dbJob.title,
+            location: dbJob.location,
+            department: dbJob.department,
+            unit: dbJob.unit,
+            shift: dbJob.shift,
+            hours: dbJob.hours,
+            billRate: dbJob.billRate,
+            description: dbJob.description,
+            requirements: dbJob.requirements,
+            tags: dbJob.tags,
+            status: dbJob.status,
+            complianceTemplateId: dbJob.complianceTemplateId,
+            startDate: dbJob.startDate,
+          }
+        }
+      } catch (error) {
+        // Silently fail, will use fallback
+      }
+    }
     return {
       id: application.id,
       jobTitle: job?.title ?? "Job role",

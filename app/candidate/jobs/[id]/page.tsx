@@ -5,9 +5,9 @@ import { CalendarDays, Clock3, DollarSign, MapPin, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, Header, Modal, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
-import { useComplianceTemplatesStore } from "@/lib/compliance-templates-store"
 import { useLocalDb } from "@/components/providers/local-db-provider"
 import { useToast } from "@/components/system"
+import { getJobById } from "@/lib/organization-local-db"
 
 type PageProps = {
   params: Promise<{ id: string }>
@@ -23,12 +23,39 @@ type RequirementStatus = {
 
 export default function JobDetailsPage({ params }: PageProps) {
   const { id } = React.use(params)
-  const { organization, candidate, actions } = useDemoData()
+  const { allJobs, candidate, actions, organization } = useDemoData()
   const { data: localDb, markJobApplied } = useLocalDb()
-  const templates = useComplianceTemplatesStore((state) => state.templates)
   const { pushToast } = useToast()
 
-  const job = organization.jobs.find((item) => item.id === id)
+  // First try to find in allJobs (Open jobs), then try to get from DB (in case job was closed but user has direct link)
+  let job = allJobs.find((item) => item.id === id)
+  if (!job && typeof window !== "undefined") {
+    try {
+      const dbJob = getJobById(id)
+      if (dbJob) {
+        job = {
+          id: dbJob.id,
+          title: dbJob.title,
+          location: dbJob.location,
+          department: dbJob.department,
+          unit: dbJob.unit,
+          shift: dbJob.shift,
+          hours: dbJob.hours,
+          billRate: dbJob.billRate,
+          description: dbJob.description,
+          requirements: dbJob.requirements,
+          tags: dbJob.tags,
+          status: dbJob.status,
+          complianceItems: dbJob.complianceItems,
+          complianceTemplateId: dbJob.complianceTemplateId,
+          startDate: dbJob.startDate,
+          occupation: dbJob.occupation,
+        }
+      }
+    } catch (error) {
+      // Silently fail, will show "Job not found"
+    }
+  }
 
   const [requirementsModalOpen, setRequirementsModalOpen] = useState(false)
   const [uploadTarget, setUploadTarget] = useState<string | null>(null)
@@ -43,34 +70,88 @@ export default function JobDetailsPage({ params }: PageProps) {
     )
   }
 
-  const template = job.complianceTemplateId ? templates.find((item) => item.id === job.complianceTemplateId) : undefined
+  // Get job-specific compliance requirements
+  // New flow: Use job.complianceItems (job-specific requirements)
+  // Legacy flow: Fall back to requisition template if complianceTemplateId exists
+  const requisitionTemplate = job.complianceTemplateId 
+    ? organization.requisitionTemplates.find((item) => item.id === job.complianceTemplateId)
+    : undefined
 
-  const checklist = useMemo(() => {
-    if (template) {
-      return template.items.map((item) => ({
+  const jobRequirements = useMemo(() => {
+    // Priority 1: Use job-specific compliance items (new flow)
+    if (job.complianceItems && job.complianceItems.length > 0) {
+      return job.complianceItems.map((item) => ({
         id: item.id,
         name: item.name,
         type: item.type,
-        requiredAtSubmission: item.requiredAtSubmission,
+        requiredAtSubmission: item.requiredAtSubmission ?? true,
       }))
     }
+    // Priority 2: Use requisition template (legacy flow)
+    if (requisitionTemplate) {
+      return requisitionTemplate.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        type: item.type,
+        requiredAtSubmission: item.requiredAtSubmission ?? true,
+      }))
+    }
+    // Priority 3: Fall back to job requirements array
     return (job.requirements ?? []).map((requirement, index) => ({
       id: `${job.id}-${index}`,
       name: requirement,
       type: "Other",
       requiredAtSubmission: true,
     }))
-  }, [job.id, job.requirements, template])
+  }, [job.id, job.requirements, job.complianceItems, requisitionTemplate])
+
+  // Get candidate's wallet items (occupation-based)
+  const walletItems = useMemo(() => {
+    const occupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
+    if (!occupationCode) {
+      return []
+    }
+    
+    // Find wallet template for this occupation
+    const walletTemplate = organization.walletTemplates.find(
+      (t) => t.occupation === occupationCode
+    )
+
+    if (!walletTemplate || !walletTemplate.items.length) {
+      return []
+    }
+
+    return walletTemplate.items.map((item) => item.name)
+  }, [localDb.onboardingDetails.occupation, organization.walletTemplates])
+
+  // Compare job requirements with wallet items
+  // Items in job requirements that are NOT in wallet need to be uploaded
+  const checklist = useMemo(() => {
+    return jobRequirements.map((req) => {
+      const inWallet = walletItems.includes(req.name)
+      return {
+        ...req,
+        inWallet, // Whether this item is already in the candidate's wallet
+      }
+    })
+  }, [jobRequirements, walletItems])
 
   const requirementStatuses: RequirementStatus[] = useMemo(() => {
     return checklist.map((item) => {
-      const hasDocument = candidate.documents.some((doc) => doc.type === item.name)
-      return { ...item, status: hasDocument ? "completed" : "missing" }
+      // Check if candidate has this document uploaded (in wallet or job-specific)
+      const hasDocument = candidate.documents.some((doc) => doc.type === item.name && doc.status === "Completed")
+      return { 
+        ...item, 
+        status: hasDocument ? "completed" : "missing",
+        inWallet: item.inWallet || false,
+      }
     })
   }, [candidate.documents, checklist])
 
-  const missingDocuments = requirementStatuses.filter((item) => item.status === "missing").map((item) => item.name)
-  const allRequirementsMet = missingDocuments.length === 0
+  // Only check requiredAtSubmission items for application blocking
+  const requiredItems = requirementStatuses.filter((item) => item.requiredAtSubmission !== false)
+  const missingRequiredDocuments = requiredItems.filter((item) => item.status === "missing").map((item) => item.name)
+  const allRequirementsMet = missingRequiredDocuments.length === 0
   const hasApplied = Boolean(localDb.jobApplications[job.id]) || candidate.applications.some((app) => app.jobId === job.id)
 
   const infoRows = [
@@ -85,6 +166,11 @@ export default function JobDetailsPage({ params }: PageProps) {
 
   const handleApply = async () => {
     if (hasApplied) {
+      return
+    }
+    // Only allow applying to Open jobs
+    if (job.status !== "Open") {
+      pushToast({ title: "Job not available", description: "This job is no longer accepting applications.", type: "error" })
       return
     }
     if (!allRequirementsMet) {
@@ -171,11 +257,11 @@ export default function JobDetailsPage({ params }: PageProps) {
             <Button
               size="lg"
               className="w-full"
-              variant={allRequirementsMet && !hasApplied ? "default" : "outline"}
+              variant={allRequirementsMet && !hasApplied && job.status === "Open" ? "default" : "outline"}
               onClick={allRequirementsMet ? handleApply : () => setRequirementsModalOpen(true)}
-              disabled={hasApplied || applying}
+              disabled={hasApplied || applying || job.status !== "Open"}
             >
-              {hasApplied ? "Applied" : allRequirementsMet ? (applying ? "Submitting..." : "Apply Now") : "Review Requirements"}
+              {hasApplied ? "Applied" : job.status !== "Open" ? "Job Not Available" : allRequirementsMet ? (applying ? "Submitting..." : "Apply Now") : "Review Requirements"}
             </Button>
             <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-4">
               <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -202,50 +288,71 @@ export default function JobDetailsPage({ params }: PageProps) {
       <Card>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-lg font-semibold text-foreground">Compliance requirements</p>
+            <p className="text-lg font-semibold text-foreground">Job Compliance Requirements</p>
             <p className="text-sm text-muted-foreground">
-              Attached checklist: {template?.name ?? "Job specific requirements"}
+              Documents required specifically for this job. Items already in your wallet are marked.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Upload any missing documents before you can apply for this job.
             </p>
           </div>
-          <StatusChip label={`${requirementStatuses.length - missingDocuments.length}/${requirementStatuses.length} completed`} tone={allRequirementsMet ? "success" : "warning"} />
+          <StatusChip 
+            label={`${requiredItems.length - missingRequiredDocuments.length}/${requiredItems.length} required completed`} 
+            tone={allRequirementsMet ? "success" : "warning"} 
+          />
         </div>
         <div className="mt-4 space-y-3">
-          {requirementStatuses.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-2xl border border-border p-4 transition hover:border-primary/60"
-            >
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{item.name}</p>
-                  <p className="text-xs text-muted-foreground">{item.requiredAtSubmission ? "Required at submission" : "Required before start"}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <StatusChip label={item.status === "completed" ? "Completed" : "Missing"} tone={item.status === "completed" ? "success" : "danger"} />
-                  {item.status === "missing" && (
-                    <Button size="sm" variant="outline" onClick={() => setUploadTarget(item.name)} className="inline-flex items-center gap-2">
-                      <Upload className="h-4 w-4" aria-hidden />
-                      Upload document
-                    </Button>
-                  )}
+          {requirementStatuses.map((item) => {
+            const isInWallet = (item as any).inWallet
+            return (
+              <div
+                key={item.id}
+                className="rounded-2xl border border-border p-4 transition hover:border-primary/60"
+              >
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                      {isInWallet && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-success/10 text-success">
+                          In Wallet
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {item.requiredAtSubmission ? "Required at submission" : "Required before start"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <StatusChip 
+                      label={item.status === "completed" ? "Completed" : "Missing"} 
+                      tone={item.status === "completed" ? "success" : "danger"} 
+                    />
+                    {item.status === "missing" && (
+                      <Button size="sm" variant="outline" onClick={() => setUploadTarget(item.name)} className="inline-flex items-center gap-2">
+                        <Upload className="h-4 w-4" aria-hidden />
+                        Upload document
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </Card>
 
       <Modal
         open={requirementsModalOpen}
         onClose={() => setRequirementsModalOpen(false)}
-        title="Documents required before apply"
-        description="Upload these items into your document wallet to unlock instant apply."
+        title="Documents Required Before Application"
+        description="Upload these required documents to your compliance wallet before you can apply for this job."
       >
         <div className="space-y-3">
-          {missingDocuments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">All requirements are satisfied.</p>
+          {missingRequiredDocuments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">All required documents are uploaded. You can now apply!</p>
           ) : (
-            missingDocuments.map((doc) => (
+            missingRequiredDocuments.map((doc) => (
               <div key={doc} className="flex items-center justify-between rounded-xl border border-border px-3 py-2">
                 <span className="text-sm font-medium text-foreground">{doc}</span>
                 <Button

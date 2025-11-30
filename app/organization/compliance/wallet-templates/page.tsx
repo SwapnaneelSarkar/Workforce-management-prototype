@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -40,17 +40,31 @@ export default function WalletTemplatesPage() {
     }
   }
 
-  const occupations = ["RN", "LPN", "CNA", "PT", "OT", "RT", "ST", "MT"]
+  // Get occupations from admin-managed list
+  const [occupations, setOccupations] = useState<string[]>([])
+  
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const { getActiveOccupations } = require("@/lib/admin-local-db")
+        const occs = getActiveOccupations()
+        setOccupations(occs.map((occ) => occ.code))
+      } catch (error) {
+        // Fallback to default occupations
+        setOccupations(["RN", "LPN", "CNA", "PT", "OT", "RT", "ST", "MT"])
+      }
+    }
+  }, [])
 
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="Document Wallet Templates"
-        subtitle="Create occupation-based templates for document wallets."
+        title="Compliance Wallet Templates"
+        subtitle="Create occupation-based templates for compliance wallets."
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
           { label: "Compliance templates", href: "/organization/compliance/templates" },
-          { label: "Document Wallet Templates" },
+          { label: "Compliance Wallet Templates" },
         ]}
       />
 
@@ -64,7 +78,7 @@ export default function WalletTemplatesPage() {
         }
       }}>
         <TabsList>
-          <TabsTrigger value="wallet">Document Wallet Templates</TabsTrigger>
+          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
           <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
           <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
         </TabsList>
@@ -137,7 +151,7 @@ export default function WalletTemplatesPage() {
         <Card title="Create New Template">
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Document Wallet Templates are occupation-based templates that define which compliance items are required
+              Compliance Wallet Templates are occupation-based templates that define which compliance items are required
               for candidates in specific occupations (e.g., RN, LPN, CNA).
             </p>
             <div className="space-y-2">
