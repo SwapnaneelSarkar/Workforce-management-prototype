@@ -9,6 +9,7 @@ export type AdminLocalDbOrganizationLocation = {
   zipCode: string
   phone?: string
   email?: string
+  departments: string[]
 }
 
 export type AdminLocalDbOrganizationEntry = {
@@ -48,6 +49,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         zipCode: "62701",
         phone: "+1 (555) 123-4567",
         email: "main@novahealth.com",
+        departments: [],
       },
       {
         id: "loc-002",
@@ -58,6 +60,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         zipCode: "62702",
         phone: "+1 (555) 123-4568",
         email: "downtown@novahealth.com",
+        departments: [],
       },
     ],
     createdAt: "2025-01-15T10:00:00Z",
@@ -81,6 +84,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         zipCode: "60601",
         phone: "+1 (555) 234-5678",
         email: "main@memorialhealth.com",
+        departments: [],
       },
       {
         id: "loc-004",
@@ -90,6 +94,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         state: "IL",
         zipCode: "60201",
         phone: "+1 (555) 234-5679",
+        departments: [],
       },
     ],
     createdAt: "2025-02-01T10:00:00Z",
@@ -122,8 +127,24 @@ export function readAdminLocalDb(): AdminLocalDbState {
       return defaultAdminLocalDbState
     }
     const parsed = JSON.parse(raw) as Partial<AdminLocalDbState>
+    
+    // Migrate existing data to include departments if missing
+    const migratedOrganizations: Record<string, AdminLocalDbOrganizationEntry> = {}
+    if (parsed.organizations) {
+      Object.values(parsed.organizations).forEach((org) => {
+        const migratedLocations = org.locations.map((loc) => ({
+          ...loc,
+          departments: loc.departments ?? [],
+        }))
+        migratedOrganizations[org.id] = {
+          ...org,
+          locations: migratedLocations,
+        }
+      })
+    }
+    
     return {
-      organizations: parsed.organizations ?? defaultOrganizationsRecord,
+      organizations: Object.keys(migratedOrganizations).length > 0 ? migratedOrganizations : defaultOrganizationsRecord,
       lastUpdated: parsed.lastUpdated,
     }
   } catch (error) {
@@ -216,5 +237,195 @@ export function deleteOrganization(id: string): boolean {
   }
   persistAdminLocalDb(updatedState)
   return true
+}
+
+// Helper functions for locations
+export function getAllLocations(): Array<AdminLocalDbOrganizationLocation & { organizationId: string; organizationName: string }> {
+  const state = readAdminLocalDb()
+  const allLocations: Array<AdminLocalDbOrganizationLocation & { organizationId: string; organizationName: string }> = []
+  
+  Object.values(state.organizations).forEach((org) => {
+    org.locations.forEach((location) => {
+      allLocations.push({
+        ...location,
+        organizationId: org.id,
+        organizationName: org.name,
+      })
+    })
+  })
+  
+  return allLocations
+}
+
+export function getLocationById(locationId: string): (AdminLocalDbOrganizationLocation & { organizationId: string; organizationName: string }) | null {
+  const state = readAdminLocalDb()
+  
+  for (const org of Object.values(state.organizations)) {
+    const location = org.locations.find((loc) => loc.id === locationId)
+    if (location) {
+      return {
+        ...location,
+        organizationId: org.id,
+        organizationName: org.name,
+      }
+    }
+  }
+  
+  return null
+}
+
+// Helper functions for departments
+export function addDepartment(locationId: string, deptName: string): boolean {
+  const state = readAdminLocalDb()
+  
+  for (const orgId in state.organizations) {
+    const org = state.organizations[orgId]
+    const locationIndex = org.locations.findIndex((loc) => loc.id === locationId)
+    
+    if (locationIndex !== -1) {
+      const location = org.locations[locationIndex]
+      
+      // Check if department already exists
+      if (location.departments.includes(deptName)) {
+        return false
+      }
+      
+      // Add department
+      const updatedLocation = {
+        ...location,
+        departments: [...location.departments, deptName],
+      }
+      
+      const updatedLocations = [...org.locations]
+      updatedLocations[locationIndex] = updatedLocation
+      
+      const updatedOrg = {
+        ...org,
+        locations: updatedLocations,
+        updatedAt: new Date().toISOString(),
+      }
+      
+      const updatedState: AdminLocalDbState = {
+        ...state,
+        organizations: {
+          ...state.organizations,
+          [orgId]: updatedOrg,
+        },
+      }
+      
+      persistAdminLocalDb(updatedState)
+      return true
+    }
+  }
+  
+  return false
+}
+
+export function removeDepartment(locationId: string, deptName: string): boolean {
+  const state = readAdminLocalDb()
+  
+  for (const orgId in state.organizations) {
+    const org = state.organizations[orgId]
+    const locationIndex = org.locations.findIndex((loc) => loc.id === locationId)
+    
+    if (locationIndex !== -1) {
+      const location = org.locations[locationIndex]
+      
+      // Remove department
+      const updatedLocation = {
+        ...location,
+        departments: location.departments.filter((dept) => dept !== deptName),
+      }
+      
+      const updatedLocations = [...org.locations]
+      updatedLocations[locationIndex] = updatedLocation
+      
+      const updatedOrg = {
+        ...org,
+        locations: updatedLocations,
+        updatedAt: new Date().toISOString(),
+      }
+      
+      const updatedState: AdminLocalDbState = {
+        ...state,
+        organizations: {
+          ...state.organizations,
+          [orgId]: updatedOrg,
+        },
+      }
+      
+      persistAdminLocalDb(updatedState)
+      return true
+    }
+  }
+  
+  return false
+}
+
+export function updateDepartment(locationId: string, oldName: string, newName: string): boolean {
+  const state = readAdminLocalDb()
+  
+  for (const orgId in state.organizations) {
+    const org = state.organizations[orgId]
+    const locationIndex = org.locations.findIndex((loc) => loc.id === locationId)
+    
+    if (locationIndex !== -1) {
+      const location = org.locations[locationIndex]
+      
+      // Check if old department exists
+      if (!location.departments.includes(oldName)) {
+        return false
+      }
+      
+      // Check if new name already exists (and is different from old name)
+      if (oldName !== newName && location.departments.includes(newName)) {
+        return false
+      }
+      
+      // Update department name
+      const updatedLocation = {
+        ...location,
+        departments: location.departments.map((dept) => (dept === oldName ? newName : dept)),
+      }
+      
+      const updatedLocations = [...org.locations]
+      updatedLocations[locationIndex] = updatedLocation
+      
+      const updatedOrg = {
+        ...org,
+        locations: updatedLocations,
+        updatedAt: new Date().toISOString(),
+      }
+      
+      const updatedState: AdminLocalDbState = {
+        ...state,
+        organizations: {
+          ...state.organizations,
+          [orgId]: updatedOrg,
+        },
+      }
+      
+      persistAdminLocalDb(updatedState)
+      return true
+    }
+  }
+  
+  return false
+}
+
+// Helper function to get all unique departments from all locations
+export function getAllDepartments(): string[] {
+  const locations = getAllLocations()
+  const departmentsSet = new Set<string>()
+  
+  locations.forEach((location) => {
+    location.departments.forEach((dept) => {
+      if (dept.trim()) {
+        departmentsSet.add(dept.trim())
+      }
+    })
+  })
+  
+  return Array.from(departmentsSet).sort()
 }
 

@@ -10,6 +10,12 @@ import {
   addOrganization,
   updateOrganization,
   deleteOrganization,
+  getAllLocations,
+  getLocationById,
+  addDepartment,
+  removeDepartment,
+  updateDepartment,
+  getAllDepartments,
 } from "./admin-local-db"
 
 export type OrganizationLocation = AdminLocalDbOrganizationLocation
@@ -21,5 +27,11 @@ export {
   addOrganization,
   updateOrganization,
   deleteOrganization,
+  getAllLocations,
+  getLocationById,
+  addDepartment,
+  removeDepartment,
+  updateDepartment,
+  getAllDepartments,
 }
 

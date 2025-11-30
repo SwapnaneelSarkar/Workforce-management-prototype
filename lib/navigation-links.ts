@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Gavel,
   Plus,
+  MapPin,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -41,6 +42,8 @@ export const vendorNavLinks: NavLink[] = [
 
 export const adminNavLinks: NavLink[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/locations", label: "Locations", icon: MapPin },
+  { href: "/admin/compliance/templates", label: "Compliance Templates", icon: ClipboardCheck },
   { href: "/admin/organizations/add", label: "Add Organization", icon: Plus },
 ]
 

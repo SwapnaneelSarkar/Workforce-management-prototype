@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useState } from "react"
 import type { ReactNode } from "react"
-import { useComplianceTemplatesStore } from "@/lib/compliance-templates-store"
+import { useComplianceTemplatesStore, type ComplianceItem } from "@/lib/compliance-templates-store"
 import type {
   Application,
   ApplicationInsight,
@@ -43,6 +43,20 @@ type OnboardingState = {
   requiredDocuments: string[]
 }
 
+export type WalletTemplate = {
+  id: string
+  name: string
+  occupation?: string
+  items: ComplianceItem[]
+}
+
+export type RequisitionTemplate = {
+  id: string
+  name: string
+  department?: string
+  items: ComplianceItem[]
+}
+
 type DemoDataContextValue = {
   candidate: {
     profile: CandidateProfile
@@ -57,6 +71,8 @@ type DemoDataContextValue = {
     applications: Application[]
     insights: ApplicationInsight[]
     candidates: CandidateProfile[]
+    walletTemplates: WalletTemplate[]
+    requisitionTemplates: RequisitionTemplate[]
   }
   vendor: {
     vendors: Vendor[]
@@ -93,6 +109,16 @@ type DemoDataContextValue = {
     updateApplicationStatus: (id: string, status: Application["status"]) => void
     rejectApplication: (id: string) => void
     submitVendorBid: (payload: { jobId: string; vendorName: string; rate: string; availability: string }) => Promise<VendorBid>
+    createWalletTemplate: (payload: { name: string; occupation?: string }) => Promise<WalletTemplate>
+    updateWalletTemplate: (id: string, updates: Partial<Omit<WalletTemplate, "id">>) => void
+    addWalletTemplateItem: (templateId: string, item: ComplianceItem) => void
+    removeWalletTemplateItem: (templateId: string, itemId: string) => void
+    createRequisitionTemplate: (payload: { name: string; department?: string }) => Promise<RequisitionTemplate>
+    updateRequisitionTemplate: (id: string, updates: Partial<Omit<RequisitionTemplate, "id">>) => void
+    deleteRequisitionTemplate: (id: string) => void
+    addRequisitionTemplateItem: (templateId: string, item: ComplianceItem) => void
+    removeRequisitionTemplateItem: (templateId: string, itemId: string) => void
+    initializeCandidateWalletWithOccupation: (occupation: string) => Promise<void>
   }
 }
 
@@ -129,6 +155,8 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
   const [bidsState, setBids] = useState<VendorBid[]>(initialVendorBids)
   const [notificationList, setNotificationList] = useState<Notification[]>(initialNotifications)
   const [vendorDetailsState] = useState<VendorDetail[]>(initialVendorDetails)
+  const [walletTemplates, setWalletTemplates] = useState<WalletTemplate[]>([])
+  const [requisitionTemplates, setRequisitionTemplates] = useState<RequisitionTemplate[]>([])
   const templates = useComplianceTemplatesStore((state) => state.templates)
 
   const primaryCandidate = useMemo(() => ({ ...profile, documents }), [profile, documents])
@@ -338,6 +366,121 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  const createWalletTemplate = useCallback(
+    async (payload: { name: string; occupation?: string }) => {
+      await simulateDelay()
+      const template: WalletTemplate = {
+        id: crypto.randomUUID(),
+        name: payload.name,
+        occupation: payload.occupation,
+        items: [],
+      }
+      setWalletTemplates((prev) => [...prev, template])
+      return template
+    },
+    [],
+  )
+
+  const updateWalletTemplate = useCallback((id: string, updates: Partial<Omit<WalletTemplate, "id">>) => {
+    setWalletTemplates((prev) => prev.map((template) => (template.id === id ? { ...template, ...updates } : template)))
+  }, [])
+
+  const addWalletTemplateItem = useCallback((templateId: string, item: ComplianceItem) => {
+    setWalletTemplates((prev) =>
+      prev.map((template) => (template.id === templateId ? { ...template, items: [...template.items, item] } : template)),
+    )
+  }, [])
+
+  const removeWalletTemplateItem = useCallback((templateId: string, itemId: string) => {
+    setWalletTemplates((prev) =>
+      prev.map((template) => (template.id === templateId ? { ...template, items: template.items.filter((item) => item.id !== itemId) } : template)),
+    )
+  }, [])
+
+  const createRequisitionTemplate = useCallback(
+    async (payload: { name: string; department?: string }) => {
+      await simulateDelay()
+      const template: RequisitionTemplate = {
+        id: crypto.randomUUID(),
+        name: payload.name,
+        department: payload.department,
+        items: [],
+      }
+      setRequisitionTemplates((prev) => [...prev, template])
+      return template
+    },
+    [],
+  )
+
+  const updateRequisitionTemplate = useCallback((id: string, updates: Partial<Omit<RequisitionTemplate, "id">>) => {
+    setRequisitionTemplates((prev) => prev.map((template) => (template.id === id ? { ...template, ...updates } : template)))
+  }, [])
+
+  const deleteRequisitionTemplate = useCallback((id: string) => {
+    setRequisitionTemplates((prev) => prev.filter((template) => template.id !== id))
+  }, [])
+
+  const addRequisitionTemplateItem = useCallback((templateId: string, item: ComplianceItem) => {
+    setRequisitionTemplates((prev) =>
+      prev.map((template) => (template.id === templateId ? { ...template, items: [...template.items, item] } : template)),
+    )
+  }, [])
+
+  const removeRequisitionTemplateItem = useCallback((templateId: string, itemId: string) => {
+    setRequisitionTemplates((prev) =>
+      prev.map((template) => (template.id === templateId ? { ...template, items: template.items.filter((item) => item.id !== itemId) } : template)),
+    )
+  }, [])
+
+  const initializeCandidateWalletWithOccupation = useCallback(
+    async (occupation: string) => {
+      // Map signup occupation values to wallet template occupation codes
+      const occupationMapping: Record<string, string> = {
+        "RN": "RN",
+        "LPN/LVN": "LPN",
+        "CNA": "CNA",
+        "Medical Assistant": "MT", // Medical Tech/Assistant
+        "Surgical Tech": "ST",
+        "Physical Therapist": "PT",
+        "Occupational Therapist": "OT",
+        "Respiratory Therapist": "RT",
+        "Nurse Practitioner": "RN", // Use RN template as fallback
+        "Physician Assistant": "MT", // Use Medical Tech template as fallback
+      }
+
+      // Get the template occupation code
+      const templateOccupation = occupationMapping[occupation] || occupation
+      
+      // Find wallet template matching the occupation
+      const template = walletTemplates.find((t) => t.occupation === templateOccupation)
+      
+      if (!template || template.items.length === 0) {
+        // If no template found, don't initialize documents
+        return
+      }
+
+      // Check if wallet is already initialized (avoid duplicates on login)
+      const existingDocTypes = new Set(documents.map((doc) => doc.type))
+      
+      // Create documents from template items that don't already exist
+      const newDocuments: CandidateDocument[] = template.items
+        .filter((item) => !existingDocTypes.has(item.name))
+        .map((item) => ({
+          id: crypto.randomUUID(),
+          name: item.name,
+          type: item.name,
+          status: "Pending Upload" as const,
+          expiresOn: "",
+          lastUpdated: new Date().toISOString().slice(0, 10),
+        }))
+
+      if (newDocuments.length > 0) {
+        setDocuments((prev) => [...prev, ...newDocuments])
+      }
+    },
+    [walletTemplates, documents],
+  )
+
   const value: DemoDataContextValue = useMemo(
     () => ({
       candidate: {
@@ -353,6 +496,8 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         applications: enrichedApplications,
         insights: applicationInsights,
         candidates: candidatePool,
+        walletTemplates,
+        requisitionTemplates,
       },
       vendor: {
         vendors: vendorsState,
@@ -375,6 +520,16 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         updateApplicationStatus,
         rejectApplication,
         submitVendorBid,
+        createWalletTemplate,
+        updateWalletTemplate,
+        addWalletTemplateItem,
+        removeWalletTemplateItem,
+        createRequisitionTemplate,
+        updateRequisitionTemplate,
+        deleteRequisitionTemplate,
+        addRequisitionTemplateItem,
+        removeRequisitionTemplateItem,
+        initializeCandidateWalletWithOccupation,
       },
     }),
     [
@@ -397,12 +552,25 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       saveOnboardingStep,
       submitJobApplication,
       createJob,
+      updateJob,
       updateApplicationStatus,
       rejectApplication,
       submitVendorBid,
       vendorsState,
       vendorLeaderboardState,
       vendorDetailsState,
+      walletTemplates,
+      requisitionTemplates,
+      createWalletTemplate,
+      updateWalletTemplate,
+      addWalletTemplateItem,
+      removeWalletTemplateItem,
+      createRequisitionTemplate,
+      updateRequisitionTemplate,
+      deleteRequisitionTemplate,
+      addRequisitionTemplateItem,
+      removeRequisitionTemplateItem,
+      initializeCandidateWalletWithOccupation,
     ],
   )
 

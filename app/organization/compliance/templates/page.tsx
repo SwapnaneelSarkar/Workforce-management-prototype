@@ -1,9 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname, useRouter } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   useComplianceTemplatesStore,
   type ComplianceItem,
@@ -11,9 +13,18 @@ import {
 } from "@/lib/compliance-templates-store"
 
 export default function ComplianceTemplatesPage() {
+  const router = useRouter()
+  const pathname = usePathname()
   const { templates, addTemplate, updateTemplate, deleteTemplate } = useComplianceTemplatesStore()
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(templates[0]?.id ?? null)
   const [draftTemplate, setDraftTemplate] = useState<ComplianceTemplate | null>(null)
+  
+  // Determine active tab based on pathname
+  const activeTab = pathname?.includes("wallet-templates")
+    ? "wallet"
+    : pathname?.includes("requisition-templates")
+    ? "requisition"
+    : "legacy"
 
   const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? null
 
@@ -110,13 +121,32 @@ export default function ComplianceTemplatesPage() {
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="Compliance checklist templates"
-        subtitle="Create and maintain reusable compliance checklists for jobs."
+        title="Compliance Templates"
+        subtitle="Create and maintain reusable compliance templates for document wallets and requisitions."
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
           { label: "Compliance templates" },
         ]}
       />
+
+      <Tabs value={activeTab} onValueChange={(value) => {
+        if (value === "wallet") {
+          router.push("/organization/compliance/wallet-templates")
+        } else if (value === "requisition") {
+          router.push("/organization/compliance/requisition-templates")
+        } else {
+          router.push("/organization/compliance/templates")
+        }
+      }}>
+        <TabsList>
+          <TabsTrigger value="wallet">Document Wallet Templates</TabsTrigger>
+          <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
+          <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {activeTab === "legacy" && (
+        <>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         <Card title="Templates">
@@ -263,6 +293,8 @@ export default function ComplianceTemplatesPage() {
           )}
         </Card>
       </div>
+        </>
+      )}
     </div>
   )
 }

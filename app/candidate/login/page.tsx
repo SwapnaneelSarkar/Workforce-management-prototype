@@ -6,6 +6,8 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Rea
 import { ArrowLeft, ArrowRight, CheckCircle2, Shield, RefreshCw, AlertCircle, UserPlus, LogIn } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useDemoData } from "@/components/providers/demo-data-provider"
+import { Dropdown, type DropdownOption } from "@/components/system/dropdown"
 
 type SupportedSsoProvider = "google" | "apple" | "microsoft"
 
@@ -53,8 +55,23 @@ const SSO_PROVIDERS: Array<{
   },
 ]
 
+const OCCUPATION_OPTIONS = [
+  { label: "Select occupation", value: "" },
+  { label: "RN", value: "RN" },
+  { label: "LPN/LVN", value: "LPN/LVN" },
+  { label: "CNA", value: "CNA" },
+  { label: "Medical Assistant", value: "Medical Assistant" },
+  { label: "Surgical Tech", value: "Surgical Tech" },
+  { label: "Physical Therapist", value: "Physical Therapist" },
+  { label: "Occupational Therapist", value: "Occupational Therapist" },
+  { label: "Respiratory Therapist", value: "Respiratory Therapist" },
+  { label: "Nurse Practitioner", value: "Nurse Practitioner" },
+  { label: "Physician Assistant", value: "Physician Assistant" },
+]
+
 export default function CandidateLoginPage() {
   const router = useRouter()
+  const { actions } = useDemoData()
   const redirectTimeout = useRef<NodeJS.Timeout | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
   const [formState, setFormState] = useState({
@@ -91,6 +108,12 @@ export default function CandidateLoginPage() {
       setShowRetry(false)
     }
 
+  const handleOccupationChange = (value: string) => {
+    setFormState((prev) => ({ ...prev, occupation: value }))
+    setError(null)
+    setShowRetry(false)
+  }
+
   const simulateAuth = async () => {
     setError(null)
     setIsSubmitting(true)
@@ -113,10 +136,20 @@ export default function CandidateLoginPage() {
       return
     }
 
+    // On signup, initialize wallet with occupation
+    if (isSignUp && formState.occupation) {
+      try {
+        await actions.initializeCandidateWalletWithOccupation(formState.occupation)
+      } catch (error) {
+        console.error("Failed to initialize wallet:", error)
+        // Continue with signup even if wallet initialization fails
+      }
+    }
+
     // Success - redirect based on auth flow
     redirectTimeout.current = setTimeout(() => {
       if (isSignUp) {
-        router.push("/candidate/onboarding")
+        router.push("/candidate/dashboard")
       } else {
         router.push("/candidate/dashboard")
       }
@@ -343,18 +376,16 @@ export default function CandidateLoginPage() {
 
               {isSignUp && (
                 <>
-                  <label className="block text-sm font-medium text-slate-700">
-                    Occupation
-                    <input
-                      type="text"
-                      autoComplete="organization-title"
+                  <div className="[&_label]:!text-sm [&_label]:!font-medium [&_label]:!text-slate-700 [&_label]:!normal-case [&_label]:!tracking-normal [&_label]:!mb-2 [&_select]:!rounded-2xl [&_select]:!border-slate-200 [&_select]:!px-4 [&_select]:!py-3 [&_select]:!text-base [&_select]:!text-slate-900 [&_select]:!bg-white [&_select]:!focus:border-slate-400">
+                    <Dropdown
+                      label="Occupation"
                       value={formState.occupation}
-                      onChange={handleChange("occupation")}
+                      onChange={handleOccupationChange}
+                      options={OCCUPATION_OPTIONS as DropdownOption[]}
+                      required
                       disabled={isSubmitting}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="Travel Nurse"
                     />
-                  </label>
+                  </div>
 
                   <label className="block text-sm font-medium text-slate-700">
                     Specialty

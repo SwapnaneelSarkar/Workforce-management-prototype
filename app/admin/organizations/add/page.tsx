@@ -101,6 +101,7 @@ export default function AddOrganizationPage() {
         zipCode: loc.zipCode,
         phone: loc.phone || undefined,
         email: loc.email || undefined,
+        departments: [],
       }))
 
       const newOrg = addOrganization({
