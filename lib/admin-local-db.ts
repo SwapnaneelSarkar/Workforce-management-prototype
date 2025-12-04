@@ -117,6 +117,17 @@ export type WorkforceGroup = {
   updatedAt: string
 }
 
+export type ComplianceListItem = {
+  id: string
+  name: string
+  category: "Background & Identification" | "License" | "Certification" | "Training" | "Other"
+  expirationType: "None" | "Expiration Date" | "Recurring"
+  displayToCandidate: boolean
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type AdminLocalDbState = {
   organizations: Record<string, AdminLocalDbOrganizationEntry>
   occupations: Record<string, Occupation>
@@ -125,6 +136,7 @@ export type AdminLocalDbState = {
   specialties: Record<string, Specialty>
   occupationSpecialties: Record<string, OccupationSpecialty>
   workforceGroups: Record<string, WorkforceGroup>
+  complianceListItems: Record<string, ComplianceListItem>
   lastUpdated?: string
 }
 
@@ -963,6 +975,213 @@ const defaultWorkforceGroupsRecord: Record<string, WorkforceGroup> = defaultWork
   {} as Record<string, WorkforceGroup>,
 )
 
+// Default compliance list items
+const defaultComplianceListItems: ComplianceListItem[] = [
+  // Background & Identification
+  {
+    id: "cli-001",
+    name: "Drivers License",
+    category: "Background & Identification",
+    expirationType: "Expiration Date",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-002",
+    name: "Passport",
+    category: "Background & Identification",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-003",
+    name: "Social Security Card",
+    category: "Background & Identification",
+    expirationType: "None",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-004",
+    name: "Background Check",
+    category: "Background & Identification",
+    expirationType: "Recurring",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-005",
+    name: "Drug Screening",
+    category: "Background & Identification",
+    expirationType: "Recurring",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-006",
+    name: "Criminal Background Check",
+    category: "Background & Identification",
+    expirationType: "Recurring",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // License
+  {
+    id: "cli-007",
+    name: "Registered Nurse License",
+    category: "License",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-008",
+    name: "Nurse Practitioner License",
+    category: "License",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-009",
+    name: "LPN License",
+    category: "License",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-010",
+    name: "PT License",
+    category: "License",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-011",
+    name: "OT License",
+    category: "License",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-012",
+    name: "CNA License",
+    category: "License",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // Certification
+  {
+    id: "cli-013",
+    name: "ACLS Certification",
+    category: "Certification",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-014",
+    name: "BLS Certification",
+    category: "Certification",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-015",
+    name: "CPR Certification",
+    category: "Certification",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-016",
+    name: "PALS Certification",
+    category: "Certification",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // Training
+  {
+    id: "cli-017",
+    name: "HIPAA Training",
+    category: "Training",
+    expirationType: "Recurring",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "cli-018",
+    name: "Safety Training",
+    category: "Training",
+    expirationType: "Recurring",
+    displayToCandidate: false,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  // Other
+  {
+    id: "cli-019",
+    name: "Immunization Record",
+    category: "Other",
+    expirationType: "Expiration Date",
+    displayToCandidate: true,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultComplianceListItemsRecord: Record<string, ComplianceListItem> = defaultComplianceListItems.reduce(
+  (acc, item) => {
+    acc[item.id] = item
+    return acc
+  },
+  {} as Record<string, ComplianceListItem>,
+)
+
 export const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
@@ -971,6 +1190,7 @@ export const defaultAdminLocalDbState: AdminLocalDbState = {
   specialties: defaultSpecialtiesRecord,
   occupationSpecialties: defaultOccupationSpecialtiesRecord,
   workforceGroups: defaultWorkforceGroupsRecord,
+  complianceListItems: defaultComplianceListItemsRecord,
   lastUpdated: undefined,
 }
 
@@ -1069,6 +1289,7 @@ export function readAdminLocalDb(): AdminLocalDbState {
       specialties: Object.keys(migratedSpecialties).length > 0 ? migratedSpecialties : defaultSpecialtiesRecord,
       occupationSpecialties: parsed.occupationSpecialties || defaultOccupationSpecialtiesRecord,
       workforceGroups: parsed.workforceGroups || defaultWorkforceGroupsRecord,
+      complianceListItems: parsed.complianceListItems || defaultComplianceListItemsRecord,
       lastUpdated: parsed.lastUpdated,
     }
   } catch (error) {
@@ -1528,6 +1749,85 @@ export function deleteWorkforceGroup(id: string): boolean {
   const updatedState: AdminLocalDbState = {
     ...state,
     workforceGroups: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for compliance list items
+export function getAllComplianceListItems(): ComplianceListItem[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.complianceListItems).sort((a, b) => {
+    // Sort by category first, then by name
+    if (a.category !== b.category) {
+      return a.category.localeCompare(b.category)
+    }
+    return a.name.localeCompare(b.name)
+  })
+}
+
+export function getComplianceListItemsByCategory(category: ComplianceListItem["category"]): ComplianceListItem[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.complianceListItems)
+    .filter((item) => item.category === category)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function getComplianceListItemById(id: string): ComplianceListItem | null {
+  const state = readAdminLocalDb()
+  return state.complianceListItems[id] || null
+}
+
+export function addComplianceListItem(item: Omit<ComplianceListItem, "id" | "createdAt" | "updatedAt">): ComplianceListItem {
+  const state = readAdminLocalDb()
+  const newItem: ComplianceListItem = {
+    ...item,
+    id: `cli-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    complianceListItems: {
+      ...state.complianceListItems,
+      [newItem.id]: newItem,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newItem
+}
+
+export function updateComplianceListItem(id: string, updates: Partial<Omit<ComplianceListItem, "id" | "createdAt">>): ComplianceListItem | null {
+  const state = readAdminLocalDb()
+  const existing = state.complianceListItems[id]
+  if (!existing) {
+    return null
+  }
+  const updatedItem: ComplianceListItem = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    complianceListItems: {
+      ...state.complianceListItems,
+      [id]: updatedItem,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedItem
+}
+
+export function deleteComplianceListItem(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.complianceListItems[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.complianceListItems
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    complianceListItems: remaining,
   }
   persistAdminLocalDb(updatedState)
   return true

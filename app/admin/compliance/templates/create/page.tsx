@@ -23,7 +23,8 @@ export default function CreateRequisitionTemplatePage() {
 
   useEffect(() => {
     const allDepartments = getAllDepartments()
-    setDepartments(allDepartments)
+    // Extract department names from Department objects
+    setDepartments(allDepartments.map((dept) => dept.name))
     
     if (typeof window !== "undefined") {
       try {

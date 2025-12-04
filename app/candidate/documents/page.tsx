@@ -9,7 +9,13 @@ import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { getOccupationByCode, getActiveOccupations } from "@/lib/admin-local-db"
+import { 
+  getOccupationByCode, 
+  getActiveOccupations,
+  getAllComplianceListItems,
+  getOccupationSpecialtiesByOccupation,
+  type ComplianceListItem,
+} from "@/lib/admin-local-db"
 
 export default function DocumentWalletPage() {
   const { candidate, actions, organization } = useDemoData()
@@ -41,8 +47,10 @@ export default function DocumentWalletPage() {
   }, [])
 
   const currentOccupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
+  const candidateSpecialties = candidate.profile.specialties || []
 
-  // Get compliance wallet items based on occupation
+  // Get compliance wallet items from admin compliance list items
+  // Based on occupation and specialties (merge items from all selected specialties)
   const complianceWalletItems = useMemo(() => {
     if (!currentOccupationCode) {
       return []
@@ -53,17 +61,90 @@ export default function DocumentWalletPage() {
       return []
     }
 
-    // Find wallet template for this occupation
+    // Get all compliance list items that should be displayed to candidates
+    const allComplianceItems = getAllComplianceListItems()
+    const displayableItems = allComplianceItems.filter((item) => item.displayToCandidate && item.isActive)
+
+    // Get occupation-specialty combinations for this occupation
+    const occupationSpecialties = getOccupationSpecialtiesByOccupation(occupation.id)
+    
+    // Get items from wallet templates for this occupation (fallback to organization templates)
     const walletTemplate = organization.walletTemplates.find(
       (t) => t.occupation === occupation.code
     )
 
-    if (!walletTemplate || !walletTemplate.items.length) {
-      return []
+    // Combine items from:
+    // 1. Admin compliance list items (displayToCandidate = true) - these are the master list
+    // 2. Wallet template items (if exists) - organization-specific additions
+    const itemSet = new Set<string>()
+    
+    // Add displayable compliance list items (these come from admin compliance list items)
+    displayableItems.forEach((item) => {
+      itemSet.add(item.name)
+    })
+
+    // Add wallet template items (organization-specific items)
+    if (walletTemplate && walletTemplate.items.length > 0) {
+      walletTemplate.items.forEach((item) => {
+        itemSet.add(item.name)
+      })
     }
 
-    return walletTemplate.items.map((item) => item.name)
-  }, [currentOccupationCode, organization.walletTemplates])
+    // Note: If candidate has multiple specialties, items from all selected specialties
+    // are already included in the displayableItems (from admin compliance list items)
+    // The occupation-specialty combinations are used to determine which items to show
+    // based on the candidate's occupation and selected specialties
+
+    return Array.from(itemSet)
+  }, [currentOccupationCode, candidateSpecialties, organization.walletTemplates])
+
+  // Group compliance items by category
+  const complianceItemsByCategory = useMemo(() => {
+    const allComplianceItems = getAllComplianceListItems()
+    
+    // Create a map of item names to compliance list items for quick lookup
+    const itemMap = new Map<string, ComplianceListItem>()
+    allComplianceItems.forEach((item) => {
+      if (item.displayToCandidate && item.isActive) {
+        itemMap.set(item.name, item)
+      }
+    })
+
+    // Group items by category
+    const grouped: Record<string, Array<{ name: string; expirationType?: string; category: string }>> = {}
+    
+    complianceWalletItems.forEach((itemName) => {
+      const complianceItem = itemMap.get(itemName)
+      if (complianceItem) {
+        // Item exists in compliance list items - use its category
+        const category = complianceItem.category
+        if (!grouped[category]) {
+          grouped[category] = []
+        }
+        grouped[category].push({
+          name: complianceItem.name,
+          expirationType: complianceItem.expirationType,
+          category: complianceItem.category,
+        })
+      } else {
+        // Item from wallet template but not in compliance list items - put in "Other"
+        if (!grouped["Other"]) {
+          grouped["Other"] = []
+        }
+        grouped["Other"].push({
+          name: itemName,
+          category: "Other",
+        })
+      }
+    })
+
+    // Sort items within each category by name
+    Object.keys(grouped).forEach((category) => {
+      grouped[category].sort((a, b) => a.name.localeCompare(b.name))
+    })
+
+    return grouped
+  }, [complianceWalletItems])
 
   const handleOccupationChange = (occupationCode: string) => {
     saveOnboardingDetails({ occupation: occupationCode })
@@ -371,35 +452,85 @@ export default function DocumentWalletPage() {
         </div>
       </Card>
 
-      {/* Required Documents List */}
+      {/* Required Documents List - Grouped by Category */}
       {requiredDocs.length > 0 && (
-        <Card title="Required Documents List" subtitle="Auto-generated based on your questionnaire answers.">
-          <div className="space-y-2">
-            {requiredDocs.map((docType) => {
-              const docUploaded = uploadedDocSet.has(docType)
-              const docMeta = uploadedDocEntries[docType]
-              return (
-                <div
-                  key={docType}
-                  className={cn(
-                    "flex items-center justify-between rounded-lg border px-3 py-2",
-                    docUploaded ? "border-success/40 bg-success/5" : "border-border",
-                  )}
-                >
-                  <div className="flex flex-col">
-                    <span className={cn("text-sm text-foreground", docUploaded && "font-semibold")}>{docType}</span>
-                    {docUploaded && docMeta?.uploadedAt && (
-                      <span className="text-xs text-muted-foreground">Uploaded {new Date(docMeta.uploadedAt).toLocaleDateString()}</span>
-                    )}
+        <Card title="Required Documents List" subtitle="AUTO-GENERATED BASED ON YOUR QUESTIONNAIRE ANSWERS.">
+          <div className="space-y-6">
+            {Object.keys(complianceItemsByCategory).length > 0 ? (
+              // Grouped by category (expanded view)
+              Object.entries(complianceItemsByCategory).map(([category, items]) => (
+                <div key={category} className="space-y-3">
+                  <h3 className="text-sm font-semibold text-foreground border-b border-border pb-2">
+                    {category}
+                  </h3>
+                  <div className="space-y-2">
+                    {items.map((item) => {
+                      const docUploaded = uploadedDocSet.has(item.name)
+                      const docMeta = uploadedDocEntries[item.name]
+                      return (
+                        <div
+                          key={item.name}
+                          className={cn(
+                            "flex items-center justify-between rounded-lg border px-3 py-2",
+                            docUploaded ? "border-success/40 bg-success/5" : "border-border",
+                          )}
+                        >
+                          <div className="flex flex-col">
+                            <span className={cn("text-sm text-foreground", docUploaded && "font-semibold")}>
+                              {item.name}
+                            </span>
+                            {docUploaded && docMeta?.uploadedAt && (
+                              <span className="text-xs text-muted-foreground">
+                                Uploaded {new Date(docMeta.uploadedAt).toLocaleDateString()}
+                              </span>
+                            )}
+                            {item.expirationType && item.expirationType !== "None" && (
+                              <span className="text-xs text-muted-foreground">
+                                Expiration: {item.expirationType}
+                              </span>
+                            )}
+                          </div>
+                          {docUploaded ? (
+                            <CheckCircle2 className="h-4 w-4 text-success" />
+                          ) : (
+                            <StatusChip label="Pending Upload" tone="warning" />
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {docUploaded ? (
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                  ) : (
-                    <StatusChip label="Pending Upload" tone="warning" />
-                  )}
                 </div>
-              )
-            })}
+              ))
+            ) : (
+              // Fallback: show flat list if no categories
+              <div className="space-y-2">
+                {requiredDocs.map((docType) => {
+                  const docUploaded = uploadedDocSet.has(docType)
+                  const docMeta = uploadedDocEntries[docType]
+                  return (
+                    <div
+                      key={docType}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg border px-3 py-2",
+                        docUploaded ? "border-success/40 bg-success/5" : "border-border",
+                      )}
+                    >
+                      <div className="flex flex-col">
+                        <span className={cn("text-sm text-foreground", docUploaded && "font-semibold")}>{docType}</span>
+                        {docUploaded && docMeta?.uploadedAt && (
+                          <span className="text-xs text-muted-foreground">Uploaded {new Date(docMeta.uploadedAt).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                      {docUploaded ? (
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                      ) : (
+                        <StatusChip label="Pending Upload" tone="warning" />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </Card>
       )}
