@@ -185,10 +185,13 @@ export default function JobDetailsPage({ params }: PageProps) {
     })
   }, [candidate.documents, checklist])
 
-  // Only check requiredAtSubmission items for application blocking
-  const requiredItems = requirementStatuses.filter((item) => item.requiredAtSubmission !== false)
-  const missingRequiredDocuments = requiredItems.filter((item) => item.status === "missing").map((item) => item.name)
+  // Check ALL items from compliance template - all documents must be uploaded before applying
+  // The requiredAtSubmission flag is used for display purposes only (showing "Required at submission" vs "Required before start")
+  const missingRequiredDocuments = requirementStatuses.filter((item) => item.status === "missing").map((item) => item.name)
   const allRequirementsMet = missingRequiredDocuments.length === 0
+  
+  // Separate required items for display purposes (to show count of required at submission vs all)
+  const requiredItems = requirementStatuses.filter((item) => item.requiredAtSubmission !== false)
   const hasApplied = Boolean(localDb.jobApplications[job.id]) || candidate.applications.some((app) => app.jobId === job.id)
 
   const infoRows = [
@@ -342,7 +345,7 @@ export default function JobDetailsPage({ params }: PageProps) {
             </p>
           </div>
           <StatusChip 
-            label={`${requiredItems.length - missingRequiredDocuments.length}/${requiredItems.length} required completed`} 
+            label={`${requirementStatuses.length - missingRequiredDocuments.length}/${requirementStatuses.length} documents completed`} 
             tone={allRequirementsMet ? "success" : "warning"} 
           />
         </div>
