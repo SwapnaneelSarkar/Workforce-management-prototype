@@ -38,7 +38,54 @@ function loadTemplatesFromDb(): ComplianceTemplate[] {
     return []
   }
   try {
+    const { 
+      getCurrentOrganization, 
+      getLegacyTemplatesByOrganization,
+      readOrganizationLocalDb,
+      createDefaultLegacyTemplates,
+      persistOrganizationLocalDb
+    } = require("@/lib/organization-local-db")
+    
     const organizationId = getCurrentOrganization() || "admin"
+    
+    // Ensure default templates exist for this organization
+    const state = readOrganizationLocalDb()
+    const existingLegacyTemplates = state.legacyTemplates ?? {}
+    
+    // Check which default templates should exist
+    const defaultTemplateIds = [
+      `legacy-icu-core-${organizationId}`,
+      `legacy-med-surg-${organizationId}`,
+      `legacy-emergency-${organizationId}`,
+    ]
+    
+    // Check if any default templates are missing
+    const missingDefaults = defaultTemplateIds.filter(
+      (id) => !existingLegacyTemplates[id] || existingLegacyTemplates[id].organizationId !== organizationId
+    )
+    
+    // If any default templates are missing, create them
+    if (missingDefaults.length > 0) {
+      const defaultLegacyTemplates = createDefaultLegacyTemplates(organizationId)
+      // Only add the missing ones to avoid overwriting existing templates
+      const templatesToAdd: Record<string, any> = {}
+      Object.keys(defaultLegacyTemplates).forEach((id) => {
+        if (missingDefaults.includes(id)) {
+          templatesToAdd[id] = defaultLegacyTemplates[id]
+        }
+      })
+      
+      if (Object.keys(templatesToAdd).length > 0) {
+        const updatedState = {
+          ...state,
+          legacyTemplates: { ...existingLegacyTemplates, ...templatesToAdd },
+        }
+        persistOrganizationLocalDb(updatedState)
+        console.log(`[Templates Store] Created ${Object.keys(templatesToAdd).length} missing default templates for organization ${organizationId}`)
+      }
+    }
+    
+    // Now load templates
     const dbTemplates = getLegacyTemplatesByOrganization(organizationId)
     return dbTemplates.map((dbTemplate) => ({
       id: dbTemplate.id,
@@ -53,11 +100,16 @@ function loadTemplatesFromDb(): ComplianceTemplate[] {
 }
 
 export const useComplianceTemplatesStore = create<ComplianceTemplateState>((set, get) => ({
-  templates: typeof window !== "undefined" ? loadTemplatesFromDb() : [],
-  organizationId: typeof window !== "undefined" ? getCurrentOrganization() : null,
+  // Always start with empty array to prevent hydration mismatch
+  // Templates will be loaded after component mounts via loadTemplates()
+  templates: [],
+  organizationId: null,
   loadTemplates: () => {
+    if (typeof window === "undefined") {
+      return
+    }
     const templates = loadTemplatesFromDb()
-    const organizationId = typeof window !== "undefined" ? getCurrentOrganization() : null
+    const organizationId = getCurrentOrganization()
     set({ templates, organizationId })
   },
   addTemplate: (template) => {

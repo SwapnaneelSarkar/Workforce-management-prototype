@@ -331,6 +331,63 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
   }, {} as Record<string, OrganizationLocalDbRequisitionTemplate>)
 }
 
+// Default legacy compliance templates for organizations
+// These are the templates created in /organization/compliance/templates (Legacy Templates tab)
+export function createDefaultLegacyTemplates(organizationId: string): Record<string, OrganizationLocalDbLegacyTemplate> {
+  const allItems = Object.values(complianceItemsByCategory).flat()
+  const getItem = (name: string): ComplianceItem | undefined => allItems.find(item => item.name === name)
+  
+  const templates: OrganizationLocalDbLegacyTemplate[] = [
+    {
+      id: `legacy-icu-core-${organizationId}`,
+      name: "ICU Core Checklist",
+      description: "Standard ICU requirements (license + ACLS + background).",
+      organizationId,
+      items: [
+        getItem("Active RN License")!,
+        getItem("ACLS Certification")!,
+        getItem("Background Check")!,
+      ].filter(Boolean),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: `legacy-med-surg-${organizationId}`,
+      name: "Med Surg Baseline",
+      description: "Baseline onboarding for Med Surg roles.",
+      organizationId,
+      items: [
+        getItem("Active RN License")!,
+        getItem("CPR Certification")!,
+      ].filter(Boolean),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: `legacy-emergency-${organizationId}`,
+      name: "Emergency Department Template",
+      description: "Complete requirements for emergency department staff.",
+      organizationId,
+      items: [
+        getItem("Active RN License")!,
+        getItem("ACLS Certification")!,
+        getItem("PALS Certification")!,
+        getItem("TNCC Certification")!,
+        getItem("Background Check")!,
+        getItem("Drug Screening")!,
+        getItem("Immunization Record")!,
+      ].filter(Boolean),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ]
+
+  return templates.reduce((acc, template) => {
+    acc[template.id] = template
+    return acc
+  }, {} as Record<string, OrganizationLocalDbLegacyTemplate>)
+}
+
 export function readOrganizationLocalDb(): OrganizationLocalDbState {
   if (typeof window === "undefined") {
     return defaultOrganizationLocalDbState
@@ -341,19 +398,21 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
       // If no data exists, create default templates and return
       const defaultWalletTemplates = createDefaultWalletTemplates("admin")
       const defaultRequisitionTemplates = createDefaultRequisitionTemplates("admin")
+      const defaultLegacyTemplates = createDefaultLegacyTemplates("admin")
       const initialState: OrganizationLocalDbState = {
         jobs: {},
         applications: {},
         walletTemplates: defaultWalletTemplates,
         requisitionTemplates: defaultRequisitionTemplates,
-        legacyTemplates: {},
+        legacyTemplates: defaultLegacyTemplates,
         currentOrganizationId: null,
         lastUpdated: undefined,
       }
       persistOrganizationLocalDb(initialState)
       console.log("Created initial templates:", {
         wallet: Object.keys(defaultWalletTemplates).length,
-        requisition: Object.keys(defaultRequisitionTemplates).length
+        requisition: Object.keys(defaultRequisitionTemplates).length,
+        legacy: Object.keys(defaultLegacyTemplates).length
       })
       return initialState
     }
@@ -374,6 +433,12 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         )
       : []
     
+    // Initialize default legacy templates for "admin" organization if none exist
+    const existingLegacyTemplates = parsed.legacyTemplates ?? {}
+    const adminLegacyTemplates = Object.values(existingLegacyTemplates).filter(
+      (t) => t && t.organizationId === "admin"
+    )
+    
     let stateWithDefaults: OrganizationLocalDbState | null = null
     let needsUpdate = false
     
@@ -385,7 +450,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         applications: parsed.applications ?? {},
         walletTemplates: { ...existingWalletTemplates, ...defaultWalletTemplates },
         requisitionTemplates: existingRequisitionTemplates,
-        legacyTemplates: parsed.legacyTemplates ?? {},
+        legacyTemplates: existingLegacyTemplates,
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -400,7 +465,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         applications: parsed.applications ?? {},
         walletTemplates: existingWalletTemplates,
         requisitionTemplates: existingRequisitionTemplates,
-        legacyTemplates: parsed.legacyTemplates ?? {},
+        legacyTemplates: existingLegacyTemplates,
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -411,12 +476,32 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
       needsUpdate = true
     }
     
+    // If no admin legacy templates exist, create default ones
+    if (adminLegacyTemplates.length === 0) {
+      const defaultLegacyTemplates = createDefaultLegacyTemplates("admin")
+      const currentState = stateWithDefaults || {
+        jobs: parsed.jobs ?? {},
+        applications: parsed.applications ?? {},
+        walletTemplates: existingWalletTemplates,
+        requisitionTemplates: existingRequisitionTemplates,
+        legacyTemplates: existingLegacyTemplates,
+        currentOrganizationId: parsed.currentOrganizationId ?? null,
+        lastUpdated: parsed.lastUpdated,
+      }
+      stateWithDefaults = {
+        ...currentState,
+        legacyTemplates: { ...currentState.legacyTemplates, ...defaultLegacyTemplates },
+      }
+      needsUpdate = true
+    }
+    
     if (needsUpdate && stateWithDefaults) {
       // Persist the default templates
       persistOrganizationLocalDb(stateWithDefaults)
       console.log("Initialized default templates:", {
         wallet: Object.keys(stateWithDefaults.walletTemplates).length,
-        requisition: Object.keys(stateWithDefaults.requisitionTemplates).length
+        requisition: Object.keys(stateWithDefaults.requisitionTemplates).length,
+        legacy: Object.keys(stateWithDefaults.legacyTemplates).length
       })
       return stateWithDefaults
     }
@@ -426,7 +511,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
       applications: parsed.applications ?? {},
       walletTemplates: existingWalletTemplates,
       requisitionTemplates: existingRequisitionTemplates,
-      legacyTemplates: parsed.legacyTemplates ?? {},
+      legacyTemplates: existingLegacyTemplates,
       currentOrganizationId: parsed.currentOrganizationId ?? null,
       lastUpdated: parsed.lastUpdated,
     }
@@ -740,20 +825,46 @@ export function setCurrentOrganization(organizationId: string | null) {
   // If an organization is logging in (not admin), ensure they have their own templates
   if (organizationId && organizationId !== "admin") {
     const existingRequisitionTemplates = state.requisitionTemplates ?? {}
+    const existingLegacyTemplates = state.legacyTemplates ?? {}
+    
     const orgRequisitionTemplates = Object.values(existingRequisitionTemplates).filter(
       (t) => t && t.organizationId === organizationId
     )
+    const orgLegacyTemplates = Object.values(existingLegacyTemplates).filter(
+      (t) => t && t.organizationId === organizationId
+    )
     
-    // ALWAYS ensure organization has default templates (create if missing)
+    let needsUpdate = false
+    let updatedState: OrganizationLocalDbState = { ...state, currentOrganizationId: organizationId }
+    
+    // ALWAYS ensure organization has default requisition templates (create if missing)
     if (orgRequisitionTemplates.length === 0) {
       const defaultRequisitionTemplates = createDefaultRequisitionTemplates(organizationId)
-      const updatedState: OrganizationLocalDbState = {
-        ...state,
-        currentOrganizationId: organizationId,
+      updatedState = {
+        ...updatedState,
         requisitionTemplates: { ...existingRequisitionTemplates, ...defaultRequisitionTemplates },
       }
+      needsUpdate = true
+      console.log(`[Organization Login] Created ${Object.keys(defaultRequisitionTemplates).length} default requisition templates for organization ${organizationId}`)
+    } else {
+      console.log(`[Organization Login] Organization ${organizationId} already has ${orgRequisitionTemplates.length} requisition templates`)
+    }
+    
+    // ALWAYS ensure organization has default legacy templates (create if missing)
+    if (orgLegacyTemplates.length === 0) {
+      const defaultLegacyTemplates = createDefaultLegacyTemplates(organizationId)
+      updatedState = {
+        ...updatedState,
+        legacyTemplates: { ...existingLegacyTemplates, ...defaultLegacyTemplates },
+      }
+      needsUpdate = true
+      console.log(`[Organization Login] Created ${Object.keys(defaultLegacyTemplates).length} default legacy templates for organization ${organizationId}`)
+    } else {
+      console.log(`[Organization Login] Organization ${organizationId} already has ${orgLegacyTemplates.length} legacy templates`)
+    }
+    
+    if (needsUpdate) {
       persistOrganizationLocalDb(updatedState)
-      console.log(`[Organization Login] Created ${Object.keys(defaultRequisitionTemplates).length} default requisition templates for organization ${organizationId}:`, Object.keys(defaultRequisitionTemplates))
       // Force a storage event to notify other components
       if (typeof window !== "undefined") {
         window.dispatchEvent(new StorageEvent("storage", {
@@ -762,8 +873,6 @@ export function setCurrentOrganization(organizationId: string | null) {
         }))
       }
       return
-    } else {
-      console.log(`[Organization Login] Organization ${organizationId} already has ${orgRequisitionTemplates.length} requisition templates`)
     }
   }
   

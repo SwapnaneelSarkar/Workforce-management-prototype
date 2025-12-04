@@ -1,11 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePathname, useRouter } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AddItemModal } from "@/components/compliance/add-item-modal"
 import {
   useComplianceTemplatesStore,
@@ -14,33 +12,26 @@ import {
 } from "@/lib/compliance-templates-store"
 
 export default function ComplianceTemplatesPage() {
-  const router = useRouter()
-  const pathname = usePathname()
   const { templates, addTemplate, updateTemplate, deleteTemplate, loadTemplates } = useComplianceTemplatesStore()
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
   const [draftTemplate, setDraftTemplate] = useState<ComplianceTemplate | null>(null)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  
-  // Determine active tab based on pathname
-  const activeTab = pathname?.includes("wallet-templates")
-    ? "wallet"
-    : pathname?.includes("requisition-templates")
-    ? "requisition"
-    : "legacy"
+  const [isMounted, setIsMounted] = useState(false)
 
   const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? null
 
-  // Load templates from local DB on mount
+  // Mark component as mounted to prevent hydration mismatch
   useEffect(() => {
+    setIsMounted(true)
     loadTemplates()
   }, [loadTemplates])
 
   // Set active template ID when templates are loaded
   useEffect(() => {
-    if (templates.length > 0 && !activeTemplateId) {
+    if (isMounted && templates.length > 0 && !activeTemplateId) {
       setActiveTemplateId(templates[0]?.id ?? null)
     }
-  }, [templates, activeTemplateId])
+  }, [isMounted, templates, activeTemplateId])
 
   // Sync draft with active template when it changes (only for existing templates, not temp ones)
   useEffect(() => {
@@ -146,31 +137,12 @@ export default function ComplianceTemplatesPage() {
     <div className="space-y-6 p-8">
       <Header
         title="Compliance Templates"
-        subtitle="Create and maintain reusable compliance templates for compliance wallets and requisitions."
+        subtitle="Create and maintain reusable compliance templates for job postings."
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
           { label: "Compliance templates" },
         ]}
       />
-
-      <Tabs value={activeTab} onValueChange={(value) => {
-        if (value === "wallet") {
-          router.push("/organization/compliance/wallet-templates")
-        } else if (value === "requisition") {
-          router.push("/organization/compliance/requisition-templates")
-        } else {
-          router.push("/organization/compliance/templates")
-        }
-      }}>
-        <TabsList>
-          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
-          <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
-          <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      {activeTab === "legacy" && (
-        <>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
         <Card title="Templates">
@@ -179,7 +151,7 @@ export default function ComplianceTemplatesPage() {
               Create new template
             </button>
             <div className="space-y-1">
-              {templates.map((template) => (
+              {isMounted && templates.map((template) => (
                 <div
                   key={template.id}
                   className={`group flex items-center gap-2 rounded-md ${
@@ -208,8 +180,11 @@ export default function ComplianceTemplatesPage() {
                   </button>
                 </div>
               ))}
-              {!templates.length && (
+              {isMounted && !templates.length && (
                 <p className="text-sm text-muted-foreground">No templates yet. Create one to get started.</p>
+              )}
+              {!isMounted && (
+                <p className="text-sm text-muted-foreground">Loading templates...</p>
               )}
             </div>
           </div>
@@ -295,8 +270,6 @@ export default function ComplianceTemplatesPage() {
         onAdd={handleAddItem}
         existingItemIds={existingItemIds}
       />
-        </>
-      )}
     </div>
   )
 }

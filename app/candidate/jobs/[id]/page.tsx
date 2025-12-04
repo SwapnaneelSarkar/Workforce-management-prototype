@@ -27,55 +27,76 @@ export default function JobDetailsPage({ params }: PageProps) {
   const { data: localDb, markJobApplied } = useLocalDb()
   const { pushToast } = useToast()
 
-  // First try to find in allJobs (Open jobs), then try to get from DB (in case job was closed but user has direct link)
-  let job = allJobs.find((item) => item.id === id)
-  if (!job && typeof window !== "undefined") {
-    try {
-      const dbJob = getJobById(id)
-      if (dbJob) {
-        job = {
-          id: dbJob.id,
-          title: dbJob.title,
-          location: dbJob.location,
-          department: dbJob.department,
-          unit: dbJob.unit,
-          shift: dbJob.shift,
-          hours: dbJob.hours,
-          billRate: dbJob.billRate,
-          description: dbJob.description,
-          requirements: dbJob.requirements,
-          tags: dbJob.tags,
-          status: dbJob.status,
-          complianceItems: dbJob.complianceItems,
-          complianceTemplateId: dbJob.complianceTemplateId,
-          startDate: dbJob.startDate,
-          occupation: dbJob.occupation,
-        }
-      }
-    } catch (error) {
-      // Silently fail, will show "Job not found"
-    }
-  }
-
   const [requirementsModalOpen, setRequirementsModalOpen] = useState(false)
   const [uploadTarget, setUploadTarget] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [applying, setApplying] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  // Handle client-side mounting to avoid hydration mismatch
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // First try to find in allJobs (Open jobs), then try to get from DB (in case job was closed but user has direct link)
+  const job = useMemo(() => {
+    let foundJob = allJobs.find((item) => item.id === id)
+    if (!foundJob && mounted) {
+      try {
+        const dbJob = getJobById(id)
+        if (dbJob) {
+          foundJob = {
+            id: dbJob.id,
+            title: dbJob.title,
+            location: dbJob.location,
+            department: dbJob.department,
+            unit: dbJob.unit,
+            shift: dbJob.shift,
+            hours: dbJob.hours,
+            billRate: dbJob.billRate,
+            description: dbJob.description,
+            requirements: dbJob.requirements,
+            tags: dbJob.tags,
+            status: dbJob.status,
+            complianceItems: dbJob.complianceItems,
+            complianceTemplateId: dbJob.complianceTemplateId,
+            startDate: dbJob.startDate,
+            occupation: dbJob.occupation,
+          }
+        }
+      } catch (error) {
+        // Silently fail, will show "Job not found"
+      }
+    }
+    return foundJob
+  }, [id, allJobs, mounted])
 
   if (!job) {
     return (
-      <div className="p-8">
+      <div className="space-y-6 p-8">
         <Card title="Job not found" subtitle="Please return to the marketplace and choose another role." />
       </div>
     )
   }
 
   // Get job-specific compliance requirements
-  // New flow: Use job.complianceItems (job-specific requirements)
-  // Legacy flow: Fall back to requisition template if complianceTemplateId exists
-  const requisitionTemplate = job.complianceTemplateId 
-    ? organization.requisitionTemplates.find((item) => item.id === job.complianceTemplateId)
-    : undefined
+  // Priority 1: Use job.complianceItems (job-specific requirements)
+  // Priority 2: Use compliance template if complianceTemplateId exists
+  // Priority 3: Fall back to job requirements array
+  const complianceTemplate = useMemo(() => {
+    if (!job.complianceTemplateId || !mounted) {
+      return null
+    }
+    try {
+      const { getCurrentOrganization, getLegacyTemplatesByOrganization } = require("@/lib/organization-local-db")
+      const currentOrgId = getCurrentOrganization() || "admin"
+      const templates = getLegacyTemplatesByOrganization(currentOrgId)
+      return templates.find((t) => t.id === job.complianceTemplateId) || null
+    } catch (error) {
+      console.warn("Failed to load compliance template", error)
+      return null
+    }
+  }, [job.complianceTemplateId, mounted])
 
   const jobRequirements = useMemo(() => {
     // Priority 1: Use job-specific compliance items (new flow)
@@ -87,9 +108,9 @@ export default function JobDetailsPage({ params }: PageProps) {
         requiredAtSubmission: item.requiredAtSubmission ?? true,
       }))
     }
-    // Priority 2: Use requisition template (legacy flow)
-    if (requisitionTemplate) {
-      return requisitionTemplate.items.map((item) => ({
+    // Priority 2: Use compliance template
+    if (complianceTemplate) {
+      return complianceTemplate.items.map((item) => ({
         id: item.id,
         name: item.name,
         type: item.type,
@@ -103,41 +124,39 @@ export default function JobDetailsPage({ params }: PageProps) {
       type: "Other",
       requiredAtSubmission: true,
     }))
-  }, [job.id, job.requirements, job.complianceItems, requisitionTemplate])
+  }, [job.id, job.requirements, job.complianceItems, complianceTemplate])
 
   // Get candidate's wallet items (from admin wallet templates)
   const walletItems = useMemo(() => {
     const occupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
-    if (!occupationCode) {
+    if (!occupationCode || !mounted) {
       return []
     }
     
     const itemSet = new Set<string>()
     
     // Get admin wallet templates for this occupation
-    if (typeof window !== "undefined") {
-      try {
-        const {
-          getAdminWalletTemplatesByOccupation,
-          getComplianceListItemById,
-        } = require("@/lib/admin-local-db")
-        
-        const templates = getAdminWalletTemplatesByOccupation(occupationCode)
-        templates.forEach((template) => {
-          template.listItemIds.forEach((listItemId) => {
-            const listItem = getComplianceListItemById(listItemId)
-            if (listItem && listItem.isActive) {
-              itemSet.add(listItem.name)
-            }
-          })
+    try {
+      const {
+        getAdminWalletTemplatesByOccupation,
+        getComplianceListItemById,
+      } = require("@/lib/admin-local-db")
+      
+      const templates = getAdminWalletTemplatesByOccupation(occupationCode)
+      templates.forEach((template) => {
+        template.listItemIds.forEach((listItemId) => {
+          const listItem = getComplianceListItemById(listItemId)
+          if (listItem && listItem.isActive) {
+            itemSet.add(listItem.name)
+          }
         })
-      } catch (error) {
-        console.warn("Failed to load admin wallet templates", error)
-      }
+      })
+    } catch (error) {
+      console.warn("Failed to load admin wallet templates", error)
     }
 
     return Array.from(itemSet)
-  }, [localDb.onboardingDetails.occupation])
+  }, [localDb.onboardingDetails.occupation, mounted])
 
   // Compare job requirements with wallet items
   // Items in job requirements that are NOT in wallet need to be uploaded
@@ -154,7 +173,10 @@ export default function JobDetailsPage({ params }: PageProps) {
   const requirementStatuses: RequirementStatus[] = useMemo(() => {
     return checklist.map((item) => {
       // Check if candidate has this document uploaded (in wallet or job-specific)
-      const hasDocument = candidate.documents.some((doc) => doc.type === item.name && doc.status === "Completed")
+      // Accept both "Completed" and "Pending Verification" as valid uploaded documents
+      const hasDocument = candidate.documents.some(
+        (doc) => doc.type === item.name && (doc.status === "Completed" || doc.status === "Pending Verification")
+      )
       return { 
         ...item, 
         status: hasDocument ? "completed" : "missing",
@@ -274,9 +296,17 @@ export default function JobDetailsPage({ params }: PageProps) {
               className="w-full"
               variant={allRequirementsMet && !hasApplied && job.status === "Open" ? "default" : "outline"}
               onClick={allRequirementsMet ? handleApply : () => setRequirementsModalOpen(true)}
-              disabled={hasApplied || applying || job.status !== "Open"}
+              disabled={hasApplied || applying || job.status !== "Open" || !allRequirementsMet}
             >
-              {hasApplied ? "Applied" : job.status !== "Open" ? "Job Not Available" : allRequirementsMet ? (applying ? "Submitting..." : "Apply Now") : "Review Requirements"}
+              {hasApplied 
+                ? "Applied" 
+                : job.status !== "Open" 
+                  ? "Job Not Available" 
+                  : !allRequirementsMet 
+                    ? "Upload Required Documents" 
+                    : applying 
+                      ? "Submitting..." 
+                      : "Apply Now"}
             </Button>
             <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-4">
               <div className="flex items-center gap-3 text-sm text-muted-foreground">

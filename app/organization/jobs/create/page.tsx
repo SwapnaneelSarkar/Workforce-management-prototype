@@ -60,9 +60,71 @@ export default function CreateJobPage() {
     { label: "Select occupation", value: "" },
   ])
 
-  // Get selected requisition template
+  // Get selected template - load directly from DB to ensure we get the right template
+  // Check both legacy templates and requisition templates
   const selectedTemplate = useMemo(() => {
     if (!draft.requisitionTemplateId) return null
+    
+    // Try to get from DB first (check both legacy and requisition templates)
+    if (typeof window !== "undefined") {
+      try {
+        const { 
+          getCurrentOrganization, 
+          getRequisitionTemplatesByOrganization,
+          getLegacyTemplatesByOrganization 
+        } = require("@/lib/organization-local-db")
+        const currentOrgId = getCurrentOrganization() || "admin"
+        
+        // Check legacy templates first
+        const legacyTemplates = getLegacyTemplatesByOrganization(currentOrgId)
+        const legacyTemplate = legacyTemplates.find((t) => t.id === draft.requisitionTemplateId)
+        if (legacyTemplate && legacyTemplate.organizationId === currentOrgId) {
+          return {
+            id: legacyTemplate.id,
+            name: legacyTemplate.name,
+            department: legacyTemplate.description,
+            occupation: undefined,
+            items: legacyTemplate.items,
+          }
+        }
+        
+        // Check requisition templates
+        const reqTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
+        const reqTemplate = reqTemplates.find((t) => t.id === draft.requisitionTemplateId)
+        if (reqTemplate && reqTemplate.organizationId === currentOrgId) {
+          return {
+            id: reqTemplate.id,
+            name: reqTemplate.name,
+            department: reqTemplate.department,
+            occupation: reqTemplate.occupation,
+            items: reqTemplate.items,
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to load template from DB", error)
+      }
+    }
+    
+    // Fallback: try compliance templates store
+    try {
+      const { useComplianceTemplatesStore } = require("@/lib/compliance-templates-store")
+      const legacyTemplate = useComplianceTemplatesStore.getState().templates.find(
+        (t) => t.id === draft.requisitionTemplateId
+      )
+      if (legacyTemplate) {
+        return {
+          id: legacyTemplate.id,
+          name: legacyTemplate.name,
+          department: legacyTemplate.description,
+          occupation: undefined,
+          items: legacyTemplate.items,
+        }
+      }
+    } catch (error) {
+      // Continue to next fallback
+    }
+    
+    // Fallback to provider templates
     return organization.requisitionTemplates.find((t) => t.id === draft.requisitionTemplateId)
   }, [draft.requisitionTemplateId, organization.requisitionTemplates])
 
@@ -340,37 +402,123 @@ export default function CreateJobPage() {
             />
           </Field>
 
-          <Field label="Requisition Compliance Template" error={errors.requisitionTemplateId}>
+          <Field label="Compliance Template" error={errors.requisitionTemplateId}>
             <select
               value={draft.requisitionTemplateId}
               onChange={(event) => handleChange("requisitionTemplateId")(event.target.value)}
               className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
             >
               <option value="">Select a requisition template</option>
-              {organization.requisitionTemplates
-                .filter((template) => {
-                  // Additional client-side filter to ensure no admin templates leak through
-                  if (typeof window !== "undefined") {
-                    try {
-                      const { getCurrentOrganization, getRequisitionTemplatesByOrganization } = require("@/lib/organization-local-db")
-                      const currentOrgId = getCurrentOrganization()
-                      if (currentOrgId && currentOrgId !== "admin") {
-                        const dbTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
-                        const dbTemplate = dbTemplates.find((dt) => dt.id === template.id)
-                        // Only show if template exists in DB and belongs to current organization
-                        return dbTemplate && dbTemplate.organizationId === currentOrgId
+              {(() => {
+                // Get templates directly from DB for the current organization
+                // Load BOTH legacy templates (from /organization/compliance/templates) AND requisition templates
+                // This ensures we show all organization-level templates, not admin templates
+                if (typeof window !== "undefined") {
+                  try {
+                    const { 
+                      getCurrentOrganization, 
+                      getRequisitionTemplatesByOrganization,
+                      getLegacyTemplatesByOrganization,
+                      setCurrentOrganization 
+                    } = require("@/lib/organization-local-db")
+                    let currentOrgId = getCurrentOrganization()
+                    
+                    // If no organization is set, default to "admin" but ensure templates exist
+                    if (!currentOrgId) {
+                      currentOrgId = "admin"
+                      setCurrentOrganization("admin")
+                    }
+                    
+                    // Get legacy templates (from /organization/compliance/templates page)
+                    const legacyTemplates = getLegacyTemplatesByOrganization(currentOrgId)
+                    
+                    // Get requisition templates (from /organization/compliance/requisition-templates page)
+                    const requisitionTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
+                    
+                    // Combine both types of templates
+                    const allTemplates = [
+                      ...legacyTemplates.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        description: t.description,
+                        items: t.items,
+                        type: 'legacy' as const,
+                      })),
+                      ...requisitionTemplates.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        description: t.department,
+                        items: t.items,
+                        type: 'requisition' as const,
+                      }))
+                    ]
+                    
+                    // Filter to only show organization templates (not admin templates if org is not admin)
+                    const orgTemplates = allTemplates.filter((template) => {
+                      // Get the original template to check organizationId
+                      const legacyTemplate = legacyTemplates.find(lt => lt.id === template.id)
+                      const reqTemplate = requisitionTemplates.find(rt => rt.id === template.id)
+                      const originalTemplate = legacyTemplate || reqTemplate
+                      
+                      if (!originalTemplate) return false
+                      
+                      // If current org is not "admin", never show admin templates
+                      if (currentOrgId !== "admin" && originalTemplate.organizationId === "admin") {
+                        return false
                       }
-                    } catch (error) {
-                      console.warn("Failed to verify template", error)
+                      // Only show templates that match the current organization
+                      return originalTemplate.organizationId === currentOrgId
+                    })
+                    
+                    return orgTemplates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} {template.description ? `(${template.description})` : ""} - {template.items.length} items
+                      </option>
+                    ))
+                  } catch (error) {
+                    console.warn("Failed to load templates from DB", error)
+                    // Fallback: try to load from compliance templates store
+                    try {
+                      const { useComplianceTemplatesStore } = require("@/lib/compliance-templates-store")
+                      const legacyTemplates = useComplianceTemplatesStore.getState().templates
+                      const legacyOptions = legacyTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} {template.description ? `(${template.description})` : ""} - {template.items.length} items
+                        </option>
+                      ))
+                      
+                      // Also try to get requisition templates from provider
+                      const reqOptions = organization.requisitionTemplates
+                        .filter((template) => {
+                          try {
+                            const { getCurrentOrganization, getRequisitionTemplatesByOrganization } = require("@/lib/organization-local-db")
+                            const currentOrgId = getCurrentOrganization()
+                            if (currentOrgId && currentOrgId !== "admin") {
+                              const dbTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
+                              const dbTemplate = dbTemplates.find((dt) => dt.id === template.id)
+                              return dbTemplate && dbTemplate.organizationId === currentOrgId
+                            }
+                            return currentOrgId === "admin"
+                          } catch (err) {
+                            return false
+                          }
+                        })
+                        .map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name} {template.department ? `(${template.department})` : ""} - {template.items.length} items
+                          </option>
+                        ))
+                      
+                      return [...legacyOptions, ...reqOptions]
+                    } catch (fallbackError) {
+                      console.warn("Failed to load templates from fallback", fallbackError)
+                      return []
                     }
                   }
-                  return true
-                })
-                .map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} {template.department ? `(${template.department})` : ""} - {template.items.length} items
-                  </option>
-                ))}
+                }
+                // SSR fallback - return empty
+                return []
+              })()}
             </select>
             {draft.requisitionTemplateId && selectedTemplate && (
               <div className="mt-3 rounded-lg border border-border p-4 bg-muted/30">
@@ -404,40 +552,96 @@ export default function CreateJobPage() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
                   <a
-                    href={`/organization/compliance/requisition-templates/${selectedTemplate.id}`}
+                    href="/organization/compliance/templates"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline"
                   >
-                    Edit this template
-                  </a>
-                  {" or "}
-                  <a
-                    href="/organization/compliance/requisition-templates"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    create a new one
+                    Manage templates
                   </a>
                 </p>
               </div>
             )}
-            {organization.requisitionTemplates.length === 0 && (
-              <div className="mt-3 rounded-lg border-2 border-dashed border-border p-4 text-center">
-                <p className="text-sm text-muted-foreground mb-2">
-                  No requisition templates found.
-                </p>
-                <a
-                  href="/organization/compliance/requisition-templates"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Create a requisition template first
-                </a>
-              </div>
-            )}
+            {(() => {
+              // Check if there are any templates available (both legacy and requisition)
+              if (typeof window !== "undefined") {
+                try {
+                  const { 
+                    getCurrentOrganization, 
+                    getRequisitionTemplatesByOrganization,
+                    getLegacyTemplatesByOrganization,
+                    setCurrentOrganization 
+                  } = require("@/lib/organization-local-db")
+                  let currentOrgId = getCurrentOrganization()
+                  if (!currentOrgId) {
+                    currentOrgId = "admin"
+                    setCurrentOrganization("admin")
+                  }
+                  
+                  const legacyTemplates = getLegacyTemplatesByOrganization(currentOrgId)
+                  const reqTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
+                  
+                  const allOrgTemplates = [
+                    ...legacyTemplates.filter((t) => {
+                      if (currentOrgId !== "admin" && t.organizationId === "admin") return false
+                      return t.organizationId === currentOrgId
+                    }),
+                    ...reqTemplates.filter((t) => {
+                      if (currentOrgId !== "admin" && t.organizationId === "admin") return false
+                      return t.organizationId === currentOrgId
+                    })
+                  ]
+                  
+                  if (allOrgTemplates.length === 0) {
+                    return (
+                      <div className="mt-3 rounded-lg border-2 border-dashed border-border p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          No compliance templates found for your organization.
+                        </p>
+                        <a
+                          href="/organization/compliance/templates"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Create a compliance template first
+                        </a>
+                      </div>
+                    )
+                  }
+                  return null
+                } catch (error) {
+                  // Fall through to check provider templates
+                }
+              }
+              
+              // Fallback check
+              try {
+                const { useComplianceTemplatesStore } = require("@/lib/compliance-templates-store")
+                const legacyTemplates = useComplianceTemplatesStore.getState().templates
+                if (legacyTemplates.length === 0 && organization.requisitionTemplates.length === 0) {
+                  return (
+                      <div className="mt-3 rounded-lg border-2 border-dashed border-border p-4 text-center">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          No compliance templates found.
+                        </p>
+                        <a
+                          href="/organization/compliance/templates"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline"
+                        >
+                          Create a template first
+                        </a>
+                      </div>
+                  )
+                }
+              } catch (error) {
+                // Ignore
+              }
+              
+              return null
+            })()}
           </Field>
 
           <div className="flex flex-wrap gap-3 pt-4">
