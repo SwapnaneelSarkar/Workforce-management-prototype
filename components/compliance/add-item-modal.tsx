@@ -1,11 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Modal } from "@/components/system"
 import { Button } from "@/components/ui/button"
 import type { ComplianceItem } from "@/lib/compliance-templates-store"
-import { complianceItemsByCategory } from "@/lib/compliance-items"
 import { StatusChip } from "@/components/system"
+import {
+  getAllComplianceListItems,
+  type ComplianceListItem,
+} from "@/lib/admin-local-db"
 
 type AddItemModalProps = {
   open: boolean
@@ -14,33 +17,99 @@ type AddItemModalProps = {
   existingItemIds?: string[]
 }
 
+// Helper function to convert ComplianceListItem to ComplianceItem
+function convertListItemToItem(listItem: ComplianceListItem): ComplianceItem {
+  // Map ComplianceListItem category to ComplianceItem type
+  let type: ComplianceItem["type"] = "Other"
+  if (listItem.category === "License") {
+    type = "License"
+  } else if (listItem.category === "Certification") {
+    type = "Certification"
+  } else if (listItem.category === "Background & Identification") {
+    type = "Background"
+  } else if (listItem.category === "Training") {
+    type = "Training"
+  } else {
+    type = "Other"
+  }
+
+  // Map expiration types
+  let expirationType: ComplianceItem["expirationType"] = "None"
+  if (listItem.expirationType === "Expiration Date") {
+    expirationType = "Fixed Date"
+  } else if (listItem.expirationType === "Recurring") {
+    expirationType = "Recurring"
+  } else {
+    expirationType = "None"
+  }
+
+  return {
+    id: listItem.id, // Use the list item ID
+    name: listItem.name,
+    type,
+    expirationType,
+    requiredAtSubmission: false, // Default to false, can be set later
+  }
+}
+
 export function AddItemModal({ open, onClose, onAdd, existingItemIds = [] }: AddItemModalProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
+  const [listItems, setListItems] = useState<ComplianceListItem[]>([])
+
+  useEffect(() => {
+    if (open && typeof window !== "undefined") {
+      try {
+        const items = getAllComplianceListItems()
+        setListItems(items.filter((item) => item.isActive))
+      } catch (error) {
+        console.warn("Failed to load compliance list items", error)
+        setListItems([])
+      }
+    }
+  }, [open])
 
   const handleAdd = () => {
     if (!selectedItemId) return
 
-    // Find the selected item from all categories
-    for (const items of Object.values(complianceItemsByCategory)) {
-      const item = items.find((i) => i.id === selectedItemId)
-      if (item) {
-        // Create a new item with a unique ID
-        const newItem: ComplianceItem = {
-          ...item,
-          id: crypto.randomUUID(),
-        }
-        onAdd(newItem)
-        setSelectedItemId(null)
-        onClose()
-        return
+    const listItem = listItems.find((item) => item.id === selectedItemId)
+    if (listItem) {
+      const complianceItem = convertListItemToItem(listItem)
+      // Create a new item with a unique ID for the template (but keep reference to list item)
+      const newItem: ComplianceItem = {
+        ...complianceItem,
+        id: crypto.randomUUID(), // Unique ID for this template instance
       }
+      onAdd(newItem)
+      setSelectedItemId(null)
+      onClose()
     }
   }
 
-  const availableItems = Object.entries(complianceItemsByCategory).map(([category, items]) => ({
-    category,
-    items: items.filter((item) => !existingItemIds.includes(item.id)),
-  }))
+  // Group items by category and filter out existing ones
+  const availableItems = useMemo(() => {
+    const categoryMap: Record<string, ComplianceListItem[]> = {}
+    
+    // Get existing item names/IDs - could be IDs or names
+    const existingIdentifiers = new Set(existingItemIds)
+    
+    listItems.forEach((item) => {
+      // Skip if already in template (check by ID or name)
+      if (existingIdentifiers.has(item.id) || existingIdentifiers.has(item.name)) {
+        return
+      }
+
+      const category = item.category
+      if (!categoryMap[category]) {
+        categoryMap[category] = []
+      }
+      categoryMap[category].push(item)
+    })
+
+    return Object.entries(categoryMap).map(([category, items]) => ({
+      category,
+      items: items.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+  }, [listItems, existingItemIds])
 
   return (
     <Modal
@@ -81,13 +150,10 @@ export function AddItemModal({ open, onClose, onAdd, existingItemIds = [] }: Add
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-medium text-foreground">{item.name}</span>
-                          <StatusChip label={item.type} />
+                          <StatusChip label={item.category} />
                         </div>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
                           <span>Expiration: {item.expirationType}</span>
-                          {item.requiredAtSubmission && (
-                            <span className="text-primary font-medium">Required at submission</span>
-                          )}
                         </div>
                       </div>
                       {isSelected && (

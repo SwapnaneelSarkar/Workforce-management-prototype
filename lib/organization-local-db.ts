@@ -2,7 +2,7 @@ export const ORGANIZATION_LOCAL_DB_KEY = "wf_organization_local_db"
 
 import type { Job, Application } from "@/lib/mock-data"
 import type { WalletTemplate, RequisitionTemplate } from "@/components/providers/demo-data-provider"
-import type { ComplianceItem } from "@/lib/compliance-templates-store"
+import type { ComplianceItem, ComplianceTemplate } from "@/lib/compliance-templates-store"
 import { complianceItemsByCategory } from "@/lib/compliance-items"
 
 export type OrganizationLocalDbJob = Omit<Job, "id"> & {
@@ -31,11 +31,18 @@ export type OrganizationLocalDbRequisitionTemplate = RequisitionTemplate & {
   updatedAt: string
 }
 
+export type OrganizationLocalDbLegacyTemplate = ComplianceTemplate & {
+  organizationId: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type OrganizationLocalDbState = {
   jobs: Record<string, OrganizationLocalDbJob>
   applications: Record<string, OrganizationLocalDbApplication>
   walletTemplates: Record<string, OrganizationLocalDbWalletTemplate>
   requisitionTemplates: Record<string, OrganizationLocalDbRequisitionTemplate>
+  legacyTemplates: Record<string, OrganizationLocalDbLegacyTemplate>
   currentOrganizationId: string | null
   lastUpdated?: string
 }
@@ -45,6 +52,7 @@ export const defaultOrganizationLocalDbState: OrganizationLocalDbState = {
   applications: {},
   walletTemplates: {},
   requisitionTemplates: {},
+  legacyTemplates: {},
   currentOrganizationId: null,
   lastUpdated: undefined,
 }
@@ -198,11 +206,39 @@ function createDefaultWalletTemplates(organizationId: string): Record<string, Or
 }
 
 // Default requisition templates for different occupations
+// These match the legacy templates: "ICU Core Checklist" and "Med Surg Baseline"
 export function createDefaultRequisitionTemplates(organizationId: string): Record<string, OrganizationLocalDbRequisitionTemplate> {
   const allItems = Object.values(complianceItemsByCategory).flat()
   const getItem = (name: string): ComplianceItem | undefined => allItems.find(item => item.name === name)
   
   const templates: OrganizationLocalDbRequisitionTemplate[] = [
+    {
+      id: `req-icu-core-${organizationId}`,
+      name: "ICU Core Checklist",
+      occupation: "RN",
+      department: "ICU",
+      organizationId,
+      items: [
+        getItem("Active RN License")!,
+        getItem("ACLS Certification")!,
+        getItem("Background Check")!,
+      ].filter(Boolean),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: `req-med-surg-${organizationId}`,
+      name: "Med Surg Baseline",
+      occupation: "RN",
+      department: "Med-Surg",
+      organizationId,
+      items: [
+        getItem("Active RN License")!,
+        getItem("CPR Certification")!,
+      ].filter(Boolean),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
     {
       id: `req-rn-icu-${organizationId}`,
       name: "RN - ICU Requisition Template",
@@ -310,6 +346,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         applications: {},
         walletTemplates: defaultWalletTemplates,
         requisitionTemplates: defaultRequisitionTemplates,
+        legacyTemplates: {},
         currentOrganizationId: null,
         lastUpdated: undefined,
       }
@@ -348,6 +385,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         applications: parsed.applications ?? {},
         walletTemplates: { ...existingWalletTemplates, ...defaultWalletTemplates },
         requisitionTemplates: existingRequisitionTemplates,
+        legacyTemplates: parsed.legacyTemplates ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -362,6 +400,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         applications: parsed.applications ?? {},
         walletTemplates: existingWalletTemplates,
         requisitionTemplates: existingRequisitionTemplates,
+        legacyTemplates: parsed.legacyTemplates ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -387,6 +426,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
       applications: parsed.applications ?? {},
       walletTemplates: existingWalletTemplates,
       requisitionTemplates: existingRequisitionTemplates,
+      legacyTemplates: parsed.legacyTemplates ?? {},
       currentOrganizationId: parsed.currentOrganizationId ?? null,
       lastUpdated: parsed.lastUpdated,
     }
@@ -538,7 +578,13 @@ export function updateApplication(id: string, updates: Partial<Omit<Organization
 export function getWalletTemplatesByOrganization(organizationId: string): OrganizationLocalDbWalletTemplate[] {
   const state = readOrganizationLocalDb()
   return Object.values(state.walletTemplates)
-    .filter((template) => template.organizationId === organizationId)
+    .filter((template) => {
+      // Strict filtering: must match organizationId exactly, and never return "admin" templates for non-admin orgs
+      if (template.organizationId !== organizationId) return false
+      // Additional safeguard: if organizationId is not "admin", never return templates with organizationId "admin"
+      if (organizationId !== "admin" && template.organizationId === "admin") return false
+      return true
+    })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 }
 
@@ -601,9 +647,34 @@ export function deleteWalletTemplate(id: string): boolean {
 // Helper functions for requisition templates
 export function getRequisitionTemplatesByOrganization(organizationId: string): OrganizationLocalDbRequisitionTemplate[] {
   const state = readOrganizationLocalDb()
-  return Object.values(state.requisitionTemplates)
-    .filter((template) => template && template.organizationId === organizationId)
+  const allTemplates = Object.values(state.requisitionTemplates)
+  
+  console.log(`[getRequisitionTemplatesByOrganization] Requesting templates for org: ${organizationId}`)
+  console.log(`[getRequisitionTemplatesByOrganization] Total templates in DB: ${allTemplates.length}`)
+  
+  const filtered = allTemplates
+    .filter((template) => {
+      // Strict filtering: must match organizationId exactly, and never return "admin" templates for non-admin orgs
+      if (!template) {
+        console.log(`[getRequisitionTemplatesByOrganization] Skipping null template`)
+        return false
+      }
+      if (template.organizationId !== organizationId) {
+        console.log(`[getRequisitionTemplatesByOrganization] Template "${template.name}" orgId "${template.organizationId}" doesn't match requested "${organizationId}"`)
+        return false
+      }
+      // Additional safeguard: if organizationId is not "admin", never return templates with organizationId "admin"
+      if (organizationId !== "admin" && template.organizationId === "admin") {
+        console.warn(`[getRequisitionTemplatesByOrganization] BLOCKED: Template "${template.name}" has orgId "admin" but requested org is "${organizationId}"`)
+        return false
+      }
+      console.log(`[getRequisitionTemplatesByOrganization] INCLUDING template "${template.name}" (orgId: ${template.organizationId})`)
+      return true
+    })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  
+  console.log(`[getRequisitionTemplatesByOrganization] Returning ${filtered.length} templates for org ${organizationId}`)
+  return filtered
 }
 
 export function addRequisitionTemplate(organizationId: string, template: Omit<OrganizationLocalDbRequisitionTemplate, "id" | "organizationId" | "createdAt" | "updatedAt">): OrganizationLocalDbRequisitionTemplate {
@@ -665,16 +736,124 @@ export function deleteRequisitionTemplate(id: string): boolean {
 // Set current organization (for login)
 export function setCurrentOrganization(organizationId: string | null) {
   const state = readOrganizationLocalDb()
+  
+  // If an organization is logging in (not admin), ensure they have their own templates
+  if (organizationId && organizationId !== "admin") {
+    const existingRequisitionTemplates = state.requisitionTemplates ?? {}
+    const orgRequisitionTemplates = Object.values(existingRequisitionTemplates).filter(
+      (t) => t && t.organizationId === organizationId
+    )
+    
+    // ALWAYS ensure organization has default templates (create if missing)
+    if (orgRequisitionTemplates.length === 0) {
+      const defaultRequisitionTemplates = createDefaultRequisitionTemplates(organizationId)
+      const updatedState: OrganizationLocalDbState = {
+        ...state,
+        currentOrganizationId: organizationId,
+        requisitionTemplates: { ...existingRequisitionTemplates, ...defaultRequisitionTemplates },
+      }
+      persistOrganizationLocalDb(updatedState)
+      console.log(`[Organization Login] Created ${Object.keys(defaultRequisitionTemplates).length} default requisition templates for organization ${organizationId}:`, Object.keys(defaultRequisitionTemplates))
+      // Force a storage event to notify other components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new StorageEvent("storage", {
+          key: ORGANIZATION_LOCAL_DB_KEY,
+          newValue: JSON.stringify(updatedState),
+        }))
+      }
+      return
+    } else {
+      console.log(`[Organization Login] Organization ${organizationId} already has ${orgRequisitionTemplates.length} requisition templates`)
+    }
+  }
+  
   const updatedState: OrganizationLocalDbState = {
     ...state,
     currentOrganizationId: organizationId,
   }
   persistOrganizationLocalDb(updatedState)
+  // Force a storage event to notify other components
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new StorageEvent("storage", {
+      key: ORGANIZATION_LOCAL_DB_KEY,
+      newValue: JSON.stringify(updatedState),
+    }))
+  }
 }
 
 export function getCurrentOrganization(): string | null {
   const state = readOrganizationLocalDb()
   return state.currentOrganizationId
+}
+
+// Helper functions for legacy compliance templates
+export function getLegacyTemplatesByOrganization(organizationId: string): OrganizationLocalDbLegacyTemplate[] {
+  const state = readOrganizationLocalDb()
+  return Object.values(state.legacyTemplates)
+    .filter((template) => {
+      // Strict filtering: must match organizationId exactly, and never return "admin" templates for non-admin orgs
+      if (template.organizationId !== organizationId) return false
+      // Additional safeguard: if organizationId is not "admin", never return templates with organizationId "admin"
+      if (organizationId !== "admin" && template.organizationId === "admin") return false
+      return true
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function addLegacyTemplate(organizationId: string, template: Omit<OrganizationLocalDbLegacyTemplate, "id" | "organizationId" | "createdAt" | "updatedAt">): OrganizationLocalDbLegacyTemplate {
+  const state = readOrganizationLocalDb()
+  const newTemplate: OrganizationLocalDbLegacyTemplate = {
+    ...template,
+    id: `legacy-tmpl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    organizationId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    legacyTemplates: {
+      ...state.legacyTemplates,
+      [newTemplate.id]: newTemplate,
+    },
+  }
+  persistOrganizationLocalDb(updatedState)
+  return newTemplate
+}
+
+export function updateLegacyTemplate(id: string, updates: Partial<Omit<OrganizationLocalDbLegacyTemplate, "id" | "organizationId" | "createdAt">>): OrganizationLocalDbLegacyTemplate | null {
+  const state = readOrganizationLocalDb()
+  const existing = state.legacyTemplates[id]
+  if (!existing) {
+    return null
+  }
+  const updatedTemplate: OrganizationLocalDbLegacyTemplate = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    legacyTemplates: {
+      ...state.legacyTemplates,
+      [id]: updatedTemplate,
+    },
+  }
+  persistOrganizationLocalDb(updatedState)
+  return updatedTemplate
+}
+
+export function deleteLegacyTemplate(id: string): boolean {
+  const state = readOrganizationLocalDb()
+  if (!state.legacyTemplates[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.legacyTemplates
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    legacyTemplates: remaining,
+  }
+  persistOrganizationLocalDb(updatedState)
+  return true
 }
 
 

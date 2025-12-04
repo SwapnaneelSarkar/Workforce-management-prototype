@@ -9,8 +9,7 @@ import { useDemoData } from "@/components/providers/demo-data-provider"
 import type { WalletTemplate } from "@/components/providers/demo-data-provider"
 import { AddItemModal } from "@/components/compliance/add-item-modal"
 import type { ComplianceItem } from "@/lib/compliance-templates-store"
-import { complianceItemsByCategory } from "@/lib/compliance-items"
-import { getActiveOccupations } from "@/lib/admin-local-db"
+import { getActiveOccupations, getAllComplianceListItems } from "@/lib/admin-local-db"
 
 export default function WalletTemplateDetailPage() {
   const router = useRouter()
@@ -84,12 +83,18 @@ export default function WalletTemplateDetailPage() {
   }
 
   const existingItemIds = draftTemplate.items.map((item) => {
-    // Find the original item ID from compliance items list
-    for (const items of Object.values(complianceItemsByCategory)) {
-      const originalItem = items.find((i) => i.name === item.name && i.type === item.type)
-      if (originalItem) return originalItem.id
+    // Try to find the original ComplianceListItem ID by name
+    if (typeof window !== "undefined") {
+      try {
+        const listItems = getAllComplianceListItems()
+        const listItem = listItems.find((li) => li.name === item.name && li.isActive)
+        if (listItem) return listItem.id
+      } catch (error) {
+        console.warn("Failed to load compliance list items", error)
+      }
     }
-    return item.id
+    // Fallback: use item name as identifier
+    return item.name
   })
 
 

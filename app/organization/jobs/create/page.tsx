@@ -66,6 +66,50 @@ export default function CreateJobPage() {
     return organization.requisitionTemplates.find((t) => t.id === draft.requisitionTemplateId)
   }, [draft.requisitionTemplateId, organization.requisitionTemplates])
 
+  // Debug: Log available templates and verify they're organization-specific
+  // Also ensure templates exist for the current organization
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const { getCurrentOrganization, getRequisitionTemplatesByOrganization, setCurrentOrganization } = require("@/lib/organization-local-db")
+        const currentOrgId = getCurrentOrganization()
+        console.log("[Job Create] Current organization ID:", currentOrgId)
+        console.log("[Job Create] Templates from provider:", organization.requisitionTemplates.length)
+        
+        if (currentOrgId && currentOrgId !== "admin") {
+          // Re-trigger setCurrentOrganization to ensure templates are created if missing
+          // This is a safeguard in case templates weren't created on login
+          setCurrentOrganization(currentOrgId)
+          
+          const dbTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
+          console.log("[Job Create] Templates from DB for org:", dbTemplates.length, dbTemplates.map(t => ({
+            id: t.id,
+            name: t.name,
+            orgId: t.organizationId
+          })))
+          
+          // Verify all templates in the dropdown are for this organization
+          const invalidTemplates = organization.requisitionTemplates.filter((t) => {
+            const dbTemplate = dbTemplates.find((dt) => dt.id === t.id)
+            return !dbTemplate || dbTemplate.organizationId !== currentOrgId
+          })
+          if (invalidTemplates.length > 0) {
+            console.warn("[Job Create] Found invalid templates (not for current org):", invalidTemplates)
+          }
+          
+          // If no templates exist, log a warning
+          if (dbTemplates.length === 0) {
+            console.warn(`[Job Create] WARNING: No requisition templates found for organization ${currentOrgId}. Templates should have been created on login.`)
+          }
+        } else if (!currentOrgId) {
+          console.warn("[Job Create] WARNING: No organization ID set. User may not be logged in.")
+        }
+      } catch (error) {
+        console.error("[Job Create] Failed to verify templates", error)
+      }
+    }
+  }, [organization.requisitionTemplates])
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
@@ -303,11 +347,30 @@ export default function CreateJobPage() {
               className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
             >
               <option value="">Select a requisition template</option>
-              {organization.requisitionTemplates.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.name} {template.department ? `(${template.department})` : ""} - {template.items.length} items
-                </option>
-              ))}
+              {organization.requisitionTemplates
+                .filter((template) => {
+                  // Additional client-side filter to ensure no admin templates leak through
+                  if (typeof window !== "undefined") {
+                    try {
+                      const { getCurrentOrganization, getRequisitionTemplatesByOrganization } = require("@/lib/organization-local-db")
+                      const currentOrgId = getCurrentOrganization()
+                      if (currentOrgId && currentOrgId !== "admin") {
+                        const dbTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
+                        const dbTemplate = dbTemplates.find((dt) => dt.id === template.id)
+                        // Only show if template exists in DB and belongs to current organization
+                        return dbTemplate && dbTemplate.organizationId === currentOrgId
+                      }
+                    } catch (error) {
+                      console.warn("Failed to verify template", error)
+                    }
+                  }
+                  return true
+                })
+                .map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} {template.department ? `(${template.department})` : ""} - {template.items.length} items
+                  </option>
+                ))}
             </select>
             {draft.requisitionTemplateId && selectedTemplate && (
               <div className="mt-3 rounded-lg border border-border p-4 bg-muted/30">

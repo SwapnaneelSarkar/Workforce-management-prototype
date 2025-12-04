@@ -6,6 +6,7 @@ import { Header, Card } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AddItemModal } from "@/components/compliance/add-item-modal"
 import {
   useComplianceTemplatesStore,
   type ComplianceItem,
@@ -15,9 +16,10 @@ import {
 export default function ComplianceTemplatesPage() {
   const router = useRouter()
   const pathname = usePathname()
-  const { templates, addTemplate, updateTemplate, deleteTemplate } = useComplianceTemplatesStore()
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(templates[0]?.id ?? null)
+  const { templates, addTemplate, updateTemplate, deleteTemplate, loadTemplates } = useComplianceTemplatesStore()
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null)
   const [draftTemplate, setDraftTemplate] = useState<ComplianceTemplate | null>(null)
+  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
   
   // Determine active tab based on pathname
   const activeTab = pathname?.includes("wallet-templates")
@@ -27,6 +29,18 @@ export default function ComplianceTemplatesPage() {
     : "legacy"
 
   const activeTemplate = templates.find((template) => template.id === activeTemplateId) ?? null
+
+  // Load templates from local DB on mount
+  useEffect(() => {
+    loadTemplates()
+  }, [loadTemplates])
+
+  // Set active template ID when templates are loaded
+  useEffect(() => {
+    if (templates.length > 0 && !activeTemplateId) {
+      setActiveTemplateId(templates[0]?.id ?? null)
+    }
+  }, [templates, activeTemplateId])
 
   // Sync draft with active template when it changes (only for existing templates, not temp ones)
   useEffect(() => {
@@ -56,17 +70,27 @@ export default function ComplianceTemplatesPage() {
     setDraftTemplate({ ...draftTemplate, items })
   }
 
-  const handleAddItem = () => {
+  const handleAddItem = (item: ComplianceItem) => {
     if (!draftTemplate) return
-    const newItem: ComplianceItem = {
-      id: crypto.randomUUID(),
-      name: "",
-      type: "Other",
-      expirationType: "None",
-      requiredAtSubmission: false,
-    }
-    setDraftTemplate({ ...draftTemplate, items: [...draftTemplate.items, newItem] })
+    setDraftTemplate({ ...draftTemplate, items: [...draftTemplate.items, item] })
+    setIsAddItemModalOpen(false)
   }
+
+  const existingItemIds = draftTemplate?.items.map((item) => {
+    // Try to find the original ComplianceListItem ID by name
+    if (typeof window !== "undefined") {
+      try {
+        const { getAllComplianceListItems } = require("@/lib/admin-local-db")
+        const listItems = getAllComplianceListItems()
+        const listItem = listItems.find((li) => li.name === item.name && li.isActive)
+        if (listItem) return listItem.id
+      } catch (error) {
+        console.warn("Failed to load compliance list items", error)
+      }
+    }
+    // Fallback: use item name as identifier
+    return item.name
+  }) || []
 
   const handleRemoveItem = (itemId: string) => {
     if (!draftTemplate) return
@@ -215,18 +239,27 @@ export default function ComplianceTemplatesPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-foreground">Compliance items</p>
-                  <button type="button" className="ph5-button-secondary text-xs" onClick={handleAddItem}>
+                  <button 
+                    type="button" 
+                    className="ph5-button-secondary text-xs" 
+                    onClick={() => setIsAddItemModalOpen(true)}
+                  >
                     Add item
                   </button>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Select compliance items from the admin's compliance list items table.
+                </p>
                 {draftTemplate.items.map((item) => (
                   <div key={item.id} className="space-y-2 rounded-md border border-border p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <Input
-                        value={item.name}
-                        onChange={(event) => handleItemChange(item.id, { name: event.target.value })}
-                        placeholder="RN License"
-                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.type} • Expiration: {item.expirationType}
+                          {item.requiredAtSubmission && " • Required at submission"}
+                        </p>
+                      </div>
                       <button
                         type="button"
                         className="ph5-button-ghost text-xs"
@@ -234,44 +267,6 @@ export default function ComplianceTemplatesPage() {
                       >
                         Remove
                       </button>
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <select
-                        className="rounded-md border border-border bg-input px-2 py-1 text-xs"
-                        value={item.type}
-                        onChange={(event) =>
-                          handleItemChange(item.id, { type: event.target.value as ComplianceItem["type"] })
-                        }
-                      >
-                        <option value="License">License</option>
-                        <option value="Certification">Certification</option>
-                        <option value="Background">Background</option>
-                        <option value="Training">Training</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      <select
-                        className="rounded-md border border-border bg-input px-2 py-1 text-xs"
-                        value={item.expirationType}
-                        onChange={(event) =>
-                          handleItemChange(item.id, {
-                            expirationType: event.target.value as ComplianceItem["expirationType"],
-                          })
-                        }
-                      >
-                        <option value="None">No expiration</option>
-                        <option value="Fixed Date">Fixed date</option>
-                        <option value="Recurring">Recurring</option>
-                      </select>
-                      <label className="inline-flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={item.requiredAtSubmission}
-                          onChange={(event) =>
-                            handleItemChange(item.id, { requiredAtSubmission: event.target.checked })
-                          }
-                        />
-                        Required at submission
-                      </label>
                     </div>
                   </div>
                 ))}
@@ -293,6 +288,13 @@ export default function ComplianceTemplatesPage() {
           )}
         </Card>
       </div>
+
+      <AddItemModal
+        open={isAddItemModalOpen}
+        onClose={() => setIsAddItemModalOpen(false)}
+        onAdd={handleAddItem}
+        existingItemIds={existingItemIds}
+      />
         </>
       )}
     </div>

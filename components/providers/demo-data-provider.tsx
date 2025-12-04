@@ -318,40 +318,99 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Sync templates when organization changes and periodically
-  // For admin context (no currentOrganizationId), load templates with organizationId "admin"
+  // Only load templates for the current organization (don't fall back to "admin" for organization users)
   useEffect(() => {
     if (typeof window === "undefined") {
       setWalletTemplates([])
       setRequisitionTemplates([])
       return
     }
+    
+    // Immediately clear templates when organization ID changes to prevent showing wrong templates
+    setWalletTemplates([])
+    setRequisitionTemplates([])
+    
     const syncTemplates = () => {
       try {
-        const orgId = currentOrganizationId || "admin"
-        const walletTmpls = getWalletTemplatesByOrganization(orgId).map((tmpl) => ({
-          id: tmpl.id,
-          name: tmpl.name,
-          occupation: tmpl.occupation,
-          items: tmpl.items,
-        }))
+        // Only load templates if we have a current organization ID
+        // Don't fall back to "admin" - organizations should only see their own templates
+        if (!currentOrganizationId) {
+          console.log("[Template Sync] No organization ID, clearing templates")
+          setWalletTemplates([])
+          setRequisitionTemplates([])
+          return
+        }
+        
+        console.log(`[Template Sync] Syncing templates for organization: ${currentOrganizationId}`)
+        
+        // Get templates directly from DB - these functions should already filter by organizationId
+        const allWalletTmpls = getWalletTemplatesByOrganization(currentOrganizationId)
+        const allReqTmpls = getRequisitionTemplatesByOrganization(currentOrganizationId)
+        
+        console.log(`[Template Sync] Found ${allReqTmpls.length} requisition templates in DB for org ${currentOrganizationId}`)
+        
+        // Double-check filtering (safety check)
+        const walletTmpls = allWalletTmpls
+          .filter((tmpl) => {
+            if (!tmpl) return false
+            // Never show "admin" templates to organization users
+            if (currentOrganizationId !== "admin" && tmpl.organizationId === "admin") {
+              console.warn(`[Template Sync] Found admin wallet template "${tmpl.name}" when org is ${currentOrganizationId}`)
+              return false
+            }
+            // Only show templates that match the current organization
+            if (tmpl.organizationId !== currentOrganizationId) {
+              console.warn(`[Template Sync] Wallet template "${tmpl.name}" orgId "${tmpl.organizationId}" doesn't match "${currentOrganizationId}"`)
+              return false
+            }
+            return true
+          })
+          .map((tmpl) => ({
+            id: tmpl.id,
+            name: tmpl.name,
+            occupation: tmpl.occupation,
+            items: tmpl.items,
+          }))
         setWalletTemplates(walletTmpls)
 
-        const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
-          id: tmpl.id,
-          name: tmpl.name,
-          department: tmpl.department,
-          occupation: tmpl.occupation,
-          items: tmpl.items,
-        }))
+        const reqTmpls = allReqTmpls
+          .filter((tmpl) => {
+            if (!tmpl) return false
+            // Never show "admin" templates to organization users
+            if (currentOrganizationId !== "admin" && tmpl.organizationId === "admin") {
+              console.warn(`[Template Sync] Found admin requisition template "${tmpl.name}" when org is ${currentOrganizationId}`)
+              return false
+            }
+            // Only show templates that match the current organization
+            if (tmpl.organizationId !== currentOrganizationId) {
+              console.warn(`[Template Sync] Requisition template "${tmpl.name}" orgId "${tmpl.organizationId}" doesn't match "${currentOrganizationId}"`)
+              return false
+            }
+            return true
+          })
+          .map((tmpl) => ({
+            id: tmpl.id,
+            name: tmpl.name,
+            department: tmpl.department,
+            occupation: tmpl.occupation,
+            items: tmpl.items,
+          }))
+        console.log(`[Template Sync] Setting ${reqTmpls.length} requisition templates for org ${currentOrganizationId}:`, reqTmpls.map(t => `${t.name} (${t.id})`))
         setRequisitionTemplates(reqTmpls)
       } catch (error) {
-        console.warn("Failed to sync templates from local DB", error)
+        console.error("Failed to sync templates from local DB", error)
+        setWalletTemplates([])
+        setRequisitionTemplates([])
       }
     }
+
+    // Immediate sync
     syncTemplates()
-    // Poll every 2 seconds to catch updates
-    const interval = setInterval(syncTemplates, 2000)
-    return () => clearInterval(interval)
+    // Also poll every 1 second to catch updates
+    const interval = setInterval(syncTemplates, 1000)
+    return () => {
+      clearInterval(interval)
+    }
   }, [currentOrganizationId])
 
   const primaryCandidate = useMemo(() => ({ ...profile, documents }), [profile, documents])
@@ -885,11 +944,13 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     async (payload: { name: string; department?: string; occupation?: string }) => {
       await simulateDelay()
       
-      // For admin context (no currentOrganizationId), use "admin" as organizationId
-      const orgId = currentOrganizationId || "admin"
+      // Require organization ID - organizations must be logged in to create templates
+      if (!currentOrganizationId) {
+        throw new Error("No organization logged in")
+      }
 
       // Save to organization-local-db
-      const dbTemplate = addRequisitionTemplateToDb(orgId, {
+      const dbTemplate = addRequisitionTemplateToDb(currentOrganizationId, {
         name: payload.name,
         department: payload.department,
         occupation: payload.occupation,
@@ -912,13 +973,11 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
 
   const updateRequisitionTemplate = useCallback((id: string, updates: Partial<Omit<RequisitionTemplate, "id">>) => {
     // Update in local DB
-    // For admin context (no currentOrganizationId), use "admin" as organizationId
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && currentOrganizationId) {
       try {
-        const orgId = currentOrganizationId || "admin"
         updateRequisitionTemplateInDb(id, updates)
         // Refresh templates from DB
-        const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+        const reqTmpls = getRequisitionTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
           id: tmpl.id,
           name: tmpl.name,
           department: tmpl.department,
@@ -950,15 +1009,13 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
 
   const addRequisitionTemplateItem = useCallback((templateId: string, item: ComplianceItem) => {
     // Update in local DB
-    // For admin context (no currentOrganizationId), use "admin" as organizationId
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && currentOrganizationId) {
       try {
-        const orgId = currentOrganizationId || "admin"
         const current = requisitionTemplates.find((t) => t.id === templateId)
         if (current) {
           updateRequisitionTemplateInDb(templateId, { items: [...current.items, item] })
           // Refresh templates from DB
-          const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+          const reqTmpls = getRequisitionTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
             id: tmpl.id,
             name: tmpl.name,
             department: tmpl.department,
@@ -979,15 +1036,13 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
 
   const removeRequisitionTemplateItem = useCallback((templateId: string, itemId: string) => {
     // Update in local DB
-    // For admin context (no currentOrganizationId), use "admin" as organizationId
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && currentOrganizationId) {
       try {
-        const orgId = currentOrganizationId || "admin"
         const current = requisitionTemplates.find((t) => t.id === templateId)
         if (current) {
           updateRequisitionTemplateInDb(templateId, { items: current.items.filter((item) => item.id !== itemId) })
           // Refresh templates from DB
-          const reqTmpls = getRequisitionTemplatesByOrganization(orgId).map((tmpl) => ({
+          const reqTmpls = getRequisitionTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
             id: tmpl.id,
             name: tmpl.name,
             department: tmpl.department,
@@ -1043,8 +1098,8 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
 
         // Collect all list items from all templates
         const itemNames = new Set<string>()
-        templates.forEach((template) => {
-          template.listItemIds.forEach((listItemId) => {
+        templates.forEach((template: any) => {
+          template.listItemIds.forEach((listItemId: string) => {
             const listItem = getComplianceListItemById(listItemId)
             if (listItem && listItem.isActive) {
               itemNames.add(listItem.name)
