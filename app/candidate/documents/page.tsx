@@ -50,7 +50,7 @@ export default function DocumentWalletPage() {
   // Get candidate specialties from profile (saved via updateProfile)
   const candidateSpecialties = candidate.profile.specialties || []
 
-  // Get compliance wallet items from wallet templates (primary source)
+  // Get compliance wallet items from admin wallet templates (primary source)
   // Wallet Template from admin feeds this list
   // If candidate has multiple specialties, items from all specialties are included
   const complianceWalletItems = useMemo(() => {
@@ -63,18 +63,62 @@ export default function DocumentWalletPage() {
       return []
     }
 
-    // Get items from wallet template for this occupation (primary source)
-    const walletTemplate = organization.walletTemplates.find(
-      (t) => t.occupation === occupation.code
-    )
-
     const itemSet = new Set<string>()
     
-    // Add wallet template items (these come from admin wallet templates)
-    if (walletTemplate && walletTemplate.items.length > 0) {
-      walletTemplate.items.forEach((item) => {
-        itemSet.add(item.name)
-      })
+    // Get admin wallet templates for this occupation
+    // If candidate has multiple specialties, get templates for all specialties
+    if (typeof window !== "undefined") {
+      try {
+        const {
+          getAdminWalletTemplatesByOccupation,
+          getAdminWalletTemplatesByOccupationAndSpecialty,
+          getComplianceListItemById,
+        } = require("@/lib/admin-local-db")
+        
+        // Get specialty codes from candidate profile
+        const candidateSpecialtyCodes = candidateSpecialties.map((specName) => {
+          // Try to find specialty by name or code
+          const allSpecialties = require("@/lib/admin-local-db").getAllSpecialties()
+          const specialty = allSpecialties.find(
+            (s: any) => s.name === specName || s.code === specName
+          )
+          return specialty?.code
+        }).filter(Boolean) as string[]
+
+        // If candidate has specialties, get templates for each specialty
+        if (candidateSpecialtyCodes.length > 0) {
+          candidateSpecialtyCodes.forEach((specialtyCode) => {
+            const specialtyTemplates = getAdminWalletTemplatesByOccupationAndSpecialty(
+              occupation.code,
+              specialtyCode
+            )
+            specialtyTemplates.forEach((template) => {
+              template.listItemIds.forEach((listItemId) => {
+                const listItem = getComplianceListItemById(listItemId)
+                if (listItem && listItem.isActive) {
+                  itemSet.add(listItem.name)
+                }
+              })
+            })
+          })
+        }
+        
+        // Also get occupation-based templates (without specialty)
+        const occupationTemplates = getAdminWalletTemplatesByOccupation(occupation.code)
+        occupationTemplates.forEach((template) => {
+          // Only include if it doesn't have a specialty (general occupation template)
+          if (!template.specialtyId) {
+            template.listItemIds.forEach((listItemId) => {
+              const listItem = getComplianceListItemById(listItemId)
+              if (listItem && listItem.isActive) {
+                itemSet.add(listItem.name)
+              }
+            })
+          }
+        })
+      } catch (error) {
+        console.warn("Failed to load admin wallet templates", error)
+      }
     }
 
     // Also add all compliance list items that are marked for candidate display
@@ -85,12 +129,11 @@ export default function DocumentWalletPage() {
       itemSet.add(item.name)
     })
 
-    // If candidate has multiple specialties, all items from the wallet template are shown
-    // (wallet templates are occupation-based, not specialty-specific)
-    // The requirement "items from both specialties" means showing all items from the occupation's wallet template
+    // If candidate has multiple specialties, all items from matching wallet templates are shown
+    // This ensures items from both specialties are included
 
     return Array.from(itemSet)
-  }, [currentOccupationCode, organization.walletTemplates])
+  }, [currentOccupationCode, candidateSpecialties])
 
   // Group compliance items by category (expanded view)
   const complianceItemsByCategory = useMemo(() => {

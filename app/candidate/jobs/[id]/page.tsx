@@ -105,24 +105,39 @@ export default function JobDetailsPage({ params }: PageProps) {
     }))
   }, [job.id, job.requirements, job.complianceItems, requisitionTemplate])
 
-  // Get candidate's wallet items (occupation-based)
+  // Get candidate's wallet items (from admin wallet templates)
   const walletItems = useMemo(() => {
     const occupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
     if (!occupationCode) {
       return []
     }
     
-    // Find wallet template for this occupation
-    const walletTemplate = organization.walletTemplates.find(
-      (t) => t.occupation === occupationCode
-    )
-
-    if (!walletTemplate || !walletTemplate.items.length) {
-      return []
+    const itemSet = new Set<string>()
+    
+    // Get admin wallet templates for this occupation
+    if (typeof window !== "undefined") {
+      try {
+        const {
+          getAdminWalletTemplatesByOccupation,
+          getComplianceListItemById,
+        } = require("@/lib/admin-local-db")
+        
+        const templates = getAdminWalletTemplatesByOccupation(occupationCode)
+        templates.forEach((template) => {
+          template.listItemIds.forEach((listItemId) => {
+            const listItem = getComplianceListItemById(listItemId)
+            if (listItem && listItem.isActive) {
+              itemSet.add(listItem.name)
+            }
+          })
+        })
+      } catch (error) {
+        console.warn("Failed to load admin wallet templates", error)
+      }
     }
 
-    return walletTemplate.items.map((item) => item.name)
-  }, [localDb.onboardingDetails.occupation, organization.walletTemplates])
+    return Array.from(itemSet)
+  }, [localDb.onboardingDetails.occupation])
 
   // Compare job requirements with wallet items
   // Items in job requirements that are NOT in wallet need to be uploaded

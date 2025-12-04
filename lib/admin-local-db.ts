@@ -128,6 +128,19 @@ export type ComplianceListItem = {
   updatedAt: string
 }
 
+export type AdminWalletTemplate = {
+  id: string
+  name: string
+  occupationId?: string // Reference to Occupation.id
+  occupationCode?: string // Occupation code (e.g., "RN", "LPN") - for quick lookup
+  specialtyId?: string // Optional: Reference to Specialty.id
+  specialtyCode?: string // Optional: Specialty code (e.g., "ICU", "ER")
+  listItemIds: string[] // References to ComplianceListItem.id
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type AdminLocalDbState = {
   organizations: Record<string, AdminLocalDbOrganizationEntry>
   occupations: Record<string, Occupation>
@@ -137,6 +150,7 @@ export type AdminLocalDbState = {
   occupationSpecialties: Record<string, OccupationSpecialty>
   workforceGroups: Record<string, WorkforceGroup>
   complianceListItems: Record<string, ComplianceListItem>
+  adminWalletTemplates: Record<string, AdminWalletTemplate>
   lastUpdated?: string
 }
 
@@ -1191,6 +1205,7 @@ export const defaultAdminLocalDbState: AdminLocalDbState = {
   occupationSpecialties: defaultOccupationSpecialtiesRecord,
   workforceGroups: defaultWorkforceGroupsRecord,
   complianceListItems: defaultComplianceListItemsRecord,
+  adminWalletTemplates: {},
   lastUpdated: undefined,
 }
 
@@ -1290,6 +1305,7 @@ export function readAdminLocalDb(): AdminLocalDbState {
       occupationSpecialties: parsed.occupationSpecialties || defaultOccupationSpecialtiesRecord,
       workforceGroups: parsed.workforceGroups || defaultWorkforceGroupsRecord,
       complianceListItems: parsed.complianceListItems || defaultComplianceListItemsRecord,
+      adminWalletTemplates: parsed.adminWalletTemplates || {},
       lastUpdated: parsed.lastUpdated,
     }
   } catch (error) {
@@ -2019,6 +2035,213 @@ export function deleteGeneralQuestionnaire(): boolean {
   const updatedState: AdminLocalDbState = {
     ...state,
     generalQuestionnaire: null,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for admin wallet templates
+export function getAllAdminWalletTemplates(): AdminWalletTemplate[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.adminWalletTemplates).sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+}
+
+export function getAdminWalletTemplateById(id: string): AdminWalletTemplate | null {
+  const state = readAdminLocalDb()
+  return state.adminWalletTemplates[id] || null
+}
+
+export function getAdminWalletTemplatesByOccupation(occupationCode: string): AdminWalletTemplate[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.adminWalletTemplates).filter(
+    (template) => template.occupationCode === occupationCode && template.isActive
+  )
+}
+
+export function getAdminWalletTemplatesByOccupationAndSpecialty(
+  occupationCode: string,
+  specialtyCode?: string
+): AdminWalletTemplate[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.adminWalletTemplates).filter((template) => {
+    if (!template.isActive || template.occupationCode !== occupationCode) {
+      return false
+    }
+    if (specialtyCode) {
+      return template.specialtyCode === specialtyCode
+    }
+    // If no specialty specified, return templates without specialty or with any specialty
+    return true
+  })
+}
+
+export function addAdminWalletTemplate(
+  template: Omit<AdminWalletTemplate, "id" | "createdAt" | "updatedAt">
+): AdminWalletTemplate {
+  const state = readAdminLocalDb()
+  
+  // Get occupation code if occupationId is provided
+  let occupationCode = template.occupationCode
+  if (!occupationCode && template.occupationId) {
+    const occupation = state.occupations[template.occupationId]
+    if (occupation) {
+      occupationCode = occupation.code
+    }
+  }
+  
+  // Get specialty code if specialtyId is provided
+  let specialtyCode = template.specialtyCode
+  if (!specialtyCode && template.specialtyId) {
+    const specialty = state.specialties[template.specialtyId]
+    if (specialty) {
+      specialtyCode = specialty.code
+    }
+  }
+  
+  const newTemplate: AdminWalletTemplate = {
+    ...template,
+    occupationCode,
+    specialtyCode,
+    id: `awt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    adminWalletTemplates: {
+      ...state.adminWalletTemplates,
+      [newTemplate.id]: newTemplate,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newTemplate
+}
+
+export function updateAdminWalletTemplate(
+  id: string,
+  updates: Partial<Omit<AdminWalletTemplate, "id" | "createdAt">>
+): AdminWalletTemplate | null {
+  const state = readAdminLocalDb()
+  const existing = state.adminWalletTemplates[id]
+  if (!existing) {
+    return null
+  }
+  
+  // Update occupation code if occupationId changed
+  let occupationCode = updates.occupationCode ?? existing.occupationCode
+  if (updates.occupationId !== undefined) {
+    if (updates.occupationId) {
+      const occupation = state.occupations[updates.occupationId]
+      if (occupation) {
+        occupationCode = occupation.code
+      }
+    } else {
+      occupationCode = undefined
+    }
+  }
+  
+  // Update specialty code if specialtyId changed
+  let specialtyCode = updates.specialtyCode ?? existing.specialtyCode
+  if (updates.specialtyId !== undefined) {
+    if (updates.specialtyId) {
+      const specialty = state.specialties[updates.specialtyId]
+      if (specialty) {
+        specialtyCode = specialty.code
+      }
+    } else {
+      specialtyCode = undefined
+    }
+  }
+  
+  const updatedTemplate: AdminWalletTemplate = {
+    ...existing,
+    ...updates,
+    occupationCode,
+    specialtyCode,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    adminWalletTemplates: {
+      ...state.adminWalletTemplates,
+      [id]: updatedTemplate,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedTemplate
+}
+
+export function deleteAdminWalletTemplate(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.adminWalletTemplates[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.adminWalletTemplates
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    adminWalletTemplates: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function addAdminWalletTemplateListItem(templateId: string, listItemId: string): boolean {
+  const state = readAdminLocalDb()
+  const template = state.adminWalletTemplates[templateId]
+  if (!template) {
+    return false
+  }
+  
+  // Check if item already exists
+  if (template.listItemIds.includes(listItemId)) {
+    return false
+  }
+  
+  // Verify list item exists
+  if (!state.complianceListItems[listItemId]) {
+    return false
+  }
+  
+  const updatedTemplate: AdminWalletTemplate = {
+    ...template,
+    listItemIds: [...template.listItemIds, listItemId],
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    adminWalletTemplates: {
+      ...state.adminWalletTemplates,
+      [templateId]: updatedTemplate,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function removeAdminWalletTemplateListItem(templateId: string, listItemId: string): boolean {
+  const state = readAdminLocalDb()
+  const template = state.adminWalletTemplates[templateId]
+  if (!template) {
+    return false
+  }
+  
+  const updatedTemplate: AdminWalletTemplate = {
+    ...template,
+    listItemIds: template.listItemIds.filter((id) => id !== listItemId),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    adminWalletTemplates: {
+      ...state.adminWalletTemplates,
+      [templateId]: updatedTemplate,
+    },
   }
   persistAdminLocalDb(updatedState)
   return true

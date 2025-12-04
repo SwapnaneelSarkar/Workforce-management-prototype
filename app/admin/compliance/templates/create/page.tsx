@@ -5,63 +5,85 @@ import { useRouter } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useDemoData } from "@/components/providers/demo-data-provider"
-import { getAllDepartments } from "@/lib/organizations-store"
 import { useToast } from "@/components/system"
-import { getActiveOccupations } from "@/lib/admin-local-db"
+import {
+  getActiveOccupations,
+  getAllSpecialties,
+  getOccupationSpecialtiesByOccupation,
+  addAdminWalletTemplate,
+  type Occupation,
+  type Specialty,
+} from "@/lib/admin-local-db"
 
-export default function CreateRequisitionTemplatePage() {
+export default function CreateAdminWalletTemplatePage() {
   const router = useRouter()
-  const { actions } = useDemoData()
   const { pushToast } = useToast()
   const [templateName, setTemplateName] = useState("")
-  const [department, setDepartment] = useState<string>("")
-  const [occupation, setOccupation] = useState<string>("")
-  const [departments, setDepartments] = useState<string[]>([])
-  const [occupations, setOccupations] = useState<Array<{ label: string; value: string }>>([])
+  const [occupationId, setOccupationId] = useState<string>("")
+  const [specialtyId, setSpecialtyId] = useState<string>("")
+  const [occupations, setOccupations] = useState<Occupation[]>([])
+  const [specialties, setSpecialties] = useState<Specialty[]>([])
+  const [availableSpecialties, setAvailableSpecialties] = useState<Specialty[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    const allDepartments = getAllDepartments()
-    // Extract department names from Department objects
-    setDepartments(allDepartments.map((dept) => dept.name))
-    
     if (typeof window !== "undefined") {
       try {
         const occs = getActiveOccupations()
-        setOccupations(occs.map((occ) => ({ label: occ.name, value: occ.code })))
+        setOccupations(occs)
+        const specs = getAllSpecialties()
+        setSpecialties(specs)
       } catch (error) {
-        console.warn("Failed to load occupations", error)
+        console.warn("Failed to load occupations/specialties", error)
       }
     }
   }, [])
 
+  useEffect(() => {
+    if (occupationId) {
+      // Get specialties for this occupation
+      const occSpecialties = getOccupationSpecialtiesByOccupation(occupationId)
+      const specialtyIds = occSpecialties.map((os) => os.specialtyId)
+      const filtered = specialties.filter((s) => specialtyIds.includes(s.id))
+      setAvailableSpecialties(filtered)
+      // Reset specialty if it's not available for this occupation
+      if (specialtyId && !specialtyIds.includes(specialtyId)) {
+        setSpecialtyId("")
+      }
+    } else {
+      setAvailableSpecialties([])
+      setSpecialtyId("")
+    }
+  }, [occupationId, specialties, specialtyId])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!templateName.trim()) {
       pushToast({ title: "Validation Error", description: "Template name is required." })
       return
     }
 
-    if (!department) {
-      pushToast({ title: "Validation Error", description: "Department is required." })
-      return
-    }
-
-    if (!occupation) {
+    if (!occupationId) {
       pushToast({ title: "Validation Error", description: "Occupation is required." })
       return
     }
 
     setLoading(true)
     try {
-      const template = await actions.createRequisitionTemplate({
+      const occupation = occupations.find((occ) => occ.id === occupationId)
+      const template = addAdminWalletTemplate({
         name: templateName.trim(),
-        department: department,
-        occupation: occupation,
+        occupationId,
+        occupationCode: occupation?.code,
+        specialtyId: specialtyId || undefined,
+        specialtyCode: specialtyId
+          ? specialties.find((s) => s.id === specialtyId)?.code
+          : undefined,
+        listItemIds: [],
+        isActive: true,
       })
-      pushToast({ title: "Success", description: "Template created successfully." })
+      pushToast({ title: "Success", description: "Wallet template created successfully." })
       router.push(`/admin/compliance/templates/${template.id}`)
     } catch (error) {
       console.error("Failed to create template:", error)
@@ -73,11 +95,11 @@ export default function CreateRequisitionTemplatePage() {
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="Create Requisition Template"
-        subtitle="Create a new universal compliance template for job requisitions."
+        title="Create Document Wallet Template"
+        subtitle="Create a new universal compliance template for by job title."
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: "Compliance Templates", href: "/admin/compliance/templates" },
+          { label: "Compliance Wallet", href: "/admin/compliance/templates" },
           { label: "Create Template" },
         ]}
       />
@@ -99,58 +121,47 @@ export default function CreateRequisitionTemplatePage() {
 
           <div className="space-y-2">
             <Label htmlFor="occupation" className="text-sm font-semibold text-foreground">
-              Occupation <span className="text-destructive">*</span>
+              Occupation/Specialty <span className="text-destructive">*</span>
             </Label>
             <select
               id="occupation"
-              value={occupation}
-              onChange={(e) => setOccupation(e.target.value)}
+              value={occupationId}
+              onChange={(e) => setOccupationId(e.target.value)}
               className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
               required
             >
               <option value="">Select occupation</option>
               {occupations.map((occ) => (
-                <option key={occ.value} value={occ.value}>
-                  {occ.label}
+                <option key={occ.id} value={occ.id}>
+                  {occ.name} ({occ.code})
                 </option>
               ))}
             </select>
+            <p className="text-xs text-destructive mt-1">
+              Can this be joined in one field from a join table? Needs to be based on specialty not department.
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="department" className="text-sm font-semibold text-foreground">
-              Department <span className="text-destructive">*</span>
-            </Label>
-            {departments.length === 0 ? (
-              <div className="space-y-2">
-                <Input
-                  id="department"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="Enter department name"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  No departments found. You can add departments in Admin → Locations.
-                </p>
-              </div>
-            ) : (
+          {occupationId && availableSpecialties.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="specialty" className="text-sm font-semibold text-foreground">
+                Specialty (Optional)
+              </Label>
               <select
-                id="department"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
+                id="specialty"
+                value={specialtyId}
+                onChange={(e) => setSpecialtyId(e.target.value)}
                 className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                required
               >
-                <option value="">Select department</option>
-                {departments.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
+                <option value="">Select specialty (optional)</option>
+                {availableSpecialties.map((spec) => (
+                  <option key={spec.id} value={spec.id}>
+                    {spec.name} ({spec.code})
                   </option>
                 ))}
               </select>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
             <button

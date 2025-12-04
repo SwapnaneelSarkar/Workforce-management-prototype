@@ -1025,34 +1025,56 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       // Get the template occupation code
       const templateOccupation = occupationMapping[occupation] || occupation
       
-      // Find wallet template matching the occupation
-      const template = walletTemplates.find((t) => t.occupation === templateOccupation)
+      if (typeof window === "undefined") return
       
-      if (!template || template.items.length === 0) {
-        // If no template found, don't initialize documents
-        return
-      }
+      try {
+        const {
+          getAdminWalletTemplatesByOccupation,
+          getComplianceListItemById,
+        } = require("@/lib/admin-local-db")
+        
+        // Get admin wallet templates for this occupation
+        const templates = getAdminWalletTemplatesByOccupation(templateOccupation)
+        
+        if (templates.length === 0) {
+          // If no template found, don't initialize documents
+          return
+        }
 
-      // Check if wallet is already initialized (avoid duplicates on login)
-      const existingDocTypes = new Set(documents.map((doc) => doc.type))
-      
-      // Create documents from template items that don't already exist
-      const newDocuments: CandidateDocument[] = template.items
-        .filter((item) => !existingDocTypes.has(item.name))
-        .map((item) => ({
-          id: crypto.randomUUID(),
-          name: item.name,
-          type: item.name,
-          status: "Pending Upload" as const,
-          expiresOn: "",
-          lastUpdated: new Date().toISOString().slice(0, 10),
-        }))
+        // Collect all list items from all templates
+        const itemNames = new Set<string>()
+        templates.forEach((template) => {
+          template.listItemIds.forEach((listItemId) => {
+            const listItem = getComplianceListItemById(listItemId)
+            if (listItem && listItem.isActive) {
+              itemNames.add(listItem.name)
+            }
+          })
+        })
 
-      if (newDocuments.length > 0) {
-        setDocuments((prev) => [...prev, ...newDocuments])
+        // Check if wallet is already initialized (avoid duplicates on login)
+        const existingDocTypes = new Set(documents.map((doc) => doc.type))
+        
+        // Create documents from template items that don't already exist
+        const newDocuments: CandidateDocument[] = Array.from(itemNames)
+          .filter((itemName) => !existingDocTypes.has(itemName))
+          .map((itemName) => ({
+            id: crypto.randomUUID(),
+            name: itemName,
+            type: itemName,
+            status: "Pending Upload" as const,
+            expiresOn: "",
+            lastUpdated: new Date().toISOString().slice(0, 10),
+          }))
+
+        if (newDocuments.length > 0) {
+          setDocuments((prev) => [...prev, ...newDocuments])
+        }
+      } catch (error) {
+        console.warn("Failed to initialize candidate wallet with occupation", error)
       }
     },
-    [walletTemplates, documents],
+    [documents],
   )
 
   // Filter jobs and applications for organization (only show their own data)
