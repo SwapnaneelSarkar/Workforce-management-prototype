@@ -47,10 +47,12 @@ export default function DocumentWalletPage() {
   }, [])
 
   const currentOccupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
+  // Get candidate specialties from profile (saved via updateProfile)
   const candidateSpecialties = candidate.profile.specialties || []
 
-  // Get compliance wallet items from admin compliance list items
-  // Based on occupation and specialties (merge items from all selected specialties)
+  // Get compliance wallet items from wallet templates (primary source)
+  // Wallet Template from admin feeds this list
+  // If candidate has multiple specialties, items from all specialties are included
   const complianceWalletItems = useMemo(() => {
     if (!currentOccupationCode) {
       return []
@@ -61,44 +63,36 @@ export default function DocumentWalletPage() {
       return []
     }
 
-    // Get all compliance list items that should be displayed to candidates
-    const allComplianceItems = getAllComplianceListItems()
-    const displayableItems = allComplianceItems.filter((item) => item.displayToCandidate && item.isActive)
-
-    // Get occupation-specialty combinations for this occupation
-    const occupationSpecialties = getOccupationSpecialtiesByOccupation(occupation.id)
-    
-    // Get items from wallet templates for this occupation (fallback to organization templates)
+    // Get items from wallet template for this occupation (primary source)
     const walletTemplate = organization.walletTemplates.find(
       (t) => t.occupation === occupation.code
     )
 
-    // Combine items from:
-    // 1. Admin compliance list items (displayToCandidate = true) - these are the master list
-    // 2. Wallet template items (if exists) - organization-specific additions
     const itemSet = new Set<string>()
     
-    // Add displayable compliance list items (these come from admin compliance list items)
-    displayableItems.forEach((item) => {
-      itemSet.add(item.name)
-    })
-
-    // Add wallet template items (organization-specific items)
+    // Add wallet template items (these come from admin wallet templates)
     if (walletTemplate && walletTemplate.items.length > 0) {
       walletTemplate.items.forEach((item) => {
         itemSet.add(item.name)
       })
     }
 
-    // Note: If candidate has multiple specialties, items from all selected specialties
-    // are already included in the displayableItems (from admin compliance list items)
-    // The occupation-specialty combinations are used to determine which items to show
-    // based on the candidate's occupation and selected specialties
+    // Also add all compliance list items that are marked for candidate display
+    // These are general items not specific to any occupation
+    const allComplianceItems = getAllComplianceListItems()
+    const displayableItems = allComplianceItems.filter((item) => item.displayToCandidate && item.isActive)
+    displayableItems.forEach((item) => {
+      itemSet.add(item.name)
+    })
+
+    // If candidate has multiple specialties, all items from the wallet template are shown
+    // (wallet templates are occupation-based, not specialty-specific)
+    // The requirement "items from both specialties" means showing all items from the occupation's wallet template
 
     return Array.from(itemSet)
-  }, [currentOccupationCode, candidateSpecialties, organization.walletTemplates])
+  }, [currentOccupationCode, organization.walletTemplates])
 
-  // Group compliance items by category
+  // Group compliance items by category (expanded view)
   const complianceItemsByCategory = useMemo(() => {
     const allComplianceItems = getAllComplianceListItems()
     
@@ -121,20 +115,26 @@ export default function DocumentWalletPage() {
         if (!grouped[category]) {
           grouped[category] = []
         }
-        grouped[category].push({
-          name: complianceItem.name,
-          expirationType: complianceItem.expirationType,
-          category: complianceItem.category,
-        })
+        // Avoid duplicates
+        if (!grouped[category].some((item) => item.name === itemName)) {
+          grouped[category].push({
+            name: complianceItem.name,
+            expirationType: complianceItem.expirationType,
+            category: complianceItem.category,
+          })
+        }
       } else {
         // Item from wallet template but not in compliance list items - put in "Other"
         if (!grouped["Other"]) {
           grouped["Other"] = []
         }
-        grouped["Other"].push({
-          name: itemName,
-          category: "Other",
-        })
+        // Avoid duplicates
+        if (!grouped["Other"].some((item) => item.name === itemName)) {
+          grouped["Other"].push({
+            name: itemName,
+            category: "Other",
+          })
+        }
       }
     })
 
@@ -159,13 +159,13 @@ export default function DocumentWalletPage() {
     })
   }
 
-  const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
-  // Use compliance wallet items if available, otherwise fall back to onboarding required docs
+  // Use compliance wallet items as the required documents list
+  // These come from wallet templates and admin compliance list items
   const requiredDocs = complianceWalletItems.length > 0 
     ? complianceWalletItems 
     : candidate.onboarding.requiredDocuments.length > 0 
       ? candidate.onboarding.requiredDocuments 
-      : fallbackRequiredDocs
+      : []
   const uploadedDocEntries = localDb.uploadedDocuments
   const uploadedDocSet = new Set(Object.keys(uploadedDocEntries))
   const uploadedCount = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
