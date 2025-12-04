@@ -4,7 +4,7 @@ import { useState, type FormEvent, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { useToast } from "@/components/system"
-import { Plus, X, MapPin } from "lucide-react"
+import { Plus, X, MapPin, Upload, FileText, Image } from "lucide-react"
 import { addOrganization, type OrganizationLocation } from "@/lib/organizations-store"
 // Note: organizations-store.ts re-exports from admin-local-db.ts which follows the same pattern as local-db.ts
 
@@ -16,6 +16,9 @@ type LocationFormData = {
   zipCode: string
   phone: string
   email: string
+  locationType: string
+  costCentre: string
+  photo: string
 }
 
 export default function AddOrganizationPage() {
@@ -29,7 +32,14 @@ export default function AddOrganizationPage() {
     website: "",
     industry: "",
     description: "",
+    logo: "",
+    orgType: "",
+    serviceAgreement: "",
+    timezone: "",
+    agreementRenewalDate: "",
   })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [serviceAgreementFile, setServiceAgreementFile] = useState<File | null>(null)
   const [locations, setLocations] = useState<LocationFormData[]>([
     {
       name: "",
@@ -39,11 +49,35 @@ export default function AddOrganizationPage() {
       zipCode: "",
       phone: "",
       email: "",
+      locationType: "",
+      costCentre: "",
+      photo: "",
     },
   ])
+  const [locationPhotos, setLocationPhotos] = useState<Record<number, File | null>>({})
 
   const handleInputChange = (field: keyof typeof formData) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [field]: e.target.value }))
+  }
+
+  const handleLogoUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    if (file) {
+      setLogoFile(file)
+      // In a real app, you'd upload to a server and get a URL
+      // For now, we'll store the file name
+      setFormData((prev) => ({ ...prev, logo: file.name }))
+    }
+  }
+
+  const handleServiceAgreementUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    if (file) {
+      setServiceAgreementFile(file)
+      // In a real app, you'd upload to a server and get a URL
+      // For now, we'll store the file name
+      setFormData((prev) => ({ ...prev, serviceAgreement: file.name }))
+    }
   }
 
   const handleLocationChange = (index: number, field: keyof LocationFormData) => (e: ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +86,18 @@ export default function AddOrganizationPage() {
       updated[index] = { ...updated[index], [field]: e.target.value }
       return updated
     })
+  }
+
+  const handleLocationPhotoUpload = (index: number) => (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    if (file) {
+      setLocationPhotos((prev) => ({ ...prev, [index]: file }))
+      setLocations((prev) => {
+        const updated = [...prev]
+        updated[index] = { ...updated[index], photo: file.name }
+        return updated
+      })
+    }
   }
 
   const addLocation = () => {
@@ -65,6 +111,9 @@ export default function AddOrganizationPage() {
         zipCode: "",
         phone: "",
         email: "",
+        locationType: "",
+        costCentre: "",
+        photo: "",
       },
     ])
   }
@@ -101,6 +150,9 @@ export default function AddOrganizationPage() {
         zipCode: loc.zipCode,
         phone: loc.phone || undefined,
         email: loc.email || undefined,
+        locationType: loc.locationType || undefined,
+        costCentre: loc.costCentre || undefined,
+        photo: loc.photo || undefined,
         departments: [],
       }))
 
@@ -111,6 +163,11 @@ export default function AddOrganizationPage() {
         website: formData.website || undefined,
         industry: formData.industry || undefined,
         description: formData.description || undefined,
+        logo: formData.logo || undefined,
+        orgType: formData.orgType || undefined,
+        serviceAgreement: formData.serviceAgreement || undefined,
+        timezone: formData.timezone || undefined,
+        agreementRenewalDate: formData.agreementRenewalDate || undefined,
         locations: organizationLocations,
       })
 
@@ -213,6 +270,105 @@ export default function AddOrganizationPage() {
                     <option value="Retail">Retail</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Organization Type</label>
+                  <select
+                    value={formData.orgType}
+                    onChange={handleInputChange("orgType")}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select organization type</option>
+                    <option value="Corporation">Corporation</option>
+                    <option value="LLC">LLC</option>
+                    <option value="Partnership">Partnership</option>
+                    <option value="Non-Profit">Non-Profit</option>
+                    <option value="Sole Proprietorship">Sole Proprietorship</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Timezone</label>
+                  <select
+                    value={formData.timezone}
+                    onChange={handleInputChange("timezone")}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Select timezone</option>
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                    <option value="America/Anchorage">Alaska Time (AKT)</option>
+                    <option value="Pacific/Honolulu">Hawaii Time (HST)</option>
+                    <option value="America/Phoenix">Arizona Time (MST)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Agreement Renewal Date</label>
+                  <input
+                    type="date"
+                    value={formData.agreementRenewalDate}
+                    onChange={handleInputChange("agreementRenewalDate")}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Organization Logo</label>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="logo-upload"
+                      className="flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer"
+                    >
+                      <Image className="h-4 w-4" />
+                      {logoFile ? "Change Logo" : "Upload Logo"}
+                    </label>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                    {logoFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Image className="h-4 w-4" />
+                        <span>{logoFile.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Service Agreement</label>
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="service-agreement-upload"
+                      className="flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer"
+                    >
+                      <FileText className="h-4 w-4" />
+                      {serviceAgreementFile ? "Change File" : "Upload Service Agreement"}
+                    </label>
+                    <input
+                      id="service-agreement-upload"
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleServiceAgreementUpload}
+                      className="hidden"
+                    />
+                    {serviceAgreementFile && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <FileText className="h-4 w-4" />
+                        <span>{serviceAgreementFile.name}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -356,6 +512,61 @@ export default function AddOrganizationPage() {
                           className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="location@organization.com"
                         />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Location Type</label>
+                        <select
+                          value={location.locationType}
+                          onChange={handleLocationChange(index, "locationType")}
+                          className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">Select location type</option>
+                          <option value="Hospital">Hospital</option>
+                          <option value="Clinic">Clinic</option>
+                          <option value="Urgent Care">Urgent Care</option>
+                          <option value="Surgery Center">Surgery Center</option>
+                          <option value="Long-term Care">Long-term Care</option>
+                          <option value="Home Health">Home Health</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Cost Centre</label>
+                        <input
+                          type="text"
+                          value={location.costCentre}
+                          onChange={handleLocationChange(index, "costCentre")}
+                          className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="CC-001"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-foreground mb-2">Location Photo</label>
+                        <div className="space-y-2">
+                          <label
+                            htmlFor={`location-photo-${index}`}
+                            className="flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer"
+                          >
+                            <Image className="h-4 w-4" />
+                            {locationPhotos[index] ? "Change Photo" : "Upload Photo"}
+                          </label>
+                          <input
+                            id={`location-photo-${index}`}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleLocationPhotoUpload(index)}
+                            className="hidden"
+                          />
+                          {locationPhotos[index] && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Image className="h-4 w-4" />
+                              <span>{locationPhotos[index]?.name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

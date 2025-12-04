@@ -1,5 +1,34 @@
 export const ADMIN_LOCAL_DB_KEY = "wf_admin_local_db"
 
+export type Specialty = {
+  id: string
+  name: string // Specialty name
+  code: string
+  acronym?: string
+  description?: string
+  isActive: boolean // Active/Inactive toggle
+  createdAt: string
+  updatedAt: string
+}
+
+export type OccupationSpecialty = {
+  id: string
+  occupationId: string
+  specialtyId: string
+  displayName: string // e.g., "Registered Nurse - TELE"
+  createdAt: string
+  updatedAt: string
+}
+
+export type Department = {
+  id: string
+  name: string
+  deptType?: string
+  relatedUsers: string[] // User IDs
+  costCentre?: string
+  relatedOccupationSpecialties: string[] // OccupationSpecialty IDs
+}
+
 export type AdminLocalDbOrganizationLocation = {
   id: string
   name: string
@@ -9,7 +38,10 @@ export type AdminLocalDbOrganizationLocation = {
   zipCode: string
   phone?: string
   email?: string
-  departments: string[]
+  locationType?: string
+  costCentre?: string
+  photo?: string
+  departments: Department[]
 }
 
 export type AdminLocalDbOrganizationEntry = {
@@ -20,6 +52,11 @@ export type AdminLocalDbOrganizationEntry = {
   website?: string
   industry?: string
   description?: string
+  logo?: string
+  orgType?: string
+  serviceAgreement?: string
+  timezone?: string
+  agreementRenewalDate?: string
   locations: AdminLocalDbOrganizationLocation[]
   createdAt: string
   updatedAt: string
@@ -30,6 +67,9 @@ export type Occupation = {
   name: string
   code: string // Short code like "RN", "LPN", etc.
   description?: string
+  industry?: string
+  modality?: string
+  acronym?: string
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -38,6 +78,7 @@ export type Occupation = {
 export type OccupationQuestionnaire = {
   id: string
   occupationId: string
+  isActive: boolean // Toggle to turn questions off for candidate experience
   questions: Array<{
     id: string
     question: string
@@ -69,6 +110,8 @@ export type AdminLocalDbState = {
   occupations: Record<string, Occupation>
   occupationQuestionnaires: Record<string, OccupationQuestionnaire>
   generalQuestionnaire: GeneralQuestionnaire | null
+  specialties: Record<string, Specialty>
+  occupationSpecialties: Record<string, OccupationSpecialty>
   lastUpdated?: string
 }
 
@@ -321,6 +364,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-001": {
     id: "occ-q-001",
     occupationId: "occ-001",
+    isActive: true,
     questions: [
       {
         id: "q-rn-license-state",
@@ -364,6 +408,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-002": {
     id: "occ-q-002",
     occupationId: "occ-002",
+    isActive: true,
     questions: [
       {
         id: "q-lpn-license-state",
@@ -400,6 +445,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-003": {
     id: "occ-q-003",
     occupationId: "occ-003",
+    isActive: true,
     questions: [
       {
         id: "q-cna-certification-state",
@@ -436,6 +482,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-004": {
     id: "occ-q-004",
     occupationId: "occ-004",
+    isActive: true,
     questions: [
       {
         id: "q-ma-certification",
@@ -472,6 +519,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-005": {
     id: "occ-q-005",
     occupationId: "occ-005",
+    isActive: true,
     questions: [
       {
         id: "q-surg-tech-certification",
@@ -508,6 +556,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-006": {
     id: "occ-q-006",
     occupationId: "occ-006",
+    isActive: true,
     questions: [
       {
         id: "q-pt-license-state",
@@ -544,6 +593,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-007": {
     id: "occ-q-007",
     occupationId: "occ-007",
+    isActive: true,
     questions: [
       {
         id: "q-ot-license-state",
@@ -580,6 +630,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-008": {
     id: "occ-q-008",
     occupationId: "occ-008",
+    isActive: true,
     questions: [
       {
         id: "q-rt-license-state",
@@ -616,6 +667,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-009": {
     id: "occ-q-009",
     occupationId: "occ-009",
+    isActive: true,
     questions: [
       {
         id: "q-np-license-state",
@@ -659,6 +711,7 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   "occ-010": {
     id: "occ-q-010",
     occupationId: "occ-010",
+    isActive: true,
     questions: [
       {
         id: "q-pa-license-state",
@@ -701,11 +754,127 @@ const defaultOccupationQuestionnaires: Record<string, OccupationQuestionnaire> =
   },
 }
 
+// Default specialties
+const defaultSpecialties: Specialty[] = [
+  {
+    id: "spec-001",
+    name: "ICU",
+    code: "ICU",
+    acronym: "ICU",
+    description: "Intensive Care Unit",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spec-002",
+    name: "ER",
+    code: "ER",
+    acronym: "ER",
+    description: "Emergency Room",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spec-003",
+    name: "TELE",
+    code: "TELE",
+    acronym: "TELE",
+    description: "Telemetry",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spec-004",
+    name: "Med-Surg",
+    code: "MEDSURG",
+    acronym: "MEDSURG",
+    description: "Medical-Surgical",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spec-005",
+    name: "Monitor Tech",
+    code: "MONITOR",
+    acronym: "MT",
+    description: "Monitor Technician",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultSpecialtiesRecord: Record<string, Specialty> = defaultSpecialties.reduce(
+  (acc, spec) => {
+    acc[spec.id] = spec
+    return acc
+  },
+  {} as Record<string, Specialty>,
+)
+
+// Default occupation-specialty mappings
+const defaultOccupationSpecialties: OccupationSpecialty[] = [
+  {
+    id: "occ-spec-001",
+    occupationId: "occ-001", // RN
+    specialtyId: "spec-003", // TELE
+    displayName: "Registered Nurse - TELE",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "occ-spec-002",
+    occupationId: "occ-001", // RN
+    specialtyId: "spec-001", // ICU
+    displayName: "Registered Nurse - ICU",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "occ-spec-003",
+    occupationId: "occ-001", // RN
+    specialtyId: "spec-002", // ER
+    displayName: "Registered Nurse - ER",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "occ-spec-004",
+    occupationId: "occ-001", // RN
+    specialtyId: "spec-004", // Med-Surg
+    displayName: "Registered Nurse - Med-Surg",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "occ-spec-005",
+    occupationId: "occ-005", // Surgical Tech
+    specialtyId: "spec-005", // Monitor Tech
+    displayName: "Monitor Tech",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultOccupationSpecialtiesRecord: Record<string, OccupationSpecialty> = defaultOccupationSpecialties.reduce(
+  (acc, occSpec) => {
+    acc[occSpec.id] = occSpec
+    return acc
+  },
+  {} as Record<string, OccupationSpecialty>,
+)
+
 export const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
   occupationQuestionnaires: defaultOccupationQuestionnaires,
   generalQuestionnaire: defaultGeneralQuestionnaire,
+  specialties: defaultSpecialtiesRecord,
+  occupationSpecialties: defaultOccupationSpecialtiesRecord,
   lastUpdated: undefined,
 }
 
@@ -726,10 +895,31 @@ export function readAdminLocalDb(): AdminLocalDbState {
     const migratedOrganizations: Record<string, AdminLocalDbOrganizationEntry> = {}
     if (parsed.organizations) {
       Object.values(parsed.organizations).forEach((org) => {
-        const migratedLocations = org.locations.map((loc) => ({
-          ...loc,
-          departments: loc.departments ?? [],
-        }))
+        const migratedLocations = org.locations.map((loc) => {
+          // Migrate departments from string[] to Department[]
+          let migratedDepartments: Department[] = []
+          if (Array.isArray(loc.departments)) {
+            if (loc.departments.length > 0 && typeof loc.departments[0] === "string") {
+              // Old format: string[]
+              migratedDepartments = (loc.departments as string[]).map((deptName, idx) => ({
+                id: `dept-${loc.id}-${idx}`,
+                name: deptName,
+                relatedUsers: [],
+                relatedOccupationSpecialties: [],
+              }))
+            } else {
+              // New format: Department[]
+              migratedDepartments = loc.departments as Department[]
+            }
+          }
+          return {
+            ...loc,
+            departments: migratedDepartments,
+            locationType: loc.locationType,
+            costCentre: loc.costCentre,
+            photo: loc.photo,
+          }
+        })
         migratedOrganizations[org.id] = {
           ...org,
           locations: migratedLocations,
@@ -742,16 +932,46 @@ export function readAdminLocalDb(): AdminLocalDbState {
     const mergedQuestionnaires = { ...defaultOccupationQuestionnaires }
     if (parsed.occupationQuestionnaires) {
       Object.entries(parsed.occupationQuestionnaires).forEach(([key, value]) => {
-        // Use existing questionnaire (user may have customized it)
-        mergedQuestionnaires[key] = value
+        // Migrate questionnaire to include isActive if missing
+        const migratedQuestionnaire = {
+          ...value,
+          isActive: value.isActive !== undefined ? value.isActive : true,
+        }
+        mergedQuestionnaires[key] = migratedQuestionnaire
+      })
+    }
+    
+    // Migrate occupations to include new fields
+    const migratedOccupations: Record<string, Occupation> = {}
+    if (parsed.occupations) {
+      Object.entries(parsed.occupations).forEach(([key, occ]) => {
+        migratedOccupations[key] = {
+          ...occ,
+          industry: occ.industry,
+          modality: occ.modality,
+          acronym: occ.acronym,
+        }
+      })
+    }
+    
+    // Migrate specialties to include acronym
+    const migratedSpecialties: Record<string, Specialty> = {}
+    if (parsed.specialties) {
+      Object.entries(parsed.specialties).forEach(([key, spec]) => {
+        migratedSpecialties[key] = {
+          ...spec,
+          acronym: spec.acronym,
+        }
       })
     }
     
     return {
       organizations: Object.keys(migratedOrganizations).length > 0 ? migratedOrganizations : defaultOrganizationsRecord,
-      occupations: parsed.occupations || defaultOccupationsRecord,
+      occupations: Object.keys(migratedOccupations).length > 0 ? migratedOccupations : defaultOccupationsRecord,
       occupationQuestionnaires: mergedQuestionnaires,
       generalQuestionnaire: parsed.generalQuestionnaire ?? defaultGeneralQuestionnaire,
+      specialties: Object.keys(migratedSpecialties).length > 0 ? migratedSpecialties : defaultSpecialtiesRecord,
+      occupationSpecialties: parsed.occupationSpecialties || defaultOccupationSpecialtiesRecord,
       lastUpdated: parsed.lastUpdated,
     }
   } catch (error) {
@@ -888,7 +1108,10 @@ export function getLocationById(locationId: string): (AdminLocalDbOrganizationLo
 }
 
 // Helper functions for departments
-export function addDepartment(locationId: string, deptName: string): boolean {
+export function addDepartment(
+  locationId: string,
+  department: Omit<Department, "id">,
+): boolean {
   const state = readAdminLocalDb()
   
   for (const orgId in state.organizations) {
@@ -898,15 +1121,20 @@ export function addDepartment(locationId: string, deptName: string): boolean {
     if (locationIndex !== -1) {
       const location = org.locations[locationIndex]
       
-      // Check if department already exists
-      if (location.departments.includes(deptName)) {
+      // Check if department with same name already exists
+      if (location.departments.some((dept) => dept.name === department.name)) {
         return false
       }
       
-      // Add department
+      // Add department with generated ID
+      const newDepartment: Department = {
+        ...department,
+        id: `dept-${locationId}-${Date.now()}`,
+      }
+      
       const updatedLocation = {
         ...location,
-        departments: [...location.departments, deptName],
+        departments: [...location.departments, newDepartment],
       }
       
       const updatedLocations = [...org.locations]
@@ -934,7 +1162,7 @@ export function addDepartment(locationId: string, deptName: string): boolean {
   return false
 }
 
-export function removeDepartment(locationId: string, deptName: string): boolean {
+export function removeDepartment(locationId: string, deptId: string): boolean {
   const state = readAdminLocalDb()
   
   for (const orgId in state.organizations) {
@@ -944,10 +1172,10 @@ export function removeDepartment(locationId: string, deptName: string): boolean 
     if (locationIndex !== -1) {
       const location = org.locations[locationIndex]
       
-      // Remove department
+      // Remove department by ID
       const updatedLocation = {
         ...location,
-        departments: location.departments.filter((dept) => dept !== deptName),
+        departments: location.departments.filter((dept) => dept.id !== deptId),
       }
       
       const updatedLocations = [...org.locations]
@@ -975,7 +1203,7 @@ export function removeDepartment(locationId: string, deptName: string): boolean 
   return false
 }
 
-export function updateDepartment(locationId: string, oldName: string, newName: string): boolean {
+export function updateDepartment(locationId: string, deptId: string, updates: Partial<Department>): boolean {
   const state = readAdminLocalDb()
   
   for (const orgId in state.organizations) {
@@ -984,21 +1212,30 @@ export function updateDepartment(locationId: string, oldName: string, newName: s
     
     if (locationIndex !== -1) {
       const location = org.locations[locationIndex]
+      const deptIndex = location.departments.findIndex((dept) => dept.id === deptId)
       
-      // Check if old department exists
-      if (!location.departments.includes(oldName)) {
+      if (deptIndex === -1) {
         return false
       }
       
-      // Check if new name already exists (and is different from old name)
-      if (oldName !== newName && location.departments.includes(newName)) {
-        return false
+      // Check if new name conflicts with existing department
+      if (updates.name && updates.name !== location.departments[deptIndex].name) {
+        if (location.departments.some((dept, idx) => idx !== deptIndex && dept.name === updates.name)) {
+          return false
+        }
       }
       
-      // Update department name
+      // Update department
+      const updatedDepartments = [...location.departments]
+      updatedDepartments[deptIndex] = {
+        ...updatedDepartments[deptIndex],
+        ...updates,
+        id: deptId, // Ensure ID doesn't change
+      }
+      
       const updatedLocation = {
         ...location,
-        departments: location.departments.map((dept) => (dept === oldName ? newName : dept)),
+        departments: updatedDepartments,
       }
       
       const updatedLocations = [...org.locations]
@@ -1027,19 +1264,104 @@ export function updateDepartment(locationId: string, oldName: string, newName: s
 }
 
 // Helper function to get all unique departments from all locations
-export function getAllDepartments(): string[] {
+export function getAllDepartments(): Department[] {
   const locations = getAllLocations()
-  const departmentsSet = new Set<string>()
+  const departmentsMap = new Map<string, Department>()
   
   locations.forEach((location) => {
     location.departments.forEach((dept) => {
-      if (dept.trim()) {
-        departmentsSet.add(dept.trim())
-      }
+      departmentsMap.set(dept.id, dept)
     })
   })
   
-  return Array.from(departmentsSet).sort()
+  return Array.from(departmentsMap.values())
+}
+
+// Helper functions for specialties
+export function getAllSpecialties(): Specialty[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.specialties).filter((spec) => spec.isActive)
+}
+
+export function getAllSpecialtiesAdmin(): Specialty[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.specialties)
+}
+
+export function getSpecialtyById(id: string): Specialty | null {
+  const state = readAdminLocalDb()
+  return state.specialties[id] || null
+}
+
+export function addSpecialty(specialty: Omit<Specialty, "id" | "createdAt" | "updatedAt">): Specialty {
+  const state = readAdminLocalDb()
+  const newSpec: Specialty = {
+    ...specialty,
+    id: `spec-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    specialties: {
+      ...state.specialties,
+      [newSpec.id]: newSpec,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newSpec
+}
+
+export function updateSpecialty(id: string, updates: Partial<Omit<Specialty, "id" | "createdAt">>): Specialty | null {
+  const state = readAdminLocalDb()
+  const existing = state.specialties[id]
+  if (!existing) {
+    return null
+  }
+  const updatedSpec: Specialty = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    specialties: {
+      ...state.specialties,
+      [id]: updatedSpec,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedSpec
+}
+
+export function deleteSpecialty(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.specialties[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.specialties
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    specialties: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for occupation-specialties
+export function getAllOccupationSpecialties(): OccupationSpecialty[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.occupationSpecialties)
+}
+
+export function getOccupationSpecialtiesByOccupation(occupationId: string): OccupationSpecialty[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.occupationSpecialties).filter((occSpec) => occSpec.occupationId === occupationId)
+}
+
+export function getOccupationSpecialtyById(id: string): OccupationSpecialty | null {
+  const state = readAdminLocalDb()
+  return state.occupationSpecialties[id] || null
 }
 
 // Helper functions for occupations
@@ -1130,10 +1452,11 @@ export function addOrUpdateQuestionnaire(questionnaire: Omit<OccupationQuestionn
   const existing = Object.values(state.occupationQuestionnaires).find((q) => q.occupationId === questionnaire.occupationId)
   
   if (existing) {
-    // Update existing
+    // Update existing - default isActive to true if not provided
     const updated: OccupationQuestionnaire = {
       ...existing,
       ...questionnaire,
+      isActive: questionnaire.isActive !== undefined ? questionnaire.isActive : existing.isActive,
       updatedAt: new Date().toISOString(),
     }
     const updatedState: AdminLocalDbState = {
@@ -1146,9 +1469,10 @@ export function addOrUpdateQuestionnaire(questionnaire: Omit<OccupationQuestionn
     persistAdminLocalDb(updatedState)
     return updated
   } else {
-    // Create new
+    // Create new - default isActive to true
     const newQuestionnaire: OccupationQuestionnaire = {
       ...questionnaire,
+      isActive: questionnaire.isActive !== undefined ? questionnaire.isActive : true,
       id: `q-${Date.now()}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

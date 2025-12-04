@@ -26,6 +26,7 @@ export default function OccupationQuestionnairePage() {
   const [occupation, setOccupation] = useState<ReturnType<typeof getOccupationById>>(null)
   const [questionnaire, setQuestionnaire] = useState<OccupationQuestionnaire | null>(null)
   const [questions, setQuestions] = useState<Question[]>([])
+  const [isActive, setIsActive] = useState(true)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -40,9 +41,11 @@ export default function OccupationQuestionnairePage() {
     if (existingQuestionnaire) {
       setQuestionnaire(existingQuestionnaire)
       setQuestions(existingQuestionnaire.questions)
+      setIsActive(existingQuestionnaire.isActive)
     } else {
       setQuestionnaire(null)
       setQuestions([])
+      setIsActive(true)
     }
     setLoading(false)
   }
@@ -82,6 +85,7 @@ export default function OccupationQuestionnairePage() {
 
     const updatedQuestionnaire = addOrUpdateQuestionnaire({
       occupationId: occupation.id,
+      isActive: isActive,
       questions: questions.map((q) => ({
         ...q,
         question: q.question.trim(),
@@ -160,11 +164,26 @@ export default function OccupationQuestionnairePage() {
 
         <Card>
           <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">Requisition Template Questions</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Add questions that will be shown to candidates who select this occupation during sign-up or onboarding.
-              </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Requisition Template Questions</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Add questions that will be shown to candidates who select this occupation during sign-up or onboarding.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={(e) => setIsActive(e.target.checked)}
+                    className="rounded border-border"
+                  />
+                  <span className="text-sm font-semibold text-foreground">
+                    {isActive ? "Active" : "Inactive"} for Candidate Experience
+                  </span>
+                </label>
+              </div>
             </div>
 
             {questions.length === 0 ? (

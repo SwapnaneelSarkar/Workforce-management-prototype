@@ -6,8 +6,9 @@ import Link from "next/link"
 import { Header, Card } from "@/components/system"
 import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
-import { MapPin, Building2, ArrowLeft, Plus, Trash2 } from "lucide-react"
-import { getLocationById, addDepartment, removeDepartment, updateDepartment } from "@/lib/organizations-store"
+import { MapPin, Building2, ArrowLeft, Plus, Trash2, X } from "lucide-react"
+import { getLocationById, addDepartment, removeDepartment, updateDepartment, getAllOccupationSpecialties, type Department } from "@/lib/organizations-store"
+import { useDemoData } from "@/components/providers/demo-data-provider"
 
 type LocationWithOrg = {
   id: string
@@ -18,7 +19,10 @@ type LocationWithOrg = {
   zipCode: string
   phone?: string
   email?: string
-  departments: string[]
+  locationType?: string
+  costCentre?: string
+  photo?: string
+  departments: Department[]
   organizationId: string
   organizationName: string
 }
@@ -27,10 +31,21 @@ export default function LocationDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { pushToast } = useToast()
+  const { organization } = useDemoData()
   const [location, setLocation] = useState<LocationWithOrg | null>(null)
   const [loading, setLoading] = useState(true)
-  const [newDepartmentName, setNewDepartmentName] = useState("")
-  const [editingDepartments, setEditingDepartments] = useState<Record<number, string>>({})
+  const [showAddDeptForm, setShowAddDeptForm] = useState(false)
+  const [newDepartment, setNewDepartment] = useState<Omit<Department, "id">>({
+    name: "",
+    deptType: "",
+    relatedUsers: [],
+    costCentre: "",
+    relatedOccupationSpecialties: [],
+  })
+  const [editingDepartments, setEditingDepartments] = useState<Record<string, Partial<Department>>>({})
+  
+  const occupationSpecialties = getAllOccupationSpecialties()
+  const candidates = organization.candidates
 
   useEffect(() => {
     const locationId = params.id as string
@@ -40,22 +55,35 @@ export default function LocationDetailPage() {
   }, [params.id])
 
   const handleAddDepartment = () => {
-    if (!location || !newDepartmentName.trim()) {
+    if (!location || !newDepartment.name.trim()) {
       pushToast({ title: "Validation Error", description: "Please enter a department name." })
       return
     }
 
-    if (location.departments.includes(newDepartmentName.trim())) {
+    if (location.departments.some((dept) => dept.name === newDepartment.name.trim())) {
       pushToast({ title: "Validation Error", description: "This department already exists." })
       return
     }
 
-    const success = addDepartment(location.id, newDepartmentName.trim())
+    const success = addDepartment(location.id, {
+      name: newDepartment.name.trim(),
+      deptType: newDepartment.deptType || undefined,
+      relatedUsers: newDepartment.relatedUsers,
+      costCentre: newDepartment.costCentre || undefined,
+      relatedOccupationSpecialties: newDepartment.relatedOccupationSpecialties,
+    })
     if (success) {
       const updatedLocation = getLocationById(location.id)
       if (updatedLocation) {
         setLocation(updatedLocation)
-        setNewDepartmentName("")
+        setNewDepartment({
+          name: "",
+          deptType: "",
+          relatedUsers: [],
+          costCentre: "",
+          relatedOccupationSpecialties: [],
+        })
+        setShowAddDeptForm(false)
         pushToast({ title: "Success", description: "Department added successfully." })
       }
     } else {
@@ -63,10 +91,10 @@ export default function LocationDetailPage() {
     }
   }
 
-  const handleRemoveDepartment = (deptName: string) => {
+  const handleRemoveDepartment = (deptId: string) => {
     if (!location) return
 
-    const success = removeDepartment(location.id, deptName)
+    const success = removeDepartment(location.id, deptId)
     if (success) {
       const updatedLocation = getLocationById(location.id)
       if (updatedLocation) {
@@ -78,44 +106,84 @@ export default function LocationDetailPage() {
     }
   }
 
-  const handleDepartmentNameChange = (index: number, oldName: string, newName: string) => {
+  const handleDepartmentUpdate = (deptId: string, updates: Partial<Department>) => {
     if (!location) return
 
-    // Update local state for immediate UI feedback
-    setEditingDepartments((prev) => ({ ...prev, [index]: newName }))
-
-    // If name changed and is valid, update in database
-    if (newName.trim() && newName.trim() !== oldName) {
-      // Check for duplicates
-      const otherDepts = location.departments.filter((_, i) => i !== index)
-      if (otherDepts.includes(newName.trim())) {
-        pushToast({ title: "Validation Error", description: "This department name already exists." })
-        // Revert to old name
+    const success = updateDepartment(location.id, deptId, updates)
+    if (success) {
+      const updatedLocation = getLocationById(location.id)
+      if (updatedLocation) {
+        setLocation(updatedLocation)
         setEditingDepartments((prev) => {
           const updated = { ...prev }
-          delete updated[index]
+          delete updated[deptId]
           return updated
         })
-        return
+        pushToast({ title: "Success", description: "Department updated successfully." })
       }
+    } else {
+      pushToast({ title: "Error", description: "Failed to update department. Please try again." })
+      setEditingDepartments((prev) => {
+        const updated = { ...prev }
+        delete updated[deptId]
+        return updated
+      })
+    }
+  }
 
-      const success = updateDepartment(location.id, oldName, newName.trim())
-      if (success) {
-        const updatedLocation = getLocationById(location.id)
-        if (updatedLocation) {
-          setLocation(updatedLocation)
-          setEditingDepartments((prev) => {
-            const updated = { ...prev }
-            delete updated[index]
-            return updated
-          })
-        }
-      } else {
-        pushToast({ title: "Error", description: "Failed to update department. Please try again." })
+  const toggleUserSelection = (userId: string, isNew: boolean = false) => {
+    if (isNew) {
+      setNewDepartment((prev) => ({
+        ...prev,
+        relatedUsers: prev.relatedUsers.includes(userId)
+          ? prev.relatedUsers.filter((id) => id !== userId)
+          : [...prev.relatedUsers, userId],
+      }))
+    } else {
+      // For editing existing departments
+      const dept = location?.departments.find((d) => d.id === Object.keys(editingDepartments)[0])
+      if (dept) {
+        const deptId = dept.id
         setEditingDepartments((prev) => {
-          const updated = { ...prev }
-          delete updated[index]
-          return updated
+          const current = prev[deptId] || dept
+          return {
+            ...prev,
+            [deptId]: {
+              ...current,
+              relatedUsers: (current.relatedUsers || []).includes(userId)
+                ? (current.relatedUsers || []).filter((id) => id !== userId)
+                : [...(current.relatedUsers || []), userId],
+            },
+          }
+        })
+      }
+    }
+  }
+
+  const toggleOccupationSpecialtySelection = (occSpecId: string, isNew: boolean = false) => {
+    if (isNew) {
+      setNewDepartment((prev) => ({
+        ...prev,
+        relatedOccupationSpecialties: prev.relatedOccupationSpecialties.includes(occSpecId)
+          ? prev.relatedOccupationSpecialties.filter((id) => id !== occSpecId)
+          : [...prev.relatedOccupationSpecialties, occSpecId],
+      }))
+    } else {
+      // For editing existing departments
+      const dept = location?.departments.find((d) => d.id === Object.keys(editingDepartments)[0])
+      if (dept) {
+        const deptId = dept.id
+        setEditingDepartments((prev) => {
+          const current = prev[deptId] || dept
+          return {
+            ...prev,
+            [deptId]: {
+              ...current,
+              relatedOccupationSpecialties: (current.relatedOccupationSpecialties || []).includes(occSpecId)
+                ? (current.relatedOccupationSpecialties || []).filter((id) => id !== occSpecId)
+                : [...(current.relatedOccupationSpecialties || []), occSpecId],
+            },
+          }
         })
       }
     }
@@ -237,6 +305,27 @@ export default function LocationDetailPage() {
                   </a>
                 </div>
               )}
+
+              {location.locationType && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Location Type</p>
+                  <p className="text-sm text-foreground">{location.locationType}</p>
+                </div>
+              )}
+
+              {location.costCentre && (
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Cost Centre</p>
+                  <p className="text-sm text-foreground">{location.costCentre}</p>
+                </div>
+              )}
+
+              {location.photo && (
+                <div className="md:col-span-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Photo</p>
+                  <p className="text-sm text-foreground">{location.photo}</p>
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -248,94 +337,350 @@ export default function LocationDetailPage() {
               <p className="mt-1 text-sm text-muted-foreground">Manage departments for this location.</p>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-foreground">Departments</p>
-              </div>
-
-              {location.departments.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No departments yet. Add departments using the form below.</p>
+            <div className="space-y-4">
+              {location.departments.length === 0 && !showAddDeptForm ? (
+                <p className="text-sm text-muted-foreground">No departments yet. Click "Add Department" to create one.</p>
               ) : (
-                <div className="space-y-2">
-                  {location.departments.map((dept, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-md border border-border p-3">
-                      <Input
-                        value={editingDepartments[index] !== undefined ? editingDepartments[index] : dept}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                          const newName = e.target.value
-                          setEditingDepartments((prev) => ({ ...prev, [index]: newName }))
-                        }}
-                        onBlur={(e: ChangeEvent<HTMLInputElement>) => {
-                          const newName = e.target.value.trim()
-                          if (newName && newName !== dept) {
-                            handleDepartmentNameChange(index, dept, newName)
-                          } else if (!newName) {
-                            // If empty, revert to original
-                            setEditingDepartments((prev) => {
-                              const updated = { ...prev }
-                              delete updated[index]
-                              return updated
-                            })
-                          } else {
-                            // No change, clear editing state
-                            setEditingDepartments((prev) => {
-                              const updated = { ...prev }
-                              delete updated[index]
-                              return updated
-                            })
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.currentTarget.blur()
-                          } else if (e.key === "Escape") {
-                            setEditingDepartments((prev) => {
-                              const updated = { ...prev }
-                              delete updated[index]
-                              return updated
-                            })
-                            e.currentTarget.blur()
-                          }
-                        }}
-                        className="flex-1"
-                        placeholder="Department Name"
-                      />
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => handleRemoveDepartment(dept)}
-                        title="Delete department"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {location.departments.map((dept) => {
+                    const isEditing = editingDepartments[dept.id] !== undefined
+                    const displayDept = isEditing ? { ...dept, ...editingDepartments[dept.id] } : dept
+                    return (
+                      <div key={dept.id} className="rounded-lg border border-border p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-foreground">{displayDept.name}</h3>
+                          <div className="flex gap-2">
+                            {!isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="text-sm text-primary hover:underline"
+                                  onClick={() => setEditingDepartments({ [dept.id]: { ...dept } })}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  onClick={() => handleRemoveDepartment(dept.id)}
+                                  title="Delete department"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className="text-sm text-primary hover:underline"
+                                  onClick={() => handleDepartmentUpdate(dept.id, editingDepartments[dept.id])}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-sm text-muted-foreground hover:text-foreground"
+                                  onClick={() => {
+                                    setEditingDepartments((prev) => {
+                                      const updated = { ...prev }
+                                      delete updated[dept.id]
+                                      return updated
+                                    })
+                                  }}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Department Name</label>
+                            {isEditing ? (
+                              <Input
+                                value={displayDept.name}
+                                onChange={(e) =>
+                                  setEditingDepartments((prev) => ({
+                                    ...prev,
+                                    [dept.id]: { ...prev[dept.id], name: e.target.value },
+                                  }))
+                                }
+                                className="text-sm"
+                              />
+                            ) : (
+                              <p className="text-sm text-foreground">{displayDept.name}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Department Type</label>
+                            {isEditing ? (
+                              <select
+                                value={displayDept.deptType || ""}
+                                onChange={(e) =>
+                                  setEditingDepartments((prev) => ({
+                                    ...prev,
+                                    [dept.id]: { ...prev[dept.id], deptType: e.target.value },
+                                  }))
+                                }
+                                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                              >
+                                <option value="">Select type</option>
+                                <option value="Clinical">Clinical</option>
+                                <option value="Administrative">Administrative</option>
+                                <option value="Support">Support</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            ) : (
+                              <p className="text-sm text-foreground">{displayDept.deptType || "—"}</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Cost Centre</label>
+                            {isEditing ? (
+                              <Input
+                                value={displayDept.costCentre || ""}
+                                onChange={(e) =>
+                                  setEditingDepartments((prev) => ({
+                                    ...prev,
+                                    [dept.id]: { ...prev[dept.id], costCentre: e.target.value },
+                                  }))
+                                }
+                                className="text-sm"
+                                placeholder="CC-001"
+                              />
+                            ) : (
+                              <p className="text-sm text-foreground">{displayDept.costCentre || "—"}</p>
+                            )}
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-muted-foreground mb-2">Related Users</label>
+                            {isEditing ? (
+                              <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                                {candidates.map((user) => {
+                                  const isSelected = (displayDept.relatedUsers || []).includes(user.id)
+                                  return (
+                                    <label key={user.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-1 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          const current = editingDepartments[dept.id] || dept
+                                          setEditingDepartments((prev) => ({
+                                            ...prev,
+                                            [dept.id]: {
+                                              ...current,
+                                              relatedUsers: isSelected
+                                                ? (current.relatedUsers || []).filter((id) => id !== user.id)
+                                                : [...(current.relatedUsers || []), user.id],
+                                            },
+                                          }))
+                                        }}
+                                      />
+                                      <span>{user.name}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {displayDept.relatedUsers && displayDept.relatedUsers.length > 0 ? (
+                                  displayDept.relatedUsers.map((userId) => {
+                                    const user = candidates.find((c) => c.id === userId)
+                                    return user ? (
+                                      <span key={userId} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
+                                        {user.name}
+                                      </span>
+                                    ) : null
+                                  })
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">—</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-muted-foreground mb-2">Related Occupation/Specialty</label>
+                            {isEditing ? (
+                              <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                                {occupationSpecialties.map((occSpec) => {
+                                  const isSelected = (displayDept.relatedOccupationSpecialties || []).includes(occSpec.id)
+                                  return (
+                                    <label key={occSpec.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-1 rounded">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          const current = editingDepartments[dept.id] || dept
+                                          setEditingDepartments((prev) => ({
+                                            ...prev,
+                                            [dept.id]: {
+                                              ...current,
+                                              relatedOccupationSpecialties: isSelected
+                                                ? (current.relatedOccupationSpecialties || []).filter((id) => id !== occSpec.id)
+                                                : [...(current.relatedOccupationSpecialties || []), occSpec.id],
+                                            },
+                                          }))
+                                        }}
+                                      />
+                                      <span>{occSpec.displayName}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {displayDept.relatedOccupationSpecialties && displayDept.relatedOccupationSpecialties.length > 0 ? (
+                                  displayDept.relatedOccupationSpecialties.map((occSpecId) => {
+                                    const occSpec = occupationSpecialties.find((os) => os.id === occSpecId)
+                                    return occSpec ? (
+                                      <span key={occSpecId} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
+                                        {occSpec.displayName}
+                                      </span>
+                                    ) : null
+                                  })
+                                ) : (
+                                  <span className="text-sm text-muted-foreground">—</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
-              <div className="border-t pt-4">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={newDepartmentName}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setNewDepartmentName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        handleAddDepartment()
-                      }
-                    }}
-                    placeholder="Enter department name"
-                    className="flex-1"
-                  />
+              {showAddDeptForm && (
+                <div className="rounded-lg border border-border p-4 space-y-4 bg-accent/50">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-foreground">Add New Department</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddDeptForm(false)
+                        setNewDepartment({
+                          name: "",
+                          deptType: "",
+                          relatedUsers: [],
+                          costCentre: "",
+                          relatedOccupationSpecialties: [],
+                        })
+                      }}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">
+                        Department Name <span className="text-red-500">*</span>
+                      </label>
+                      <Input
+                        value={newDepartment.name}
+                        onChange={(e) => setNewDepartment((prev) => ({ ...prev, name: e.target.value }))}
+                        className="text-sm"
+                        placeholder="Enter department name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Department Type</label>
+                      <select
+                        value={newDepartment.deptType}
+                        onChange={(e) => setNewDepartment((prev) => ({ ...prev, deptType: e.target.value }))}
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      >
+                        <option value="">Select type</option>
+                        <option value="Clinical">Clinical</option>
+                        <option value="Administrative">Administrative</option>
+                        <option value="Support">Support</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Cost Centre</label>
+                      <Input
+                        value={newDepartment.costCentre}
+                        onChange={(e) => setNewDepartment((prev) => ({ ...prev, costCentre: e.target.value }))}
+                        className="text-sm"
+                        placeholder="CC-001"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-muted-foreground mb-2">Related Users</label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                        {candidates.map((user) => {
+                          const isSelected = newDepartment.relatedUsers.includes(user.id)
+                          return (
+                            <label key={user.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleUserSelection(user.id, true)}
+                              />
+                              <span>{user.name}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-xs font-medium text-muted-foreground mb-2">Related Occupation/Specialty</label>
+                      <div className="space-y-2 max-h-40 overflow-y-auto border border-border rounded-lg p-2">
+                        {occupationSpecialties.map((occSpec) => {
+                          const isSelected = newDepartment.relatedOccupationSpecialties.includes(occSpec.id)
+                          return (
+                            <label key={occSpec.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-accent p-1 rounded">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleOccupationSpecialtySelection(occSpec.id, true)}
+                              />
+                              <span>{occSpec.displayName}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button type="button" className="ph5-button-primary text-sm" onClick={handleAddDepartment}>
+                      Add Department
+                    </button>
+                    <button
+                      type="button"
+                      className="ph5-button-secondary text-sm"
+                      onClick={() => {
+                        setShowAddDeptForm(false)
+                        setNewDepartment({
+                          name: "",
+                          deptType: "",
+                          relatedUsers: [],
+                          costCentre: "",
+                          relatedOccupationSpecialties: [],
+                        })
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!showAddDeptForm && (
+                <div className="border-t pt-4">
                   <button
                     type="button"
-                    className="ph5-button-secondary text-xs"
-                    onClick={handleAddDepartment}
+                    className="ph5-button-secondary text-sm"
+                    onClick={() => setShowAddDeptForm(true)}
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Add Department
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </Card>

@@ -7,40 +7,38 @@ import { Header, Card } from "@/components/system"
 import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Edit, Trash2, FileText } from "lucide-react"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import {
-  getAllOccupations,
-  addOccupation,
-  updateOccupation,
-  deleteOccupation,
-  type Occupation,
+  getAllSpecialtiesAdmin,
+  addSpecialty,
+  updateSpecialty,
+  deleteSpecialty,
+  type Specialty,
 } from "@/lib/admin-local-db"
 
-export default function OccupationsPage() {
+export default function SpecialtiesPage() {
   const router = useRouter()
   const { pushToast } = useToast()
-  const [occupations, setOccupations] = useState<Occupation[]>([])
+  const [specialties, setSpecialties] = useState<Specialty[]>([])
   const [loading, setLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     code: "",
-    description: "",
-    industry: "",
-    modality: "",
     acronym: "",
+    description: "",
     isActive: true,
   })
 
   useEffect(() => {
-    loadOccupations()
+    loadSpecialties()
   }, [])
 
-  const loadOccupations = () => {
+  const loadSpecialties = () => {
     setLoading(true)
-    const allOccs = getAllOccupations()
-    setOccupations(allOccs)
+    const allSpecs = getAllSpecialtiesAdmin()
+    setSpecialties(allSpecs)
     setLoading(false)
   }
 
@@ -55,10 +53,8 @@ export default function OccupationsPage() {
     setFormData({
       name: "",
       code: "",
-      description: "",
-      industry: "",
-      modality: "",
       acronym: "",
+      description: "",
       isActive: true,
     })
     setEditingId(null)
@@ -74,70 +70,64 @@ export default function OccupationsPage() {
     }
 
     // Check for duplicate code
-    const existing = occupations.find((occ) => occ.code === formData.code.trim() && occ.id !== editingId)
+    const existing = specialties.find((spec) => spec.code === formData.code.trim() && spec.id !== editingId)
     if (existing) {
-      pushToast({ title: "Validation Error", description: "An occupation with this code already exists." })
+      pushToast({ title: "Validation Error", description: "A specialty with this code already exists." })
       return
     }
 
     if (editingId) {
-      const updated = updateOccupation(editingId, {
+      const updated = updateSpecialty(editingId, {
         name: formData.name.trim(),
         code: formData.code.trim(),
+        acronym: formData.acronym.trim() || undefined,
         description: formData.description.trim() || undefined,
-        industry: formData.industry || undefined,
-        modality: formData.modality || undefined,
-        acronym: formData.acronym || undefined,
         isActive: formData.isActive,
       })
       if (updated) {
-        pushToast({ title: "Success", description: "Occupation updated successfully." })
-        loadOccupations()
+        pushToast({ title: "Success", description: "Specialty updated successfully." })
+        loadSpecialties()
         resetForm()
       } else {
-        pushToast({ title: "Error", description: "Failed to update occupation." })
+        pushToast({ title: "Error", description: "Failed to update specialty." })
       }
     } else {
-      const newOcc = addOccupation({
+      const newSpec = addSpecialty({
         name: formData.name.trim(),
         code: formData.code.trim(),
+        acronym: formData.acronym.trim() || undefined,
         description: formData.description.trim() || undefined,
-        industry: formData.industry || undefined,
-        modality: formData.modality || undefined,
-        acronym: formData.acronym || undefined,
         isActive: formData.isActive,
       })
-      pushToast({ title: "Success", description: "Occupation added successfully." })
-      loadOccupations()
+      pushToast({ title: "Success", description: "Specialty added successfully." })
+      loadSpecialties()
       resetForm()
     }
   }
 
-  const handleEdit = (occ: Occupation) => {
+  const handleEdit = (spec: Specialty) => {
     setFormData({
-      name: occ.name,
-      code: occ.code,
-      description: occ.description || "",
-      industry: occ.industry || "",
-      modality: occ.modality || "",
-      acronym: occ.acronym || "",
-      isActive: occ.isActive,
+      name: spec.name,
+      code: spec.code,
+      acronym: spec.acronym || "",
+      description: spec.description || "",
+      isActive: spec.isActive,
     })
-    setEditingId(occ.id)
+    setEditingId(spec.id)
     setIsCreating(true)
   }
 
   const handleDelete = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"? This will also remove any associated requisition templates.`)) {
-      const success = deleteOccupation(id)
+    if (confirm(`Are you sure you want to delete "${name}"?`)) {
+      const success = deleteSpecialty(id)
       if (success) {
-        pushToast({ title: "Success", description: "Occupation deleted successfully." })
-        loadOccupations()
+        pushToast({ title: "Success", description: "Specialty deleted successfully." })
+        loadSpecialties()
         if (editingId === id) {
           resetForm()
         }
       } else {
-        pushToast({ title: "Error", description: "Failed to delete occupation." })
+        pushToast({ title: "Error", description: "Failed to delete specialty." })
       }
     }
   }
@@ -145,11 +135,11 @@ export default function OccupationsPage() {
   return (
     <>
       <Header
-        title="Occupations"
-        subtitle="Manage occupations available for candidate sign-up and create occupation-based requisition templates."
+        title="Specialties"
+        subtitle="Manage specialties available for occupation-specialty combinations."
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
-          { label: "Occupations" },
+          { label: "Specialties" },
         ]}
       />
 
@@ -159,20 +149,20 @@ export default function OccupationsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">
-                  {isCreating ? (editingId ? "Edit Occupation" : "Create New Occupation") : "Occupations"}
+                  {isCreating ? (editingId ? "Edit Specialty" : "Create New Specialty") : "Specialties"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {isCreating
                     ? editingId
-                      ? "Update occupation details below."
-                      : "Add a new occupation that candidates can select during sign-up."
-                    : `${occupations.length} ${occupations.length === 1 ? "occupation" : "occupations"}`}
+                      ? "Update specialty details below."
+                      : "Add a new specialty that can be combined with occupations."
+                    : `${specialties.length} ${specialties.length === 1 ? "specialty" : "specialties"}`}
                 </p>
               </div>
               {!isCreating && (
                 <button type="button" className="ph5-button-primary" onClick={() => setIsCreating(true)}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Occupation
+                  Add Specialty
                 </button>
               )}
             </div>
@@ -182,12 +172,12 @@ export default function OccupationsPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-foreground">
-                      Name <span className="text-destructive">*</span>
+                      Specialty Name <span className="text-destructive">*</span>
                     </label>
                     <Input
                       value={formData.name}
                       onChange={handleInputChange("name")}
-                      placeholder="e.g., Registered Nurse"
+                      placeholder="e.g., ICU, ER, TELE"
                       required
                     />
                   </div>
@@ -198,41 +188,17 @@ export default function OccupationsPage() {
                     <Input
                       value={formData.code}
                       onChange={handleInputChange("code")}
-                      placeholder="e.g., RN"
+                      placeholder="e.g., ICU, ER, TELE"
                       required
                     />
-                    <p className="text-xs text-muted-foreground">Short code used in templates and system</p>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-foreground">Industry</label>
-                    <select
-                      value={formData.industry}
-                      onChange={handleInputChange("industry")}
-                      className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-                    >
-                      <option value="">Select industry</option>
-                      <option value="Healthcare">Healthcare</option>
-                      <option value="Technology">Technology</option>
-                      <option value="Finance">Finance</option>
-                      <option value="Education">Education</option>
-                      <option value="Retail">Retail</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-foreground">Modality</label>
-                    <Input
-                      value={formData.modality}
-                      onChange={handleInputChange("modality")}
-                      placeholder="e.g., Travel, Permanent"
-                    />
+                    <p className="text-xs text-muted-foreground">Short code used in system</p>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-foreground">Acronym</label>
                     <Input
                       value={formData.acronym}
                       onChange={handleInputChange("acronym")}
-                      placeholder="e.g., RN, LPN"
+                      placeholder="e.g., ICU, ER"
                     />
                   </div>
                 </div>
@@ -254,12 +220,12 @@ export default function OccupationsPage() {
                     className="rounded border-border"
                   />
                   <label htmlFor="isActive" className="text-sm font-semibold text-foreground">
-                    Active (visible in candidate sign-up)
+                    Active (visible in system)
                   </label>
                 </div>
                 <div className="flex items-center gap-3 pt-4 border-t">
                   <button type="submit" className="ph5-button-primary">
-                    {editingId ? "Update Occupation" : "Create Occupation"}
+                    {editingId ? "Update Specialty" : "Create Specialty"}
                   </button>
                   <button type="button" className="ph5-button-secondary" onClick={resetForm}>
                     Cancel
@@ -272,67 +238,56 @@ export default function OccupationsPage() {
                   <div className="py-12 text-center">
                     <p className="text-muted-foreground">Loading...</p>
                   </div>
-                ) : occupations.length === 0 ? (
+                ) : specialties.length === 0 ? (
                   <div className="py-12 text-center">
-                    <p className="text-muted-foreground">No occupations yet. Create one to get started.</p>
+                    <p className="text-muted-foreground">No specialties yet. Create one to get started.</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Name</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Specialty Name</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Code</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Modality</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Acronym</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Status</th>
                           <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {occupations.map((occ) => (
-                          <tr key={occ.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                        {specialties.map((spec) => (
+                          <tr key={spec.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                             <td className="py-3 px-4">
                               <div>
-                                <span className="text-sm font-medium text-foreground">{occ.name}</span>
-                                {occ.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{occ.description}</p>
+                                <span className="text-sm font-medium text-foreground">{spec.name}</span>
+                                {spec.description && (
+                                  <p className="text-xs text-muted-foreground mt-1">{spec.description}</p>
                                 )}
                               </div>
                             </td>
                             <td className="py-3 px-4">
-                              <span className="text-sm text-muted-foreground font-mono">{occ.code}</span>
+                              <span className="text-sm text-muted-foreground font-mono">{spec.code}</span>
                             </td>
                             <td className="py-3 px-4">
-                              <span className="text-sm text-foreground">{occ.modality || "—"}</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-sm text-muted-foreground font-mono">{occ.acronym || "—"}</span>
+                              <span className="text-sm text-muted-foreground font-mono">{spec.acronym || "—"}</span>
                             </td>
                             <td className="py-3 px-4">
                               <span
                                 className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                                  occ.isActive
+                                  spec.isActive
                                     ? "bg-success/10 text-success"
                                     : "bg-muted text-muted-foreground"
                                 }`}
                               >
-                                {occ.isActive ? "Active" : "Inactive"}
+                                {spec.isActive ? "Active" : "Inactive"}
                               </span>
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center justify-end gap-2">
-                                <Link
-                                  href={`/admin/occupations/${occ.id}/questionnaire`}
-                                  className="p-2 rounded-md hover:bg-muted transition-colors"
-                                  title="Manage Requisition Template"
-                                >
-                                  <FileText className="h-4 w-4 text-muted-foreground" />
-                                </Link>
                                 <button
                                   type="button"
                                   className="p-2 rounded-md hover:bg-muted transition-colors"
-                                  onClick={() => handleEdit(occ)}
+                                  onClick={() => handleEdit(spec)}
                                   title="Edit"
                                 >
                                   <Edit className="h-4 w-4 text-muted-foreground" />
@@ -340,7 +295,7 @@ export default function OccupationsPage() {
                                 <button
                                   type="button"
                                   className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
-                                  onClick={() => handleDelete(occ.id, occ.name)}
+                                  onClick={() => handleDelete(spec.id, spec.name)}
                                   title="Delete"
                                 >
                                   <Trash2 className="h-4 w-4 text-destructive" />
@@ -361,5 +316,3 @@ export default function OccupationsPage() {
     </>
   )
 }
-
-

@@ -3,6 +3,9 @@
 import type {
   AdminLocalDbOrganizationLocation,
   AdminLocalDbOrganizationEntry,
+  Department,
+  Specialty,
+  OccupationSpecialty,
 } from "./admin-local-db"
 import {
   getAllOrganizations,
@@ -17,14 +20,25 @@ import {
   removeDepartment,
   updateDepartment,
   getAllDepartments,
+  getAllSpecialties,
+  getSpecialtyById,
+  getAllOccupationSpecialties,
+  getOccupationSpecialtiesByOccupation,
+  getOccupationSpecialtyById,
 } from "./admin-local-db"
 
 export type OrganizationLocation = AdminLocalDbOrganizationLocation
 export type Organization = AdminLocalDbOrganizationEntry
+export type { Department, Specialty, OccupationSpecialty }
 
 export {
   getAllOrganizations as readOrganizations,
   getOrganizationById,
+  getAllSpecialties,
+  getSpecialtyById,
+  getAllOccupationSpecialties,
+  getOccupationSpecialtiesByOccupation,
+  getOccupationSpecialtyById,
   getOrganizationByEmail,
   addOrganization,
   updateOrganization,
