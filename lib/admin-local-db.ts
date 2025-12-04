@@ -141,6 +141,30 @@ export type AdminWalletTemplate = {
   updatedAt: string
 }
 
+export type TaggingRule = {
+  id: string
+  ruleName: string
+  triggerQuestion: string // Question ID or question text reference
+  condition: "equals" | "contains" | "is blank" | "is not blank"
+  triggerValue?: string // Value to match (not used for "is blank" / "is not blank")
+  tagToApply: string // Tag name to apply to user profile
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type User = {
+  id: string
+  name: string
+  email: string
+  phone?: string
+  role: string // e.g., "Admin", "Organization Admin", "Candidate", etc.
+  tags: string[] // Tags applied via tagging rules (not visible to candidates)
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type AdminLocalDbState = {
   organizations: Record<string, AdminLocalDbOrganizationEntry>
   occupations: Record<string, Occupation>
@@ -151,6 +175,8 @@ export type AdminLocalDbState = {
   workforceGroups: Record<string, WorkforceGroup>
   complianceListItems: Record<string, ComplianceListItem>
   adminWalletTemplates: Record<string, AdminWalletTemplate>
+  taggingRules: Record<string, TaggingRule>
+  users: Record<string, User>
   lastUpdated?: string
 }
 
@@ -1196,6 +1222,367 @@ const defaultComplianceListItemsRecord: Record<string, ComplianceListItem> = def
   {} as Record<string, ComplianceListItem>,
 )
 
+// Default users (excluding candidates - only portal access users)
+const defaultUsers: User[] = [
+  {
+    id: "user-001",
+    name: "John Smith",
+    email: "john.smith@workforce.io",
+    phone: "+1 (555) 123-4567",
+    role: "Admin",
+    tags: ["System-Admin", "Full-Access"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-002",
+    name: "Sarah Johnson",
+    email: "sarah.johnson@workforce.io",
+    phone: "+1 (555) 234-5678",
+    role: "Organization Admin",
+    tags: ["Org-Manager", "Compliance-Officer"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-003",
+    name: "Michael Chen",
+    email: "michael.chen@workforce.io",
+    phone: "+1 (555) 345-6789",
+    role: "Organization Admin",
+    tags: ["HR-Manager"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-004",
+    name: "Lisa Anderson",
+    email: "lisa.anderson@workforce.io",
+    phone: "+1 (555) 678-9012",
+    role: "Organization Admin",
+    tags: ["Recruiter", "Talent-Acquisition"],
+    isActive: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-005",
+    name: "David Martinez",
+    email: "david.martinez@workforce.io",
+    phone: "+1 (555) 789-0123",
+    role: "Vendor",
+    tags: ["Vendor-Manager", "Premier-Tier"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-006",
+    name: "Jennifer Lee",
+    email: "jennifer.lee@workforce.io",
+    phone: "+1 (555) 890-1234",
+    role: "Vendor",
+    tags: ["Vendor-Admin", "Preferred-Tier"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-007",
+    name: "Robert Taylor",
+    email: "robert.taylor@workforce.io",
+    phone: "+1 (555) 901-2345",
+    role: "Organization Admin",
+    tags: ["Operations-Manager"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-008",
+    name: "Amanda White",
+    email: "amanda.white@workforce.io",
+    phone: "+1 (555) 012-3456",
+    role: "Admin",
+    tags: ["Support-Admin", "Help-Desk"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-009",
+    name: "James Brown",
+    email: "james.brown@workforce.io",
+    phone: "+1 (555) 123-4568",
+    role: "Vendor",
+    tags: ["Vendor-Rep", "Approved-Tier"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "user-010",
+    name: "Patricia Garcia",
+    email: "patricia.garcia@workforce.io",
+    phone: "+1 (555) 234-5679",
+    role: "Organization Admin",
+    tags: ["Compliance-Manager", "Audit-Specialist"],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultUsersRecord: Record<string, User> = defaultUsers.reduce(
+  (acc, user) => {
+    acc[user.id] = user
+    return acc
+  },
+  {} as Record<string, User>,
+)
+
+// Default admin wallet templates
+const defaultAdminWalletTemplates: AdminWalletTemplate[] = [
+  {
+    id: "awt-001",
+    name: "RN Core Compliance Template",
+    occupationId: "occ-001", // RN
+    occupationCode: "RN",
+    listItemIds: [
+      "cli-007", // Registered Nurse License
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-002",
+    name: "LPN Standard Template",
+    occupationId: "occ-002", // LPN/LVN
+    occupationCode: "LPN/LVN",
+    listItemIds: [
+      "cli-009", // LPN License
+      "cli-014", // BLS Certification
+      "cli-015", // CPR Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-003",
+    name: "CNA Basic Template",
+    occupationId: "occ-003", // CNA
+    occupationCode: "CNA",
+    listItemIds: [
+      "cli-012", // CNA License
+      "cli-015", // CPR Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+      "cli-018", // Safety Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-004",
+    name: "PT Professional Template",
+    occupationId: "occ-006", // PT
+    occupationCode: "PT",
+    listItemIds: [
+      "cli-010", // PT License
+      "cli-014", // BLS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-005",
+    name: "OT Professional Template",
+    occupationId: "occ-007", // OT
+    occupationCode: "OT",
+    listItemIds: [
+      "cli-011", // OT License
+      "cli-014", // BLS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-006",
+    name: "RN ICU Specialty Template",
+    occupationId: "occ-001", // RN
+    occupationCode: "RN",
+    specialtyId: "spec-001", // ICU
+    specialtyCode: "ICU",
+    listItemIds: [
+      "cli-007", // Registered Nurse License
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-016", // PALS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-006", // Criminal Background Check
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-007",
+    name: "RN ER Specialty Template",
+    occupationId: "occ-001", // RN
+    occupationCode: "RN",
+    specialtyId: "spec-002", // ER
+    specialtyCode: "ER",
+    listItemIds: [
+      "cli-007", // Registered Nurse License
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-016", // PALS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-006", // Criminal Background Check
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-008",
+    name: "RN TELE Specialty Template",
+    occupationId: "occ-001", // RN
+    occupationCode: "RN",
+    specialtyId: "spec-003", // TELE
+    specialtyCode: "TELE",
+    listItemIds: [
+      "cli-007", // Registered Nurse License
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-009",
+    name: "RN Med-Surg Specialty Template",
+    occupationId: "occ-001", // RN
+    occupationCode: "RN",
+    specialtyId: "spec-004", // Med-Surg
+    specialtyCode: "MEDSURG",
+    listItemIds: [
+      "cli-007", // Registered Nurse License
+      "cli-014", // BLS Certification
+      "cli-015", // CPR Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-010",
+    name: "RT Professional Template",
+    occupationId: "occ-008", // RT
+    occupationCode: "RT",
+    listItemIds: [
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-016", // PALS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-011",
+    name: "Nurse Practitioner Template",
+    occupationId: "occ-009", // Nurse Practitioner
+    occupationCode: "Nurse Practitioner",
+    listItemIds: [
+      "cli-008", // Nurse Practitioner License
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-006", // Criminal Background Check
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "awt-012",
+    name: "Physician Assistant Template",
+    occupationId: "occ-010", // Physician Assistant
+    occupationCode: "Physician Assistant",
+    listItemIds: [
+      "cli-013", // ACLS Certification
+      "cli-014", // BLS Certification
+      "cli-004", // Background Check
+      "cli-005", // Drug Screening
+      "cli-006", // Criminal Background Check
+      "cli-019", // Immunization Record
+      "cli-017", // HIPAA Training
+    ],
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultAdminWalletTemplatesRecord: Record<string, AdminWalletTemplate> = defaultAdminWalletTemplates.reduce(
+  (acc, template) => {
+    acc[template.id] = template
+    return acc
+  },
+  {} as Record<string, AdminWalletTemplate>,
+)
+
 export const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
@@ -1205,7 +1592,9 @@ export const defaultAdminLocalDbState: AdminLocalDbState = {
   occupationSpecialties: defaultOccupationSpecialtiesRecord,
   workforceGroups: defaultWorkforceGroupsRecord,
   complianceListItems: defaultComplianceListItemsRecord,
-  adminWalletTemplates: {},
+  adminWalletTemplates: defaultAdminWalletTemplatesRecord,
+  taggingRules: {},
+  users: defaultUsersRecord,
   lastUpdated: undefined,
 }
 
@@ -1296,7 +1685,22 @@ export function readAdminLocalDb(): AdminLocalDbState {
       })
     }
     
-    return {
+    // Merge admin wallet templates: use defaults if none exist or empty, otherwise merge with existing (existing takes precedence)
+    const existingWalletTemplates = parsed.adminWalletTemplates || {}
+    const mergedWalletTemplates = Object.keys(existingWalletTemplates).length > 0
+      ? { ...defaultAdminWalletTemplatesRecord, ...existingWalletTemplates }
+      : defaultAdminWalletTemplatesRecord
+    
+    // Merge users: use defaults if none exist or empty, otherwise merge with existing (existing takes precedence)
+    const existingUsers = parsed.users || {}
+    const mergedUsers = Object.keys(existingUsers).length > 0
+      ? { ...defaultUsersRecord, ...existingUsers }
+      : defaultUsersRecord
+    
+    // Merge tagging rules: use empty if none exist, otherwise use existing
+    const mergedTaggingRules = parsed.taggingRules || {}
+    
+    const mergedState: AdminLocalDbState = {
       organizations: Object.keys(migratedOrganizations).length > 0 ? migratedOrganizations : defaultOrganizationsRecord,
       occupations: Object.keys(migratedOccupations).length > 0 ? migratedOccupations : defaultOccupationsRecord,
       occupationQuestionnaires: mergedQuestionnaires,
@@ -1305,9 +1709,18 @@ export function readAdminLocalDb(): AdminLocalDbState {
       occupationSpecialties: parsed.occupationSpecialties || defaultOccupationSpecialtiesRecord,
       workforceGroups: parsed.workforceGroups || defaultWorkforceGroupsRecord,
       complianceListItems: parsed.complianceListItems || defaultComplianceListItemsRecord,
-      adminWalletTemplates: parsed.adminWalletTemplates || {},
+      adminWalletTemplates: mergedWalletTemplates,
+      taggingRules: mergedTaggingRules,
+      users: mergedUsers,
       lastUpdated: parsed.lastUpdated,
     }
+    
+    // If we merged defaults (because existing was empty), persist the merged state
+    if (Object.keys(existingWalletTemplates).length === 0 || Object.keys(existingUsers).length === 0) {
+      persistAdminLocalDb(mergedState)
+    }
+    
+    return mergedState
   } catch (error) {
     console.warn("Unable to parse admin local DB state", error)
     return defaultAdminLocalDbState
@@ -2241,6 +2654,202 @@ export function removeAdminWalletTemplateListItem(templateId: string, listItemId
     adminWalletTemplates: {
       ...state.adminWalletTemplates,
       [templateId]: updatedTemplate,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for Tagging Rules
+export function getAllTaggingRules(): TaggingRule[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.taggingRules)
+}
+
+export function getTaggingRuleById(id: string): TaggingRule | null {
+  const state = readAdminLocalDb()
+  return state.taggingRules[id] || null
+}
+
+export function addTaggingRule(
+  rule: Omit<TaggingRule, "id" | "createdAt" | "updatedAt">,
+): TaggingRule {
+  const state = readAdminLocalDb()
+  const newRule: TaggingRule = {
+    ...rule,
+    id: `tag-rule-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    taggingRules: {
+      ...state.taggingRules,
+      [newRule.id]: newRule,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newRule
+}
+
+export function updateTaggingRule(
+  id: string,
+  updates: Partial<Omit<TaggingRule, "id" | "createdAt">>,
+): TaggingRule | null {
+  const state = readAdminLocalDb()
+  const existing = state.taggingRules[id]
+  if (!existing) {
+    return null
+  }
+  const updated: TaggingRule = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    taggingRules: {
+      ...state.taggingRules,
+      [id]: updated,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updated
+}
+
+export function deleteTaggingRule(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.taggingRules[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.taggingRules
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    taggingRules: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for Users
+export function getAllUsers(): User[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.users)
+}
+
+export function getUserById(id: string): User | null {
+  const state = readAdminLocalDb()
+  return state.users[id] || null
+}
+
+export function getUserByEmail(email: string): User | null {
+  const state = readAdminLocalDb()
+  const normalizedEmail = email.toLowerCase().trim()
+  return Object.values(state.users).find((user) => user.email.toLowerCase().trim() === normalizedEmail) || null
+}
+
+export function addUser(
+  user: Omit<User, "id" | "createdAt" | "updatedAt" | "tags">,
+): User {
+  const state = readAdminLocalDb()
+  const newUser: User = {
+    ...user,
+    id: `user-${Date.now()}`,
+    tags: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    users: {
+      ...state.users,
+      [newUser.id]: newUser,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newUser
+}
+
+export function updateUser(
+  id: string,
+  updates: Partial<Omit<User, "id" | "createdAt">>,
+): User | null {
+  const state = readAdminLocalDb()
+  const existing = state.users[id]
+  if (!existing) {
+    return null
+  }
+  const updated: User = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    users: {
+      ...state.users,
+      [id]: updated,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updated
+}
+
+export function deleteUser(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.users[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.users
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    users: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function addTagToUser(userId: string, tag: string): boolean {
+  const state = readAdminLocalDb()
+  const user = state.users[userId]
+  if (!user) {
+    return false
+  }
+  if (user.tags.includes(tag)) {
+    return false // Tag already exists
+  }
+  const updated: User = {
+    ...user,
+    tags: [...user.tags, tag],
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    users: {
+      ...state.users,
+      [userId]: updated,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function removeTagFromUser(userId: string, tag: string): boolean {
+  const state = readAdminLocalDb()
+  const user = state.users[userId]
+  if (!user) {
+    return false
+  }
+  const updated: User = {
+    ...user,
+    tags: user.tags.filter((t) => t !== tag),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    users: {
+      ...state.users,
+      [userId]: updated,
     },
   }
   persistAdminLocalDb(updatedState)
