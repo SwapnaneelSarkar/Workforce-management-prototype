@@ -16,6 +16,7 @@ import {
   Plus,
   MapPin,
   Briefcase as BriefcaseIcon,
+  Users,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -45,6 +46,7 @@ export const adminNavLinks: NavLink[] = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/locations", label: "Locations", icon: MapPin },
   { href: "/admin/occupations", label: "Occupations", icon: BriefcaseIcon },
+  { href: "/admin/workforce-groups", label: "Workforce Groups", icon: Users },
   { href: "/admin/questionnaire", label: "General Questionnaire", icon: FileText },
   { href: "/admin/compliance/templates", label: "Compliance Templates", icon: ClipboardCheck },
   { href: "/admin/organizations/add", label: "Add Organization", icon: Plus },

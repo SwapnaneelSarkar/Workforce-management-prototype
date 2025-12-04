@@ -105,6 +105,18 @@ export type GeneralQuestionnaire = {
   updatedAt: string
 }
 
+export type WorkforceGroup = {
+  id: string
+  modality: string
+  name: string
+  limitShiftVisibility: boolean
+  shiftVisibilityHours?: number // Hours to shift start
+  routingPosition: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export type AdminLocalDbState = {
   organizations: Record<string, AdminLocalDbOrganizationEntry>
   occupations: Record<string, Occupation>
@@ -112,6 +124,7 @@ export type AdminLocalDbState = {
   generalQuestionnaire: GeneralQuestionnaire | null
   specialties: Record<string, Specialty>
   occupationSpecialties: Record<string, OccupationSpecialty>
+  workforceGroups: Record<string, WorkforceGroup>
   lastUpdated?: string
 }
 
@@ -868,6 +881,88 @@ const defaultOccupationSpecialtiesRecord: Record<string, OccupationSpecialty> = 
   {} as Record<string, OccupationSpecialty>,
 )
 
+// Default workforce groups
+const defaultWorkforceGroups: WorkforceGroup[] = [
+  {
+    id: "wf-001",
+    modality: "Clinical",
+    name: "Permanent - Full Time",
+    limitShiftVisibility: false,
+    routingPosition: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wf-002",
+    modality: "Clinical",
+    name: "Permanent - Part Time",
+    limitShiftVisibility: true,
+    routingPosition: 2,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wf-003",
+    modality: "Clinical",
+    name: "Contract - Internal Float Pool",
+    limitShiftVisibility: true,
+    routingPosition: 3,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wf-004",
+    modality: "Clinical",
+    name: "External - EOR",
+    limitShiftVisibility: true,
+    routingPosition: 4,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wf-005",
+    modality: "Clinical",
+    name: "External - Per Diem Vendors",
+    limitShiftVisibility: true,
+    routingPosition: 5,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wf-006",
+    modality: "Clinical",
+    name: "External - LTO Vendor",
+    limitShiftVisibility: true,
+    routingPosition: 6,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "wf-007",
+    modality: "Support Services",
+    name: "Permanent - Full Time",
+    limitShiftVisibility: false,
+    routingPosition: 1,
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultWorkforceGroupsRecord: Record<string, WorkforceGroup> = defaultWorkforceGroups.reduce(
+  (acc, wf) => {
+    acc[wf.id] = wf
+    return acc
+  },
+  {} as Record<string, WorkforceGroup>,
+)
+
 export const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
@@ -875,6 +970,7 @@ export const defaultAdminLocalDbState: AdminLocalDbState = {
   generalQuestionnaire: defaultGeneralQuestionnaire,
   specialties: defaultSpecialtiesRecord,
   occupationSpecialties: defaultOccupationSpecialtiesRecord,
+  workforceGroups: defaultWorkforceGroupsRecord,
   lastUpdated: undefined,
 }
 
@@ -972,6 +1068,7 @@ export function readAdminLocalDb(): AdminLocalDbState {
       generalQuestionnaire: parsed.generalQuestionnaire ?? defaultGeneralQuestionnaire,
       specialties: Object.keys(migratedSpecialties).length > 0 ? migratedSpecialties : defaultSpecialtiesRecord,
       occupationSpecialties: parsed.occupationSpecialties || defaultOccupationSpecialtiesRecord,
+      workforceGroups: parsed.workforceGroups || defaultWorkforceGroupsRecord,
       lastUpdated: parsed.lastUpdated,
     }
   } catch (error) {
@@ -1362,6 +1459,78 @@ export function getOccupationSpecialtiesByOccupation(occupationId: string): Occu
 export function getOccupationSpecialtyById(id: string): OccupationSpecialty | null {
   const state = readAdminLocalDb()
   return state.occupationSpecialties[id] || null
+}
+
+// Helper functions for workforce groups
+export function getAllWorkforceGroups(): WorkforceGroup[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.workforceGroups).sort((a, b) => {
+    // Sort by modality first, then by routing position
+    if (a.modality !== b.modality) {
+      return a.modality.localeCompare(b.modality)
+    }
+    return a.routingPosition - b.routingPosition
+  })
+}
+
+export function getWorkforceGroupById(id: string): WorkforceGroup | null {
+  const state = readAdminLocalDb()
+  return state.workforceGroups[id] || null
+}
+
+export function addWorkforceGroup(group: Omit<WorkforceGroup, "id" | "createdAt" | "updatedAt">): WorkforceGroup {
+  const state = readAdminLocalDb()
+  const newGroup: WorkforceGroup = {
+    ...group,
+    id: `wf-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    workforceGroups: {
+      ...state.workforceGroups,
+      [newGroup.id]: newGroup,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newGroup
+}
+
+export function updateWorkforceGroup(id: string, updates: Partial<Omit<WorkforceGroup, "id" | "createdAt">>): WorkforceGroup | null {
+  const state = readAdminLocalDb()
+  const existing = state.workforceGroups[id]
+  if (!existing) {
+    return null
+  }
+  const updatedGroup: WorkforceGroup = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    workforceGroups: {
+      ...state.workforceGroups,
+      [id]: updatedGroup,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedGroup
+}
+
+export function deleteWorkforceGroup(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.workforceGroups[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.workforceGroups
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    workforceGroups: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
 }
 
 // Helper functions for occupations
