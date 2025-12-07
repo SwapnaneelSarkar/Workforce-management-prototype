@@ -11,11 +11,14 @@ export function AvatarDropdown() {
   const pathname = usePathname()
   const isOrganizationPage = pathname?.startsWith("/organization") && pathname !== "/organization/login"
   const isCandidatePage = pathname?.startsWith("/candidate") && pathname !== "/candidate/login"
+  const isAdminPage = pathname?.startsWith("/admin") && pathname !== "/admin/login"
   
-  const displayName = isOrganizationPage ? "Recovered Health" : isCandidatePage ? "Joanne Rose" : "User"
-  const displayRole = isOrganizationPage ? "Organization" : isCandidatePage ? "Candidate" : "User"
+  const displayName = isOrganizationPage ? "Recovered Health" : isCandidatePage ? "Joanne Rose" : isAdminPage ? "Staff Logic" : "User"
+  const displayRole = isOrganizationPage ? "Organization" : isCandidatePage ? "Candidate" : isAdminPage ? "Organization" : "User"
   const avatarImage = isOrganizationPage 
     ? "https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=100&h=100&fit=crop&auto=format"
+    : isAdminPage
+    ? "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=100&h=100&fit=crop&auto=format"
     : "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face&auto=format"
   
   const [open, setOpen] = useState(false)

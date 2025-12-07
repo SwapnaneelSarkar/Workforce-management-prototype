@@ -19,19 +19,41 @@ export default function AddComplianceListItemPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
-    category: (searchParams.get("category") as ComplianceListItem["category"]) || "Background & Identification",
+    category: (searchParams.get("category") as ComplianceListItem["category"]) || "Background and Identification",
     expirationType: "Expiration Date" as ComplianceListItem["expirationType"],
-    displayToCandidate: false,
+    expirationRuleValue: undefined as number | undefined,
+    expirationRuleInterval: "Days" as "Days" | "Weeks" | "Months" | "Years" | undefined,
+    issuerRequirement: false,
+    issuer: "",
+    responseStyle: "Pending File Upload" as ComplianceListItem["responseStyle"],
+    uploadAttachment: "",
+    linkUrl: "",
+    instructionalNotes: "",
+    displayToCandidate: true, // Default will be set based on responseStyle
     isActive: true,
   })
 
   const handleInputChange = (field: keyof typeof formData) => (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
-    const value = field === "displayToCandidate" || field === "isActive"
-      ? (e.target as HTMLInputElement).checked
-      : e.target.value
-    setFormData((prev) => ({ ...prev, [field]: value }))
+    if (field === "expirationRuleValue") {
+      const numValue = e.target.value === "" ? undefined : Number(e.target.value)
+      setFormData((prev) => ({ ...prev, [field]: numValue }))
+    } else if (field === "responseStyle") {
+      const newResponseStyle = e.target.value as ComplianceListItem["responseStyle"]
+      // Update displayToCandidate default based on responseStyle
+      const defaultDisplayToCandidate = newResponseStyle === "Internal Task" ? false : true
+      setFormData((prev) => ({ 
+        ...prev, 
+        [field]: newResponseStyle,
+        displayToCandidate: defaultDisplayToCandidate
+      }))
+    } else {
+      const value = field === "displayToCandidate" || field === "isActive" || field === "issuerRequirement"
+        ? (e.target as HTMLInputElement).checked
+        : e.target.value
+      setFormData((prev) => ({ ...prev, [field]: value }))
+    }
   }
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -49,6 +71,14 @@ export default function AddComplianceListItemPage() {
         name: formData.name.trim(),
         category: formData.category,
         expirationType: formData.expirationType,
+        expirationRuleValue: formData.expirationType === "Expiration Rule" ? formData.expirationRuleValue : undefined,
+        expirationRuleInterval: formData.expirationType === "Expiration Rule" ? formData.expirationRuleInterval : undefined,
+        issuerRequirement: formData.issuerRequirement,
+        issuer: formData.issuerRequirement ? formData.issuer.trim() : undefined,
+        responseStyle: formData.responseStyle,
+        uploadAttachment: formData.responseStyle === "Download Attachment and Upload" ? formData.uploadAttachment.trim() : undefined,
+        linkUrl: formData.responseStyle === "Link" ? formData.linkUrl.trim() : undefined,
+        instructionalNotes: formData.instructionalNotes.trim() || undefined,
         displayToCandidate: formData.displayToCandidate,
         isActive: formData.isActive,
       })
@@ -115,10 +145,14 @@ export default function AddComplianceListItemPage() {
                     required
                     className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="Background & Identification">Background & Identification</option>
-                    <option value="License">License</option>
-                    <option value="Certification">Certification</option>
-                    <option value="Training">Training</option>
+                    <option value="Background and Identification">Background and Identification</option>
+                    <option value="Education and Assessments">Education and Assessments</option>
+                    <option value="Immigration">Immigration</option>
+                    <option value="Licenses">Licenses</option>
+                    <option value="Certifications">Certifications</option>
+                    <option value="Employee Health">Employee Health</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="Other Qualifications">Other Qualifications</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -133,10 +167,133 @@ export default function AddComplianceListItemPage() {
                     required
                     className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
-                    <option value="None">None</option>
                     <option value="Expiration Date">Expiration Date</option>
-                    <option value="Recurring">Recurring</option>
+                    <option value="Non-Expirable">Non-Expirable</option>
+                    <option value="Expiration Rule">Expiration Rule</option>
                   </select>
+                </div>
+
+                {formData.expirationType === "Expiration Rule" && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Expiration Rule <span className="text-red-500">*</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-foreground">Expires</span>
+                      <Input
+                        type="number"
+                        min="1"
+                        required={formData.expirationType === "Expiration Rule"}
+                        value={formData.expirationRuleValue ?? ""}
+                        onChange={handleInputChange("expirationRuleValue")}
+                        className="w-24"
+                        placeholder="30"
+                      />
+                      <span className="text-sm text-foreground">In</span>
+                      <select
+                        value={formData.expirationRuleInterval ?? "Days"}
+                        onChange={handleInputChange("expirationRuleInterval")}
+                        required={formData.expirationType === "Expiration Rule"}
+                        className="rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <option value="Days">Days</option>
+                        <option value="Weeks">Weeks</option>
+                        <option value="Months">Months</option>
+                        <option value="Years">Years</option>
+                      </select>
+                      <span className="text-sm text-foreground">from the original completion date</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="md:col-span-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.issuerRequirement}
+                      onChange={handleInputChange("issuerRequirement")}
+                      className="rounded border-border"
+                    />
+                    <span className="text-sm font-medium text-foreground">Issuer Requirement</span>
+                  </label>
+                </div>
+
+                {formData.issuerRequirement && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Issuer <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="text"
+                      required={formData.issuerRequirement}
+                      value={formData.issuer}
+                      onChange={handleInputChange("issuer")}
+                      className="w-full"
+                      placeholder="e.g., State Board of Nursing"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Response Style <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.responseStyle}
+                    onChange={handleInputChange("responseStyle")}
+                    required
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="Pending File Upload">Pending File Upload</option>
+                    <option value="Internal Task">Internal Task</option>
+                    <option value="Download Attachment and Upload">Download Attachment and Upload</option>
+                    <option value="Link">Link</option>
+                  </select>
+                </div>
+
+                {formData.responseStyle === "Download Attachment and Upload" && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Upload Attachment <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="text"
+                      required={formData.responseStyle === "Download Attachment and Upload"}
+                      value={formData.uploadAttachment}
+                      onChange={handleInputChange("uploadAttachment")}
+                      className="w-full"
+                      placeholder="Attachment URL"
+                    />
+                  </div>
+                )}
+
+                {formData.responseStyle === "Link" && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Link URL <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="url"
+                      required={formData.responseStyle === "Link"}
+                      value={formData.linkUrl}
+                      onChange={handleInputChange("linkUrl")}
+                      className="w-full"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                )}
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Instructional Notes
+                  </label>
+                  <textarea
+                    value={formData.instructionalNotes}
+                    onChange={handleInputChange("instructionalNotes")}
+                    rows={3}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    placeholder="Enter any instructional notes for candidates..."
+                  />
                 </div>
 
                 <div className="md:col-span-2">
@@ -184,3 +341,7 @@ export default function AddComplianceListItemPage() {
     </>
   )
 }
+
+
+
+

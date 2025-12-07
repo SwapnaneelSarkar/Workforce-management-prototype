@@ -32,8 +32,8 @@ export default function AdminVendorsPage() {
             </div>
 
             <div className="py-12 text-center border-2 border-dashed border-border rounded-lg">
-              <p className="text-muted-foreground mb-2">
-                Vendor Placeholder.
+              <p className="text-lg font-semibold text-foreground mb-2">
+                In the next phase
               </p>
               <p className="text-sm text-muted-foreground">
                 Vendor management functionality will be available in a future release.
@@ -66,3 +66,7 @@ export default function AdminVendorsPage() {
     </>
   )
 }
+
+
+
+

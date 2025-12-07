@@ -37,8 +37,10 @@ function convertListItemToItem(listItem: ComplianceListItem): ComplianceItem {
   let expirationType: ComplianceItem["expirationType"] = "None"
   if (listItem.expirationType === "Expiration Date") {
     expirationType = "Fixed Date"
-  } else if (listItem.expirationType === "Recurring") {
-    expirationType = "Recurring"
+  } else if (listItem.expirationType === "Expiration Rule") {
+    expirationType = "Recurring" // Map Expiration Rule to Recurring for template compatibility
+  } else if (listItem.expirationType === "Non-Expirable") {
+    expirationType = "None"
   } else {
     expirationType = "None"
   }

@@ -120,8 +120,16 @@ export type WorkforceGroup = {
 export type ComplianceListItem = {
   id: string
   name: string
-  category: "Background & Identification" | "License" | "Certification" | "Training" | "Other"
-  expirationType: "None" | "Expiration Date" | "Recurring"
+  category: "Background and Identification" | "Education and Assessments" | "Immigration" | "Licenses" | "Certifications" | "Employee Health" | "Human Resources" | "Other Qualifications" | "Other"
+  expirationType: "Expiration Date" | "Non-Expirable" | "Expiration Rule"
+  expirationRuleValue?: number // Number for expiration rule (e.g., 30)
+  expirationRuleInterval?: "Days" | "Weeks" | "Months" | "Years" // Interval for expiration rule
+  issuerRequirement: boolean // Toggle for issuer requirement
+  issuer?: string // Issuer name (shown when issuerRequirement is true)
+  responseStyle: "Pending File Upload" | "Internal Task" | "Download Attachment and Upload" | "Link"
+  uploadAttachment?: string // Attachment URL for "Download Attachment and Upload"
+  linkUrl?: string // Link URL for "Link" response style
+  instructionalNotes?: string // Always visible instructional notes
   displayToCandidate: boolean
   isActive: boolean
   createdAt: string
@@ -188,7 +196,12 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     phone: "+1 (555) 123-4567",
     website: "https://novahealth.com",
     industry: "Healthcare",
+    orgType: "Hospital Network",
     description: "Leading healthcare provider with multiple facilities across the region.",
+    logo: undefined,
+    serviceAgreement: "Nova Health MSA.pdf",
+    timezone: "CST",
+    agreementRenewalDate: "2025-12-31",
     locations: [
       {
         id: "loc-001",
@@ -223,7 +236,12 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     phone: "+1 (555) 234-5678",
     website: "https://memorialhealth.com",
     industry: "Healthcare",
+    orgType: "Hospital Network",
     description: "Regional health system serving multiple communities.",
+    logo: undefined,
+    serviceAgreement: "Memorial Health MSA.pdf",
+    timezone: "CST",
+    agreementRenewalDate: "2025-06-30",
     locations: [
       {
         id: "loc-003",
@@ -249,6 +267,35 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     ],
     createdAt: "2025-02-01T10:00:00Z",
     updatedAt: "2025-02-01T10:00:00Z",
+  },
+  {
+    id: "org-003",
+    name: "Vitality Health Group",
+    email: "contact@vitalityhealth.org",
+    phone: "+1 (555) 345-6789",
+    website: "https://vitalityhealth.org",
+    industry: "Healthcare",
+    orgType: "Hospital Network",
+    description: "Comprehensive healthcare network providing quality medical services.",
+    logo: undefined,
+    serviceAgreement: "Vitality MSA.pdf",
+    timezone: "EST",
+    agreementRenewalDate: "2025-01-20",
+    locations: [
+      {
+        id: "loc-005",
+        name: "Vitality Main Hospital",
+        address: "123 Main St",
+        city: "Anytown",
+        state: "USA",
+        zipCode: "12345",
+        phone: "+1 (555) 345-6789",
+        email: "main@vitalityhealth.org",
+        departments: [],
+      },
+    ],
+    createdAt: "2017-02-10T10:00:00Z",
+    updatedAt: "2017-02-10T10:00:00Z",
   },
 ]
 
@@ -1017,12 +1064,14 @@ const defaultWorkforceGroupsRecord: Record<string, WorkforceGroup> = defaultWork
 
 // Default compliance list items
 const defaultComplianceListItems: ComplianceListItem[] = [
-  // Background & Identification
+  // Background and Identification
   {
     id: "cli-001",
     name: "Drivers License",
-    category: "Background & Identification",
+    category: "Background and Identification",
     expirationType: "Expiration Date",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1031,8 +1080,10 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-002",
     name: "Passport",
-    category: "Background & Identification",
+    category: "Background and Identification",
     expirationType: "Expiration Date",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1041,8 +1092,10 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-003",
     name: "Social Security Card",
-    category: "Background & Identification",
-    expirationType: "None",
+    category: "Background and Identification",
+    expirationType: "Non-Expirable",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1051,8 +1104,12 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-004",
     name: "Background Check",
-    category: "Background & Identification",
-    expirationType: "Recurring",
+    category: "Background and Identification",
+    expirationType: "Expiration Rule",
+    expirationRuleValue: 365,
+    expirationRuleInterval: "Days",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1061,8 +1118,12 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-005",
     name: "Drug Screening",
-    category: "Background & Identification",
-    expirationType: "Recurring",
+    category: "Background and Identification",
+    expirationType: "Expiration Rule",
+    expirationRuleValue: 365,
+    expirationRuleInterval: "Days",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1071,19 +1132,26 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-006",
     name: "Criminal Background Check",
-    category: "Background & Identification",
-    expirationType: "Recurring",
+    category: "Background and Identification",
+    expirationType: "Expiration Rule",
+    expirationRuleValue: 365,
+    expirationRuleInterval: "Days",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  // License
+  // Licenses
   {
     id: "cli-007",
     name: "Registered Nurse License",
-    category: "License",
+    category: "Licenses",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "State Board of Nursing",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1092,8 +1160,11 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-008",
     name: "Nurse Practitioner License",
-    category: "License",
+    category: "Licenses",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "State Board of Nursing",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1102,8 +1173,11 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-009",
     name: "LPN License",
-    category: "License",
+    category: "Licenses",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "State Board of Nursing",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1112,8 +1186,11 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-010",
     name: "PT License",
-    category: "License",
+    category: "Licenses",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "State Physical Therapy Board",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1122,8 +1199,11 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-011",
     name: "OT License",
-    category: "License",
+    category: "Licenses",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "State Occupational Therapy Board",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1132,19 +1212,25 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-012",
     name: "CNA License",
-    category: "License",
+    category: "Licenses",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "State Nursing Assistant Board",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  // Certification
+  // Certifications
   {
     id: "cli-013",
     name: "ACLS Certification",
-    category: "Certification",
+    category: "Certifications",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "American Heart Association",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1153,8 +1239,11 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-014",
     name: "BLS Certification",
-    category: "Certification",
+    category: "Certifications",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "American Heart Association",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1163,8 +1252,11 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-015",
     name: "CPR Certification",
-    category: "Certification",
+    category: "Certifications",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "American Heart Association",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1173,19 +1265,26 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-016",
     name: "PALS Certification",
-    category: "Certification",
+    category: "Certifications",
     expirationType: "Expiration Date",
+    issuerRequirement: true,
+    issuer: "American Heart Association",
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  // Training
+  // Education and Assessments
   {
     id: "cli-017",
     name: "HIPAA Training",
-    category: "Training",
-    expirationType: "Recurring",
+    category: "Education and Assessments",
+    expirationType: "Expiration Rule",
+    expirationRuleValue: 365,
+    expirationRuleInterval: "Days",
+    issuerRequirement: false,
+    responseStyle: "Internal Task",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -1194,19 +1293,25 @@ const defaultComplianceListItems: ComplianceListItem[] = [
   {
     id: "cli-018",
     name: "Safety Training",
-    category: "Training",
-    expirationType: "Recurring",
+    category: "Education and Assessments",
+    expirationType: "Expiration Rule",
+    expirationRuleValue: 365,
+    expirationRuleInterval: "Days",
+    issuerRequirement: false,
+    responseStyle: "Internal Task",
     displayToCandidate: false,
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
-  // Other
+  // Employee Health
   {
     id: "cli-019",
     name: "Immunization Record",
-    category: "Other",
+    category: "Employee Health",
     expirationType: "Expiration Date",
+    issuerRequirement: false,
+    responseStyle: "Pending File Upload",
     displayToCandidate: true,
     isActive: true,
     createdAt: new Date().toISOString(),
