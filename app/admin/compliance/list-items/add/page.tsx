@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, type FormEvent, type ChangeEvent } from "react"
+import { useState, Suspense, type FormEvent, type ChangeEvent } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Header, Card } from "@/components/system"
@@ -12,7 +12,7 @@ import {
   type ComplianceListItem,
 } from "@/lib/admin-local-db"
 
-export default function AddComplianceListItemPage() {
+function AddComplianceListItemForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { pushToast } = useToast()
@@ -339,6 +339,39 @@ export default function AddComplianceListItemPage() {
         </form>
       </section>
     </>
+  )
+}
+
+export default function AddComplianceListItemPage() {
+  return (
+    <Suspense fallback={
+      <>
+        <Header
+          title="Add Compliance List Item"
+          subtitle="Add a new compliance item to be used in wallet and requisition templates."
+          breadcrumbs={[
+            { label: "Admin", href: "/admin/dashboard" },
+            { label: "Compliance List Items", href: "/admin/compliance/list-items" },
+            { label: "Add Item" },
+          ]}
+        />
+        <section className="space-y-6">
+          <div className="flex gap-3">
+            <Link href="/admin/compliance/list-items" className="ph5-button-secondary">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to List Items
+            </Link>
+          </div>
+          <Card>
+            <div className="p-6">
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          </Card>
+        </section>
+      </>
+    }>
+      <AddComplianceListItemForm />
+    </Suspense>
   )
 }
 
