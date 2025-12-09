@@ -7,7 +7,7 @@ import { Header, Card } from "@/components/system"
 import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, Edit, Trash2, FileText } from "lucide-react"
+import { Plus, Edit, Trash2 } from "lucide-react"
 import {
   getAllOccupations,
   addOccupation,
@@ -281,10 +281,10 @@ export default function OccupationsPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Name</th>
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Code</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Modality</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Name</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Acronym</th>
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Code</th>
                           <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Status</th>
                           <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
                         </tr>
@@ -293,21 +293,21 @@ export default function OccupationsPage() {
                         {occupations.map((occ) => (
                           <tr key={occ.id} className="border-b border-border hover:bg-muted/50 transition-colors">
                             <td className="py-3 px-4">
+                              <span className="text-sm text-foreground">{occ.modality || "—"}</span>
+                            </td>
+                            <td className="py-3 px-4">
                               <div>
                                 <span className="text-sm font-medium text-foreground">{occ.name}</span>
-                                {occ.description && (
-                                  <p className="text-xs text-muted-foreground mt-1">{occ.description}</p>
+                                {occ.acronym && (
+                                  <p className="text-xs text-muted-foreground mt-1">{occ.acronym}</p>
                                 )}
                               </div>
                             </td>
                             <td className="py-3 px-4">
-                              <span className="text-sm text-muted-foreground font-mono">{occ.code}</span>
-                            </td>
-                            <td className="py-3 px-4">
-                              <span className="text-sm text-foreground">{occ.modality || "—"}</span>
-                            </td>
-                            <td className="py-3 px-4">
                               <span className="text-sm text-muted-foreground font-mono">{occ.acronym || "—"}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="text-sm text-muted-foreground font-mono">{occ.code}</span>
                             </td>
                             <td className="py-3 px-4">
                               <span
@@ -322,13 +322,6 @@ export default function OccupationsPage() {
                             </td>
                             <td className="py-3 px-4">
                               <div className="flex items-center justify-end gap-2">
-                                <Link
-                                  href={`/admin/occupations/${occ.id}/questionnaire`}
-                                  className="p-2 rounded-md hover:bg-muted transition-colors"
-                                  title="Manage Requisition Template"
-                                >
-                                  <FileText className="h-4 w-4 text-muted-foreground" />
-                                </Link>
                                 <button
                                   type="button"
                                   className="p-2 rounded-md hover:bg-muted transition-colors"

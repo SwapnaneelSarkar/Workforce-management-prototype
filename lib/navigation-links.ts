@@ -39,6 +39,7 @@ import {
   FileSearch,
   Download,
   Upload,
+  Link2,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -78,14 +79,18 @@ export const adminNavLinks: NavLink[] = [
   { href: "/admin/msp", label: "MSPs", icon: Building2 },
   { href: "/admin/users", label: "Users", icon: UserCog },
   { href: "/admin/vendors", label: "Vendors", icon: Network },
-  { href: "/admin/workforce/tagging-rules", label: "Tags", icon: Tag },
+  { href: "/admin/tags", label: "Tags", icon: Tag },
   {
-    href: "/admin/compliance/list-items",
-    label: "Compliance List Items",
-    icon: ClipboardCheck,
+    href: "/admin/workforce",
+    label: "Workforce Management",
+    icon: Link2,
     children: [
+      { href: "/admin/occupations", label: "Occupations", icon: BriefcaseIcon },
+      { href: "/admin/specialties", label: "Specialties", icon: Tag },
       { href: "/admin/compliance/list-items", label: "Compliance List Items", icon: List },
-      { href: "/admin/compliance/templates", label: "Compliance Templates", icon: FileCheck },
+      { href: "/admin/compliance/templates", label: "Document Wallet Templates", subtitle: "(Compliance documents)", icon: ClipboardCheck },
+      { href: "/admin/questionnaire", label: "General Questionnaire", icon: FileText },
+      { href: "/admin/tags", label: "Tags", icon: Tag },
     ],
   },
   { href: "/admin/document-wallet-templates", label: "Invoice Templates", icon: Receipt },

@@ -598,3 +598,21 @@
     transform: translateY(0);
   }
 }
+
+/* Custom scrollbar styles for sidebar */
+nav[class*="overflow-y-auto"]::-webkit-scrollbar {
+  width: 6px;
+}
+
+nav[class*="overflow-y-auto"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+nav[class*="overflow-y-auto"]::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.4);
+  border-radius: 3px;
+}
+
+nav[class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}

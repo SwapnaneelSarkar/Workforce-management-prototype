@@ -14,6 +14,7 @@ import {
   getGeneralQuestionnaire,
   getActiveOccupations,
   getQuestionnaireByOccupationId,
+  getActiveTags,
   type Occupation,
 } from "@/lib/admin-local-db"
 
@@ -40,8 +41,14 @@ export default function EditTaggingRulePage() {
   })
   const [availableQuestions, setAvailableQuestions] = useState<QuestionOption[]>([])
   const [occupations, setOccupations] = useState<Occupation[]>([])
+  const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; taskType: string }>>([])
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const tags = getActiveTags()
+      setAvailableTags(tags.map((tag) => ({ id: tag.id, name: tag.name, taskType: tag.taskType })))
+    }
+    
     const ruleId = params.id as string
     const existingRule = getTaggingRuleById(ruleId)
     if (existingRule) {
@@ -146,6 +153,9 @@ export default function EditTaggingRulePage() {
       const selectedQuestion = availableQuestions.find((q) => q.id === formData.triggerQuestion)
       const questionText = selectedQuestion ? selectedQuestion.question : formData.triggerQuestion
 
+      // Find the tag ID if the tag name matches an existing tag
+      const selectedTag = availableTags.find((tag) => tag.name === formData.tagToApply.trim())
+      
       const updated = updateTaggingRule(rule.id, {
         ruleName: formData.ruleName.trim(),
         triggerQuestion: questionText,
@@ -154,6 +164,7 @@ export default function EditTaggingRulePage() {
           ? formData.triggerValue.trim()
           : undefined,
         tagToApply: formData.tagToApply.trim(),
+        tagId: selectedTag?.id,
         isActive: formData.isActive,
       })
 
@@ -276,13 +287,28 @@ export default function EditTaggingRulePage() {
               <Label htmlFor="tagToApply" className="text-sm font-semibold text-foreground">
                 Tag to Apply <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <select
                 id="tagToApply"
                 value={formData.tagToApply}
                 onChange={handleInputChange("tagToApply")}
-                placeholder="e.g., ICU-Specialist, High-Experience, Certified"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 required
-              />
+              >
+                <option value="">Select a tag</option>
+                {availableTags.map((tag) => (
+                  <option key={tag.id} value={tag.name}>
+                    {tag.name} ({tag.taskType})
+                  </option>
+                ))}
+              </select>
+              {formData.tagToApply && !availableTags.some((t) => t.name === formData.tagToApply) && (
+                <Input
+                  value={formData.tagToApply}
+                  onChange={handleInputChange("tagToApply")}
+                  placeholder="Or enter a custom tag name"
+                  className="mt-2"
+                />
+              )}
             </div>
 
             <div className="flex items-center gap-2">

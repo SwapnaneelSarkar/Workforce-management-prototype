@@ -13,6 +13,7 @@ import {
   getGeneralQuestionnaire,
   getActiveOccupations,
   getQuestionnaireByOccupationId,
+  getActiveTags,
   type Occupation,
 } from "@/lib/admin-local-db"
 
@@ -36,6 +37,7 @@ export default function AddTaggingRulePage() {
   })
   const [availableQuestions, setAvailableQuestions] = useState<QuestionOption[]>([])
   const [occupations, setOccupations] = useState<Occupation[]>([])
+  const [availableTags, setAvailableTags] = useState<Array<{ id: string; name: string; taskType: string }>>([])
 
   useEffect(() => {
     loadQuestions()
@@ -43,8 +45,10 @@ export default function AddTaggingRulePage() {
       try {
         const occs = getActiveOccupations()
         setOccupations(occs)
+        const tags = getActiveTags()
+        setAvailableTags(tags.map((tag) => ({ id: tag.id, name: tag.name, taskType: tag.taskType })))
       } catch (error) {
-        console.warn("Failed to load occupations", error)
+        console.warn("Failed to load data", error)
       }
     }
   }, [])
@@ -120,6 +124,9 @@ export default function AddTaggingRulePage() {
       const selectedQuestion = availableQuestions.find((q) => q.id === formData.triggerQuestion)
       const questionText = selectedQuestion ? selectedQuestion.question : formData.triggerQuestion
 
+      // Find the tag ID if the tag name matches an existing tag
+      const selectedTag = availableTags.find((tag) => tag.name === formData.tagToApply.trim())
+      
       const newRule = addTaggingRule({
         ruleName: formData.ruleName.trim(),
         triggerQuestion: questionText,
@@ -128,6 +135,7 @@ export default function AddTaggingRulePage() {
           ? formData.triggerValue.trim()
           : undefined,
         tagToApply: formData.tagToApply.trim(),
+        tagId: selectedTag?.id,
         isActive: formData.isActive,
       })
 
@@ -232,13 +240,28 @@ export default function AddTaggingRulePage() {
               <Label htmlFor="tagToApply" className="text-sm font-semibold text-foreground">
                 Tag to Apply <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <select
                 id="tagToApply"
                 value={formData.tagToApply}
                 onChange={handleInputChange("tagToApply")}
-                placeholder="e.g., ICU-Specialist, High-Experience, Certified"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                 required
-              />
+              >
+                <option value="">Select a tag</option>
+                {availableTags.map((tag) => (
+                  <option key={tag.id} value={tag.name}>
+                    {tag.name} ({tag.taskType})
+                  </option>
+                ))}
+              </select>
+              {formData.tagToApply && !availableTags.some((t) => t.name === formData.tagToApply) && (
+                <Input
+                  value={formData.tagToApply}
+                  onChange={handleInputChange("tagToApply")}
+                  placeholder="Or enter a custom tag name"
+                  className="mt-2"
+                />
+              )}
               <p className="text-xs text-muted-foreground mt-1">
                 This tag will be applied to the user profile (not visible to candidates)
               </p>

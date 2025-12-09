@@ -24,7 +24,7 @@ function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem
   const hasChildren = item.children && item.children.length > 0
   const active = pathname.startsWith(item.href)
   const childActive = hasChildren && item.children?.some(child => pathname.startsWith(child.href))
-  const [isOpen, setIsOpen] = useState(Boolean(childActive))
+  const [isOpen, setIsOpen] = useState(() => Boolean(childActive))
   
   // Update open state when pathname changes and a child becomes active
   useEffect(() => {
@@ -56,7 +56,7 @@ function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem
   
   if (hasChildren) {
     return (
-      <li>
+      <li suppressHydrationWarning>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleTrigger
             className={cn(
@@ -208,10 +208,10 @@ export function Sidebar({ items, header, footer, showSearch = false }: SidebarPr
 
   const navContent = useMemo(
     () => (
-      <div className="flex h-full flex-col">
-        <div className={cn("border-b border-border px-5 py-5", collapsed && "px-3")}>{header}</div>
+      <div className="flex h-full flex-col overflow-hidden">
+        <div className={cn("border-b border-border px-5 py-5 flex-shrink-0", collapsed && "px-3")}>{header}</div>
         {showSearch && !collapsed && (
-          <div className="border-b border-border px-5 py-3">
+          <div className="border-b border-border px-5 py-3 flex-shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -222,14 +222,14 @@ export function Sidebar({ items, header, footer, showSearch = false }: SidebarPr
             </div>
           </div>
         )}
-        <nav className="flex-1 overflow-y-auto px-2 py-4">
+        <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-4" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(156, 163, 175, 0.5) transparent' }}>
           <ul className="space-y-1">
             {items.map((item, index) => (
               <SidebarItemComponent key={`${item.label}-${item.href}-${index}`} item={item} collapsed={collapsed} pathname={pathname} />
             ))}
           </ul>
         </nav>
-        <div className={cn("border-t border-border px-5 py-4", collapsed && "px-3")}>{footer}</div>
+        <div className={cn("border-t border-border px-5 py-4 flex-shrink-0", collapsed && "px-3")}>{footer}</div>
       </div>
     ),
     [collapsed, footer, header, items, pathname, showSearch],
@@ -255,7 +255,7 @@ export function Sidebar({ items, header, footer, showSearch = false }: SidebarPr
         />
         <aside
           className={cn(
-            "fixed inset-y-0 left-0 z-50 w-[260px] border-r border-border bg-gradient-to-b from-blue-50/30 via-blue-50/20 to-card shadow-[0_24px_48px_rgba(15,23,42,0.18)] transition-transform duration-200",
+            "fixed inset-y-0 left-0 z-50 w-[260px] border-r border-border bg-gradient-to-b from-blue-50/30 via-blue-50/20 to-card shadow-[0_24px_48px_rgba(15,23,42,0.18)] transition-transform duration-200 flex flex-col overflow-hidden",
             drawerOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
@@ -268,7 +268,7 @@ export function Sidebar({ items, header, footer, showSearch = false }: SidebarPr
   return (
     <aside
       className={cn(
-        "hidden fixed left-0 top-0 h-screen border-r-2 border-border/80 bg-gradient-to-b from-blue-50/40 via-blue-50/25 to-card/95 backdrop-blur-sm shadow-[0_0_60px_rgba(15,23,42,0.06)] transition-all duration-200 z-30 md:flex",
+        "hidden fixed left-0 top-0 h-screen border-r-2 border-border/80 bg-gradient-to-b from-blue-50/40 via-blue-50/25 to-card/95 backdrop-blur-sm shadow-[0_0_60px_rgba(15,23,42,0.06)] transition-all duration-200 z-30 md:flex flex-col overflow-hidden",
         collapsed ? "w-[90px]" : "w-[260px]",
       )}
     >

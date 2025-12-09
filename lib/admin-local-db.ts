@@ -58,6 +58,7 @@ export type AdminLocalDbOrganizationEntry = {
   timezone?: string
   agreementRenewalDate?: string
   locations: AdminLocalDbOrganizationLocation[]
+  occupationIds?: string[] // Array of Occupation IDs
   createdAt: string
   updatedAt: string
 }
@@ -155,7 +156,18 @@ export type TaggingRule = {
   triggerQuestion: string // Question ID or question text reference
   condition: "equals" | "contains" | "is blank" | "is not blank"
   triggerValue?: string // Value to match (not used for "is blank" / "is not blank")
-  tagToApply: string // Tag name to apply to user profile
+  tagToApply: string // Tag name to apply to user profile (for backward compatibility)
+  tagId?: string // Reference to Tag.id (preferred)
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type Tag = {
+  id: string
+  name: string
+  taskType: string // Task Type (dropdown field)
+  description?: string
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -184,6 +196,7 @@ export type AdminLocalDbState = {
   complianceListItems: Record<string, ComplianceListItem>
   adminWalletTemplates: Record<string, AdminWalletTemplate>
   taggingRules: Record<string, TaggingRule>
+  tags: Record<string, Tag>
   users: Record<string, User>
   lastUpdated?: string
 }
@@ -202,6 +215,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     serviceAgreement: "Nova Health MSA.pdf",
     timezone: "CST",
     agreementRenewalDate: "2025-12-31",
+    occupationIds: ["occ-001", "occ-002", "occ-003", "occ-004", "occ-005", "occ-006", "occ-007", "occ-008"],
     locations: [
       {
         id: "loc-001",
@@ -242,6 +256,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     serviceAgreement: "Memorial Health MSA.pdf",
     timezone: "CST",
     agreementRenewalDate: "2025-06-30",
+    occupationIds: ["occ-001", "occ-002", "occ-003", "occ-005", "occ-006", "occ-007"],
     locations: [
       {
         id: "loc-003",
@@ -281,6 +296,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     serviceAgreement: "Vitality MSA.pdf",
     timezone: "EST",
     agreementRenewalDate: "2025-01-20",
+    occupationIds: ["occ-001", "occ-003", "occ-004", "occ-006", "occ-008"],
     locations: [
       {
         id: "loc-005",
@@ -311,7 +327,9 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-001",
     name: "Registered Nurse",
-    code: "RN",
+    code: "29-2061.00",
+    acronym: "RN",
+    modality: "Clinical",
     description: "Registered Nurse",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -320,7 +338,9 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-002",
     name: "Licensed Practical Nurse / Licensed Vocational Nurse",
-    code: "LPN/LVN",
+    code: "29-2061.00",
+    acronym: "LPN",
+    modality: "Clinical",
     description: "LPN/LVN",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -329,7 +349,9 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-003",
     name: "Certified Nursing Assistant",
-    code: "CNA",
+    code: "29-2061.00",
+    acronym: "CNA",
+    modality: "Clinical",
     description: "CNA",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -338,7 +360,9 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-004",
     name: "Medical Assistant",
-    code: "Medical Assistant",
+    code: "29-2061.00",
+    acronym: "MA",
+    modality: "Administrative",
     description: "Medical Assistant",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -346,9 +370,11 @@ const defaultOccupations: Occupation[] = [
   },
   {
     id: "occ-005",
-    name: "Surgical Tech",
-    code: "Surgical Tech",
-    description: "Surgical Tech",
+    name: "Nurse Practitioner",
+    code: "29-2061.00",
+    acronym: "NP",
+    modality: "Clinical",
+    description: "Nurse Practitioner",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
     updatedAt: "2025-01-15T10:00:00Z",
@@ -356,7 +382,9 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-006",
     name: "Physical Therapist",
-    code: "PT",
+    code: "29-2061.00",
+    acronym: "PT",
+    modality: "Therapy",
     description: "Physical Therapist",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -365,7 +393,9 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-007",
     name: "Occupational Therapist",
-    code: "OT",
+    code: "29-2061.00",
+    acronym: "OT",
+    modality: "Therapy",
     description: "Occupational Therapist",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -373,26 +403,10 @@ const defaultOccupations: Occupation[] = [
   },
   {
     id: "occ-008",
-    name: "Respiratory Therapist",
-    code: "RT",
-    description: "Respiratory Therapist",
-    isActive: true,
-    createdAt: "2025-01-15T10:00:00Z",
-    updatedAt: "2025-01-15T10:00:00Z",
-  },
-  {
-    id: "occ-009",
-    name: "Nurse Practitioner",
-    code: "Nurse Practitioner",
-    description: "Nurse Practitioner",
-    isActive: true,
-    createdAt: "2025-01-15T10:00:00Z",
-    updatedAt: "2025-01-15T10:00:00Z",
-  },
-  {
-    id: "occ-010",
     name: "Physician Assistant",
-    code: "Physician Assistant",
+    code: "29-2061.00",
+    acronym: "PA",
+    modality: "Clinical",
     description: "Physician Assistant",
     isActive: true,
     createdAt: "2025-01-15T10:00:00Z",
@@ -1688,6 +1702,90 @@ const defaultAdminWalletTemplatesRecord: Record<string, AdminWalletTemplate> = d
   {} as Record<string, AdminWalletTemplate>,
 )
 
+// Default tags based on the tag management UI
+const defaultTags: Tag[] = [
+  {
+    id: "tag-001",
+    name: "Night Shift",
+    taskType: "Preferences",
+    description: "They prefer night hours for shift types",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-002",
+    name: "Day Shift",
+    taskType: "Preferences",
+    description: "Prefers day shift for shift types",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-003",
+    name: "Compact License",
+    taskType: "Credentials",
+    description: "Holds license in all states listed under compact license.",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-004",
+    name: "ICU-Specialist",
+    taskType: "Specialization",
+    description: "Specialized in Intensive Care Unit nursing",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-005",
+    name: "High-Experience",
+    taskType: "Experience",
+    description: "Has 10+ years of experience in the field",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-006",
+    name: "Travel Nurse",
+    taskType: "Preferences",
+    description: "Available for travel assignments",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-007",
+    name: "ACLS Certified",
+    taskType: "Credentials",
+    description: "Advanced Cardiac Life Support certified",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "tag-008",
+    name: "Weekend Availability",
+    taskType: "Preferences",
+    description: "Available to work weekends",
+    isActive: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultTagsRecord: Record<string, Tag> = defaultTags.reduce(
+  (acc, tag) => {
+    acc[tag.id] = tag
+    return acc
+  },
+  {} as Record<string, Tag>,
+)
+
 export const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
@@ -1699,6 +1797,7 @@ export const defaultAdminLocalDbState: AdminLocalDbState = {
   complianceListItems: defaultComplianceListItemsRecord,
   adminWalletTemplates: defaultAdminWalletTemplatesRecord,
   taggingRules: {},
+  tags: defaultTagsRecord,
   users: defaultUsersRecord,
   lastUpdated: undefined,
 }
@@ -1748,6 +1847,7 @@ export function readAdminLocalDb(): AdminLocalDbState {
         migratedOrganizations[org.id] = {
           ...org,
           locations: migratedLocations,
+          occupationIds: org.occupationIds || [],
         }
       })
     }
@@ -1805,6 +1905,12 @@ export function readAdminLocalDb(): AdminLocalDbState {
     // Merge tagging rules: use empty if none exist, otherwise use existing
     const mergedTaggingRules = parsed.taggingRules || {}
     
+    // Merge tags: use defaults if none exist, otherwise merge with existing (existing takes precedence)
+    const existingTags = parsed.tags || {}
+    const mergedTags = Object.keys(existingTags).length > 0
+      ? { ...defaultTagsRecord, ...existingTags }
+      : defaultTagsRecord
+    
     const mergedState: AdminLocalDbState = {
       organizations: Object.keys(migratedOrganizations).length > 0 ? migratedOrganizations : defaultOrganizationsRecord,
       occupations: Object.keys(migratedOccupations).length > 0 ? migratedOccupations : defaultOccupationsRecord,
@@ -1816,6 +1922,7 @@ export function readAdminLocalDb(): AdminLocalDbState {
       complianceListItems: parsed.complianceListItems || defaultComplianceListItemsRecord,
       adminWalletTemplates: mergedWalletTemplates,
       taggingRules: mergedTaggingRules,
+      tags: mergedTags,
       users: mergedUsers,
       lastUpdated: parsed.lastUpdated,
     }
@@ -1922,6 +2029,28 @@ export function deleteOrganization(id: string): boolean {
   }
   persistAdminLocalDb(updatedState)
   return true
+}
+
+// Helper functions for organization occupations
+export function getOrganizationOccupations(organizationId: string): Occupation[] {
+  const state = readAdminLocalDb()
+  const org = state.organizations[organizationId]
+  if (!org || !org.occupationIds || org.occupationIds.length === 0) {
+    return []
+  }
+  return org.occupationIds
+    .map((occId) => state.occupations[occId])
+    .filter((occ): occ is Occupation => occ !== undefined)
+}
+
+export function updateOrganizationOccupations(organizationId: string, occupationIds: string[]): boolean {
+  const state = readAdminLocalDb()
+  const org = state.organizations[organizationId]
+  if (!org) {
+    return false
+  }
+  const updatedOrg = updateOrganization(organizationId, { occupationIds })
+  return updatedOrg !== null
 }
 
 // Helper functions for locations
@@ -2959,5 +3088,168 @@ export function removeTagFromUser(userId: string, tag: string): boolean {
   }
   persistAdminLocalDb(updatedState)
   return true
+}
+
+// Helper functions for Tags
+export function getAllTags(): Tag[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.tags)
+}
+
+export function getTagById(id: string): Tag | null {
+  const state = readAdminLocalDb()
+  return state.tags[id] || null
+}
+
+export function addTag(tag: Omit<Tag, "id" | "createdAt" | "updatedAt">): Tag {
+  const state = readAdminLocalDb()
+  const newTag: Tag = {
+    ...tag,
+    id: `tag-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    tags: {
+      ...state.tags,
+      [newTag.id]: newTag,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newTag
+}
+
+export function updateTag(id: string, updates: Partial<Omit<Tag, "id" | "createdAt">>): Tag | null {
+  const state = readAdminLocalDb()
+  const existing = state.tags[id]
+  if (!existing) {
+    return null
+  }
+  const updated: Tag = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    tags: {
+      ...state.tags,
+      [id]: updated,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updated
+}
+
+export function deleteTag(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.tags[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.tags
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    tags: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function getTagByName(name: string): Tag | null {
+  const state = readAdminLocalDb()
+  return Object.values(state.tags).find((tag) => tag.name === name) || null
+}
+
+export function getTagsByTaskType(taskType: string): Tag[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.tags).filter((tag) => tag.taskType === taskType)
+}
+
+export function getActiveTags(): Tag[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.tags).filter((tag) => tag.isActive)
+}
+
+// Get tags that are referenced by users
+export function getTagsUsedByUsers(): Tag[] {
+  const state = readAdminLocalDb()
+  const usedTagNames = new Set<string>()
+  Object.values(state.users).forEach((user) => {
+    user.tags.forEach((tagName) => usedTagNames.add(tagName))
+  })
+  return Object.values(state.tags).filter((tag) => usedTagNames.has(tag.name))
+}
+
+// Get tags that are referenced by tagging rules
+export function getTagsUsedByTaggingRules(): Tag[] {
+  const state = readAdminLocalDb()
+  const usedTagIds = new Set<string>()
+  const usedTagNames = new Set<string>()
+  Object.values(state.taggingRules).forEach((rule) => {
+    if (rule.tagId) {
+      usedTagIds.add(rule.tagId)
+    }
+    if (rule.tagToApply) {
+      usedTagNames.add(rule.tagToApply)
+    }
+  })
+  return Object.values(state.tags).filter(
+    (tag) => usedTagIds.has(tag.id) || usedTagNames.has(tag.name)
+  )
+}
+
+// Validate if a tag can be deleted (not used by other entities)
+export function canDeleteTag(id: string): { canDelete: boolean; reason?: string } {
+  const state = readAdminLocalDb()
+  const tag = state.tags[id]
+  if (!tag) {
+    return { canDelete: false, reason: "Tag not found" }
+  }
+
+  // Check if used by users
+  const usedByUsers = Object.values(state.users).some((user) => user.tags.includes(tag.name))
+  if (usedByUsers) {
+    return { canDelete: false, reason: "Tag is used by one or more users" }
+  }
+
+  // Check if used by tagging rules
+  const usedByRules = Object.values(state.taggingRules).some(
+    (rule) => rule.tagId === id || rule.tagToApply === tag.name
+  )
+  if (usedByRules) {
+    return { canDelete: false, reason: "Tag is used by one or more tagging rules" }
+  }
+
+  return { canDelete: true }
+}
+
+// Update user tags to use tag IDs (migration helper)
+export function migrateUserTagsToTagIds(): void {
+  const state = readAdminLocalDb()
+  const updatedUsers: Record<string, User> = {}
+  let hasChanges = false
+
+  Object.values(state.users).forEach((user) => {
+    const updatedTagNames: string[] = []
+    user.tags.forEach((tagName) => {
+      const tag = getTagByName(tagName)
+      if (tag) {
+        updatedTagNames.push(tag.name) // Keep using names for now, but could migrate to IDs
+      }
+    })
+    if (updatedTagNames.length !== user.tags.length) {
+      updatedUsers[user.id] = { ...user, tags: updatedTagNames }
+      hasChanges = true
+    }
+  })
+
+  if (hasChanges) {
+    const updatedState: AdminLocalDbState = {
+      ...state,
+      users: { ...state.users, ...updatedUsers },
+    }
+    persistAdminLocalDb(updatedState)
+  }
 }
 
