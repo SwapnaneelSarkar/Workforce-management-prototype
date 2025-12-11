@@ -2345,6 +2345,79 @@ export function getOccupationSpecialtyById(id: string): OccupationSpecialty | nu
   return state.occupationSpecialties[id] || null
 }
 
+export function addOccupationSpecialty(occupationId: string, specialtyId: string): OccupationSpecialty | null {
+  const state = readAdminLocalDb()
+  
+  // Check if occupation and specialty exist
+  const occupation = state.occupations[occupationId]
+  const specialty = state.specialties[specialtyId]
+  
+  if (!occupation || !specialty) {
+    return null
+  }
+  
+  // Check if relationship already exists
+  const existing = Object.values(state.occupationSpecialties).find(
+    (occSpec) => occSpec.occupationId === occupationId && occSpec.specialtyId === specialtyId
+  )
+  if (existing) {
+    return existing
+  }
+  
+  const newOccSpec: OccupationSpecialty = {
+    id: `occ-spec-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    occupationId,
+    specialtyId,
+    displayName: `${occupation.name} - ${specialty.name}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    occupationSpecialties: {
+      ...state.occupationSpecialties,
+      [newOccSpec.id]: newOccSpec,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newOccSpec
+}
+
+export function removeOccupationSpecialty(occupationId: string, specialtyId: string): boolean {
+  const state = readAdminLocalDb()
+  
+  const occSpec = Object.values(state.occupationSpecialties).find(
+    (os) => os.occupationId === occupationId && os.specialtyId === specialtyId
+  )
+  
+  if (!occSpec) {
+    return false
+  }
+  
+  const { [occSpec.id]: removed, ...remaining } = state.occupationSpecialties
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    occupationSpecialties: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function deleteOccupationSpecialtyById(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.occupationSpecialties[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.occupationSpecialties
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    occupationSpecialties: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
 // Helper functions for workforce groups
 export function getAllWorkforceGroups(): WorkforceGroup[] {
   const state = readAdminLocalDb()

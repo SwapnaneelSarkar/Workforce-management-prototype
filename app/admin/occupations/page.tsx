@@ -13,7 +13,14 @@ import {
   addOccupation,
   updateOccupation,
   deleteOccupation,
+  getAllSpecialtiesAdmin,
+  addSpecialty,
+  getOccupationSpecialtiesByOccupation,
+  addOccupationSpecialty,
+  removeOccupationSpecialty,
+  deleteOccupationSpecialtyById,
   type Occupation,
+  type Specialty,
 } from "@/lib/admin-local-db"
 
 export default function OccupationsPage() {
@@ -32,10 +39,34 @@ export default function OccupationsPage() {
     acronym: "",
     isActive: true,
   })
+  const [hasSpecialties, setHasSpecialties] = useState(false)
+  const [occupationSpecialties, setOccupationSpecialties] = useState<Array<{
+    id: string
+    specialtyId: string
+    specialty: Specialty
+  }>>([])
+  const [availableSpecialties, setAvailableSpecialties] = useState<Specialty[]>([])
+  const [isAddingSpecialty, setIsAddingSpecialty] = useState(false)
+  const [newSpecialtyData, setNewSpecialtyData] = useState({
+    name: "",
+    code: "",
+    acronym: "",
+    isActive: true,
+  })
 
   useEffect(() => {
     loadOccupations()
+    loadAvailableSpecialties()
   }, [])
+
+  const loadAvailableSpecialties = () => {
+    try {
+      const specialties = getAllSpecialtiesAdmin()
+      setAvailableSpecialties(specialties)
+    } catch (error) {
+      console.warn("Failed to load specialties", error)
+    }
+  }
 
   const loadOccupations = () => {
     setLoading(true)
@@ -61,6 +92,10 @@ export default function OccupationsPage() {
       acronym: "",
       isActive: true,
     })
+    setHasSpecialties(false)
+    setOccupationSpecialties([])
+    setIsAddingSpecialty(false)
+    setNewSpecialtyData({ name: "", code: "", acronym: "", isActive: true })
     setEditingId(null)
     setIsCreating(false)
   }
@@ -91,6 +126,34 @@ export default function OccupationsPage() {
         isActive: formData.isActive,
       })
       if (updated) {
+        // Save occupation-specialty relationships
+        if (hasSpecialties) {
+          // Get current relationships
+          const currentOccSpecs = getOccupationSpecialtiesByOccupation(editingId)
+          const currentSpecialtyIds = new Set(currentOccSpecs.map(os => os.specialtyId))
+          const newSpecialtyIds = new Set(occupationSpecialties.map(os => os.specialtyId))
+          
+          // Remove relationships that are no longer selected
+          currentOccSpecs.forEach((occSpec) => {
+            if (!newSpecialtyIds.has(occSpec.specialtyId)) {
+              deleteOccupationSpecialtyById(occSpec.id)
+            }
+          })
+          
+          // Add new relationships
+          occupationSpecialties.forEach((occSpec) => {
+            if (!currentSpecialtyIds.has(occSpec.specialtyId)) {
+              addOccupationSpecialty(editingId, occSpec.specialtyId)
+            }
+          })
+        } else {
+          // Remove all relationships if hasSpecialties is false
+          const currentOccSpecs = getOccupationSpecialtiesByOccupation(editingId)
+          currentOccSpecs.forEach((occSpec) => {
+            deleteOccupationSpecialtyById(occSpec.id)
+          })
+        }
+        
         pushToast({ title: "Success", description: "Occupation updated successfully." })
         loadOccupations()
         resetForm()
@@ -107,6 +170,14 @@ export default function OccupationsPage() {
         acronym: formData.acronym || undefined,
         isActive: formData.isActive,
       })
+      
+      // Save occupation-specialty relationships if hasSpecialties is true
+      if (hasSpecialties && occupationSpecialties.length > 0) {
+        occupationSpecialties.forEach((occSpec) => {
+          addOccupationSpecialty(newOcc.id, occSpec.specialtyId)
+        })
+      }
+      
       pushToast({ title: "Success", description: "Occupation added successfully." })
       loadOccupations()
       resetForm()
@@ -125,6 +196,32 @@ export default function OccupationsPage() {
     })
     setEditingId(occ.id)
     setIsCreating(true)
+    
+    // Load existing specialties for this occupation
+    try {
+      const occSpecialties = getOccupationSpecialtiesByOccupation(occ.id)
+      if (occSpecialties.length > 0) {
+        setHasSpecialties(true)
+        // Load full specialty details
+        const { getSpecialtyById } = require("@/lib/admin-local-db")
+        const specialtiesWithDetails = occSpecialties.map((occSpec) => {
+          const specialty = getSpecialtyById(occSpec.specialtyId)
+          return {
+            id: occSpec.id,
+            specialtyId: occSpec.specialtyId,
+            specialty: specialty!,
+          }
+        }).filter((item): item is NonNullable<typeof item> => item.specialty !== null)
+        setOccupationSpecialties(specialtiesWithDetails)
+      } else {
+        setHasSpecialties(false)
+        setOccupationSpecialties([])
+      }
+    } catch (error) {
+      console.warn("Failed to load occupation specialties", error)
+      setHasSpecialties(false)
+      setOccupationSpecialties([])
+    }
   }
 
   const handleDelete = (id: string, name: string) => {
@@ -257,6 +354,191 @@ export default function OccupationsPage() {
                     Active (visible in candidate sign-up)
                   </label>
                 </div>
+                
+                <div className="pt-4 border-t space-y-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="hasSpecialties"
+                      checked={hasSpecialties}
+                      onChange={(e) => {
+                        setHasSpecialties(e.target.checked)
+                        if (!e.target.checked) {
+                          setOccupationSpecialties([])
+                        }
+                      }}
+                      className="rounded border-border"
+                    />
+                    <label htmlFor="hasSpecialties" className="text-sm font-semibold text-foreground">
+                      Does this occupation have any specialty?
+                    </label>
+                  </div>
+                  
+                  {hasSpecialties && (
+                    <div className="ml-6 space-y-4 border-l-2 border-border pl-4">
+                      <div className="space-y-2">
+                        <p className="text-sm font-semibold text-foreground">Specialties for this occupation</p>
+                        
+                        {occupationSpecialties.length > 0 && (
+                          <div className="space-y-2">
+                            {occupationSpecialties.map((occSpec) => (
+                              <div
+                                key={occSpec.id}
+                                className="flex items-center justify-between rounded-md border border-border p-3 bg-muted/30"
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground">{occSpec.specialty.name}</span>
+                                    {occSpec.specialty.code && (
+                                      <span className="text-xs text-muted-foreground font-mono">({occSpec.specialty.code})</span>
+                                    )}
+                                    {occSpec.specialty.acronym && (
+                                      <span className="text-xs text-muted-foreground">- {occSpec.specialty.acronym}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="p-1 rounded-md hover:bg-destructive/10 transition-colors"
+                                  onClick={() => {
+                                    setOccupationSpecialties(occupationSpecialties.filter((os) => os.id !== occSpec.id))
+                                  }}
+                                  title="Remove specialty"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {isAddingSpecialty ? (
+                          <div className="space-y-3 border border-border rounded-lg p-4 bg-background">
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div className="space-y-2">
+                                <label className="text-xs font-semibold text-foreground">Specialty Name</label>
+                                <Input
+                                  value={newSpecialtyData.name}
+                                  onChange={(e) => setNewSpecialtyData({ ...newSpecialtyData, name: e.target.value })}
+                                  placeholder="e.g., Intensive Care Unit"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-semibold text-foreground">Code</label>
+                                <Input
+                                  value={newSpecialtyData.code}
+                                  onChange={(e) => setNewSpecialtyData({ ...newSpecialtyData, code: e.target.value })}
+                                  placeholder="e.g., ICU"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-semibold text-foreground">Acronym (optional)</label>
+                                <Input
+                                  value={newSpecialtyData.acronym}
+                                  onChange={(e) => setNewSpecialtyData({ ...newSpecialtyData, acronym: e.target.value })}
+                                  placeholder="e.g., ICU"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                className="ph5-button-primary text-xs"
+                                onClick={() => {
+                                  if (!newSpecialtyData.name.trim() || !newSpecialtyData.code.trim()) {
+                                    pushToast({ title: "Validation Error", description: "Specialty name and code are required." })
+                                    return
+                                  }
+                                  
+                                  // Create new specialty
+                                  const newSpecialty = addSpecialty({
+                                    name: newSpecialtyData.name.trim(),
+                                    code: newSpecialtyData.code.trim(),
+                                    acronym: newSpecialtyData.acronym.trim() || undefined,
+                                    isActive: newSpecialtyData.isActive,
+                                  })
+                                  
+                                  // Add to occupation specialties list
+                                  setOccupationSpecialties([
+                                    ...occupationSpecialties,
+                                    {
+                                      id: `temp-${Date.now()}`,
+                                      specialtyId: newSpecialty.id,
+                                      specialty: newSpecialty,
+                                    },
+                                  ])
+                                  
+                                  setNewSpecialtyData({ name: "", code: "", acronym: "", isActive: true })
+                                  setIsAddingSpecialty(false)
+                                  loadAvailableSpecialties()
+                                  pushToast({ title: "Success", description: "Specialty added and linked to occupation." })
+                                }}
+                              >
+                                Add Specialty
+                              </button>
+                              <button
+                                type="button"
+                                className="ph5-button-secondary text-xs"
+                                onClick={() => {
+                                  setIsAddingSpecialty(false)
+                                  setNewSpecialtyData({ name: "", code: "", acronym: "", isActive: true })
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                const specialtyId = e.target.value
+                                if (!specialtyId) return
+                                
+                                const specialty = availableSpecialties.find((s) => s.id === specialtyId)
+                                if (!specialty) return
+                                
+                                // Check if already added
+                                if (occupationSpecialties.some((os) => os.specialtyId === specialtyId)) {
+                                  pushToast({ title: "Info", description: "This specialty is already added." })
+                                  return
+                                }
+                                
+                                setOccupationSpecialties([
+                                  ...occupationSpecialties,
+                                  {
+                                    id: `temp-${Date.now()}`,
+                                    specialtyId: specialty.id,
+                                    specialty,
+                                  },
+                                ])
+                                e.target.value = ""
+                              }}
+                              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
+                            >
+                              <option value="">Select existing specialty or create new...</option>
+                              {availableSpecialties.map((spec) => (
+                                <option key={spec.id} value={spec.id}>
+                                  {spec.name} {spec.code && `(${spec.code})`}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="ph5-button-secondary text-xs w-full"
+                              onClick={() => setIsAddingSpecialty(true)}
+                            >
+                              <Plus className="h-4 w-4 mr-2 inline" />
+                              Create New Specialty
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 <div className="flex items-center gap-3 pt-4 border-t">
                   <button type="submit" className="ph5-button-primary">
                     {editingId ? "Update Occupation" : "Create Occupation"}
