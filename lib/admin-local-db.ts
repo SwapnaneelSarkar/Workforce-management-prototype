@@ -2335,6 +2335,49 @@ export function deleteSpecialty(id: string): boolean {
   return true
 }
 
+// Helper function to get specialties grouped by group
+export function getSpecialtiesGroupedByGroup(): Record<string, Specialty[]> {
+  const specialties = getAllSpecialtiesAdmin()
+  const grouped: Record<string, Specialty[]> = {}
+  
+  specialties.forEach((spec) => {
+    const group = spec.group || "Other"
+    if (!grouped[group]) {
+      grouped[group] = []
+    }
+    grouped[group].push(spec)
+  })
+  
+  // Sort specialties within each group by name
+  Object.keys(grouped).forEach((group) => {
+    grouped[group].sort((a, b) => a.name.localeCompare(b.name))
+  })
+  
+  return grouped
+}
+
+// Helper function to get all unique group names
+export function getAllSpecialtyGroups(): string[] {
+  const specialties = getAllSpecialtiesAdmin()
+  const groups = new Set<string>()
+  
+  specialties.forEach((spec) => {
+    if (spec.group) {
+      groups.add(spec.group)
+    }
+  })
+  
+  return Array.from(groups).sort()
+}
+
+// Helper function to get specialties by group
+export function getSpecialtiesByGroup(group: string): Specialty[] {
+  const specialties = getAllSpecialtiesAdmin()
+  return specialties
+    .filter((spec) => (spec.group || "Other") === group)
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 // Helper functions for occupation-specialties
 export function getAllOccupationSpecialties(): OccupationSpecialty[] {
   const state = readAdminLocalDb()
