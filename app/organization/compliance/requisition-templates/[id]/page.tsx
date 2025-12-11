@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter, useParams, usePathname } from "next/navigation"
 import { Header, Card, StatusChip } from "@/components/system"
 import { Input } from "@/components/ui/input"
@@ -9,6 +9,11 @@ import { useDemoData } from "@/components/providers/demo-data-provider"
 import type { RequisitionTemplate } from "@/components/providers/demo-data-provider"
 import { AddItemModal } from "@/components/compliance/add-item-modal"
 import type { ComplianceItem } from "@/lib/compliance-templates-store"
+import {
+  getAllComplianceListItems,
+  getComplianceListItemById,
+  type ComplianceListItem,
+} from "@/lib/admin-local-db"
 
 export default function RequisitionTemplateDetailPage() {
   const router = useRouter()
@@ -36,6 +41,21 @@ export default function RequisitionTemplateDetailPage() {
     }
   }, [template, templateId, router])
 
+  // Load compliance list items from IDs
+  const templateListItems = useMemo(() => {
+    if (!draftTemplate) return []
+    return draftTemplate.listItemIds
+      .map((id) => {
+        try {
+          return getComplianceListItemById(id)
+        } catch (error) {
+          console.warn(`Failed to load compliance list item ${id}`, error)
+          return null
+        }
+      })
+      .filter((item): item is ComplianceListItem => item !== null && item.isActive)
+  }, [draftTemplate])
+
   if (!draftTemplate) {
     return (
       <div className="p-8">
@@ -44,7 +64,7 @@ export default function RequisitionTemplateDetailPage() {
     )
   }
 
-  const handleFieldChange = (field: keyof Omit<RequisitionTemplate, "id" | "items">, value: string) => {
+  const handleFieldChange = (field: keyof Omit<RequisitionTemplate, "id" | "listItemIds">, value: string) => {
     setDraftTemplate({ ...draftTemplate, [field]: value })
   }
 
@@ -58,41 +78,31 @@ export default function RequisitionTemplateDetailPage() {
 
   const handleAddItem = (item: ComplianceItem) => {
     actions.addRequisitionTemplateItem(templateId, item)
-    // Update local state
-    setDraftTemplate({ ...draftTemplate, items: [...draftTemplate.items, item] })
-  }
-
-  const handleRemoveItem = (itemId: string) => {
-    actions.removeRequisitionTemplateItem(templateId, itemId)
-    // Update local state
-    setDraftTemplate({ ...draftTemplate, items: draftTemplate.items.filter((item) => item.id !== itemId) })
-  }
-
-  const existingItemIds = draftTemplate.items.map((item) => {
-    // Try to find the original ComplianceListItem ID by name
-    if (typeof window !== "undefined") {
-      try {
-        const { getAllComplianceListItems } = require("@/lib/admin-local-db")
-        const listItems = getAllComplianceListItems()
-        const listItem = listItems.find((li) => li.name === item.name && li.isActive)
-        if (listItem) return listItem.id
-      } catch (error) {
-        console.warn("Failed to load compliance list items", error)
-      }
+    // Update local state - add the list item ID
+    if (item.id && !draftTemplate.listItemIds.includes(item.id)) {
+      setDraftTemplate({ ...draftTemplate, listItemIds: [...draftTemplate.listItemIds, item.id] })
     }
-    // Fallback: use item name as identifier
-    return item.name
-  })
+  }
+
+  const handleRemoveItem = (listItemId: string) => {
+    actions.removeRequisitionTemplateItem(templateId, listItemId)
+    // Update local state
+    setDraftTemplate({ ...draftTemplate, listItemIds: draftTemplate.listItemIds.filter((id) => id !== listItemId) })
+  }
+
+  const existingItemIds = draftTemplate.listItemIds
 
   // Group items by category
-  const itemsByCategory = draftTemplate.items.reduce((acc, item) => {
-    const category = item.type
-    if (!acc[category]) {
-      acc[category] = []
-    }
-    acc[category].push(item)
-    return acc
-  }, {} as Record<string, ComplianceItem[]>)
+  const itemsByCategory = useMemo(() => {
+    return templateListItems.reduce((acc, item) => {
+      const category = item.category
+      if (!acc[category]) {
+        acc[category] = []
+      }
+      acc[category].push(item)
+      return acc
+    }, {} as Record<string, ComplianceListItem[]>)
+  }, [templateListItems])
 
   return (
     <div className="space-y-6 p-8">
@@ -145,7 +155,7 @@ export default function RequisitionTemplateDetailPage() {
             </div>
             <div className="pt-2 border-t border-border">
               <p className="text-xs text-muted-foreground mb-1">Items</p>
-              <p className="text-sm font-semibold text-foreground">{draftTemplate.items.length}</p>
+              <p className="text-sm font-semibold text-foreground">{draftTemplate.listItemIds.length}</p>
             </div>
             <button type="button" className="ph5-button-primary w-full text-xs" onClick={handleSave}>
               Save Changes
@@ -186,13 +196,10 @@ export default function RequisitionTemplateDetailPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-sm font-medium text-foreground">{item.name}</span>
-                              <StatusChip label={item.type} />
+                              <StatusChip label={item.category} />
                             </div>
                             <div className="flex items-center gap-4 text-xs text-muted-foreground">
                               <span>Expiration: {item.expirationType}</span>
-                              {item.requiredAtSubmission && (
-                                <span className="text-primary font-medium">Required at submission</span>
-                              )}
                             </div>
                           </div>
                           <button

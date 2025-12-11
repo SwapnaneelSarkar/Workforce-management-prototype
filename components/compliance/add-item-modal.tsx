@@ -76,10 +76,11 @@ export function AddItemModal({ open, onClose, onAdd, existingItemIds = [] }: Add
     const listItem = listItems.find((item) => item.id === selectedItemId)
     if (listItem) {
       const complianceItem = convertListItemToItem(listItem)
-      // Create a new item with a unique ID for the template (but keep reference to list item)
+      // Use the original list item ID (not a new UUID) so we can reference the compliance list item
+      // This is important for requisition templates which store listItemIds
       const newItem: ComplianceItem = {
         ...complianceItem,
-        id: crypto.randomUUID(), // Unique ID for this template instance
+        id: listItem.id, // Keep the original compliance list item ID
       }
       onAdd(newItem)
       setSelectedItemId(null)

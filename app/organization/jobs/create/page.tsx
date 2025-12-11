@@ -88,16 +88,57 @@ export default function CreateJobPage() {
           }
         }
         
-        // Check requisition templates
+        // Check requisition templates - convert listItemIds to ComplianceItem[]
+        const { getComplianceListItemById } = require("@/lib/admin-local-db")
         const reqTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
         const reqTemplate = reqTemplates.find((t) => t.id === draft.requisitionTemplateId)
         if (reqTemplate && reqTemplate.organizationId === currentOrgId) {
+          // Convert listItemIds to ComplianceItem[] for job creation
+          const complianceItems = reqTemplate.listItemIds
+            .map((listItemId) => {
+              try {
+                const listItem = getComplianceListItemById(listItemId)
+                if (!listItem || !listItem.isActive) return null
+                
+                // Convert ComplianceListItem to ComplianceItem format
+                let type: "License" | "Certification" | "Background" | "Training" | "Other" = "Other"
+                if (listItem.category === "Licenses") {
+                  type = "License"
+                } else if (listItem.category === "Certifications") {
+                  type = "Certification"
+                } else if (listItem.category === "Background and Identification") {
+                  type = "Background"
+                } else if (listItem.category === "Education and Assessments") {
+                  type = "Training"
+                }
+                
+                let expirationType: "None" | "Fixed Date" | "Recurring" = "None"
+                if (listItem.expirationType === "Expiration Date") {
+                  expirationType = "Fixed Date"
+                } else if (listItem.expirationType === "Expiration Rule") {
+                  expirationType = "Recurring"
+                }
+                
+                return {
+                  id: listItem.id,
+                  name: listItem.name,
+                  type,
+                  expirationType,
+                  requiredAtSubmission: false,
+                }
+              } catch (error) {
+                console.warn(`Failed to convert compliance list item ${listItemId}`, error)
+                return null
+              }
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null)
+          
           return {
             id: reqTemplate.id,
             name: reqTemplate.name,
             department: reqTemplate.department,
             occupation: reqTemplate.occupation,
-            items: reqTemplate.items,
+            items: complianceItems,
           }
         }
       } catch (error) {
@@ -124,8 +165,57 @@ export default function CreateJobPage() {
       // Continue to next fallback
     }
     
-    // Fallback to provider templates
-    return organization.requisitionTemplates.find((t) => t.id === draft.requisitionTemplateId)
+    // Fallback to provider templates - convert listItemIds to ComplianceItem[]
+    const reqTemplate = organization.requisitionTemplates.find((t) => t.id === draft.requisitionTemplateId)
+    if (reqTemplate && typeof window !== "undefined") {
+      try {
+        const { getComplianceListItemById } = require("@/lib/admin-local-db")
+        const complianceItems = reqTemplate.listItemIds
+          .map((listItemId) => {
+            try {
+              const listItem = getComplianceListItemById(listItemId)
+              if (!listItem || !listItem.isActive) return null
+              
+              let type: "License" | "Certification" | "Background" | "Training" | "Other" = "Other"
+              if (listItem.category === "Licenses") {
+                type = "License"
+              } else if (listItem.category === "Certifications") {
+                type = "Certification"
+              } else if (listItem.category === "Background and Identification") {
+                type = "Background"
+              } else if (listItem.category === "Education and Assessments") {
+                type = "Training"
+              }
+              
+              let expirationType: "None" | "Fixed Date" | "Recurring" = "None"
+              if (listItem.expirationType === "Expiration Date") {
+                expirationType = "Fixed Date"
+              } else if (listItem.expirationType === "Expiration Rule") {
+                expirationType = "Recurring"
+              }
+              
+              return {
+                id: listItem.id,
+                name: listItem.name,
+                type,
+                expirationType,
+                requiredAtSubmission: false,
+              }
+            } catch (error) {
+              return null
+            }
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+        
+        return {
+          ...reqTemplate,
+          items: complianceItems,
+        }
+      } catch (error) {
+        console.warn("Failed to convert template items", error)
+      }
+    }
+    return reqTemplate || null
   }, [draft.requisitionTemplateId, organization.requisitionTemplates])
 
   // Debug: Log available templates and verify they're organization-specific
@@ -448,7 +538,7 @@ export default function CreateJobPage() {
                         id: t.id,
                         name: t.name,
                         description: t.department,
-                        items: t.items,
+                        items: [], // Requisition templates use listItemIds, items will be converted in selectedTemplate
                         type: 'requisition' as const,
                       }))
                     ]
@@ -470,11 +560,22 @@ export default function CreateJobPage() {
                       return originalTemplate.organizationId === currentOrgId
                     })
                     
-                    return orgTemplates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name} {template.description ? `(${template.description})` : ""} - {template.items.length} items
-                      </option>
-                    ))
+                    return orgTemplates.map((template) => {
+                      // Handle both legacy templates (with items) and requisition templates (with listItemIds)
+                      // For requisition templates, get the count from the original template
+                      let itemCount = template.items.length
+                      if (template.type === 'requisition') {
+                        const reqTemplate = requisitionTemplates.find(rt => rt.id === template.id)
+                        if (reqTemplate) {
+                          itemCount = reqTemplate.listItemIds.length
+                        }
+                      }
+                      return (
+                        <option key={template.id} value={template.id}>
+                          {template.name} {template.description ? `(${template.description})` : ""} - {itemCount} items
+                        </option>
+                      )
+                    })
                   } catch (error) {
                     console.warn("Failed to load templates from DB", error)
                     // Fallback: try to load from compliance templates store
@@ -505,7 +606,7 @@ export default function CreateJobPage() {
                         })
                         .map((template) => (
                           <option key={template.id} value={template.id}>
-                            {template.name} {template.department ? `(${template.department})` : ""} - {template.items.length} items
+                            {template.name} {template.department ? `(${template.department})` : ""} - {template.listItemIds.length} items
                           </option>
                         ))
                       

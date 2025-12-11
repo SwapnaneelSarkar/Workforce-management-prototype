@@ -29,6 +29,7 @@ export type OrganizationLocalDbRequisitionTemplate = RequisitionTemplate & {
   organizationId: string
   createdAt: string
   updatedAt: string
+  // Note: RequisitionTemplate now uses listItemIds instead of items
 }
 
 export type OrganizationLocalDbLegacyTemplate = ComplianceTemplate & {
@@ -205,11 +206,35 @@ function createDefaultWalletTemplates(organizationId: string): Record<string, Or
   }, {} as Record<string, OrganizationLocalDbWalletTemplate>)
 }
 
+// Helper function to map item names to compliance list item IDs
+function getComplianceListItemIdByName(name: string): string | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+  try {
+    const { getAllComplianceListItems } = require("@/lib/admin-local-db")
+    const listItems = getAllComplianceListItems()
+    
+    // Map common name variations to actual compliance list item names
+    const nameMapping: Record<string, string> = {
+      "Active RN License": "Registered Nurse License",
+      "RN License": "Registered Nurse License",
+    }
+    
+    const mappedName = nameMapping[name] || name
+    const listItem = listItems.find((item: any) => item.name === mappedName && item.isActive)
+    return listItem?.id || null
+  } catch (error) {
+    console.warn("Failed to get compliance list item ID by name", error)
+    return null
+  }
+}
+
 // Default requisition templates for different occupations
 // These match the legacy templates: "ICU Core Checklist" and "Med Surg Baseline"
 export function createDefaultRequisitionTemplates(organizationId: string): Record<string, OrganizationLocalDbRequisitionTemplate> {
-  const allItems = Object.values(complianceItemsByCategory).flat()
-  const getItem = (name: string): ComplianceItem | undefined => allItems.find(item => item.name === name)
+  // Helper to get compliance list item IDs by name
+  const getListItemId = (name: string): string | null => getComplianceListItemIdByName(name)
   
   const templates: OrganizationLocalDbRequisitionTemplate[] = [
     {
@@ -218,11 +243,11 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "RN",
       department: "ICU",
       organizationId,
-      items: [
-        getItem("Active RN License")!,
-        getItem("ACLS Certification")!,
-        getItem("Background Check")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("Active RN License"),
+        getListItemId("ACLS Certification"),
+        getListItemId("Background Check"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -232,10 +257,10 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "RN",
       department: "Med-Surg",
       organizationId,
-      items: [
-        getItem("Active RN License")!,
-        getItem("CPR Certification")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("Active RN License"),
+        getListItemId("CPR Certification"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -245,14 +270,14 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "RN",
       department: "ICU",
       organizationId,
-      items: [
-        getItem("Active RN License")!,
-        getItem("ACLS Certification")!,
-        getItem("BLS Certification")!,
-        getItem("Background Check")!,
-        getItem("Drug Screening")!,
-        getItem("Immunization Record")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("Active RN License"),
+        getListItemId("ACLS Certification"),
+        getListItemId("BLS Certification"),
+        getListItemId("Background Check"),
+        getListItemId("Drug Screening"),
+        getListItemId("Immunization Record"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -262,15 +287,15 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "RN",
       department: "Emergency",
       organizationId,
-      items: [
-        getItem("Active RN License")!,
-        getItem("ACLS Certification")!,
-        getItem("PALS Certification")!,
-        getItem("TNCC Certification")!,
-        getItem("Background Check")!,
-        getItem("Drug Screening")!,
-        getItem("Immunization Record")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("Active RN License"),
+        getListItemId("ACLS Certification"),
+        getListItemId("PALS Certification"),
+        // Note: TNCC Certification not in compliance list, skipping
+        getListItemId("Background Check"),
+        getListItemId("Drug Screening"),
+        getListItemId("Immunization Record"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -280,14 +305,14 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "LPN",
       department: "Med-Surg",
       organizationId,
-      items: [
-        getItem("LPN License")!,
-        getItem("BLS Certification")!,
-        getItem("CPR Certification")!,
-        getItem("Background Check")!,
-        getItem("Drug Screening")!,
-        getItem("Immunization Record")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("LPN License"),
+        getListItemId("BLS Certification"),
+        getListItemId("CPR Certification"),
+        getListItemId("Background Check"),
+        getListItemId("Drug Screening"),
+        getListItemId("Immunization Record"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -297,13 +322,13 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "CNA",
       department: "Long-term Care",
       organizationId,
-      items: [
-        getItem("CNA License")!,
-        getItem("CPR Certification")!,
-        getItem("Background Check")!,
-        getItem("Drug Screening")!,
-        getItem("Immunization Record")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("CNA License"),
+        getListItemId("CPR Certification"),
+        getListItemId("Background Check"),
+        getListItemId("Drug Screening"),
+        getListItemId("Immunization Record"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },
@@ -313,13 +338,13 @@ export function createDefaultRequisitionTemplates(organizationId: string): Recor
       occupation: "PT",
       department: "Rehabilitation",
       organizationId,
-      items: [
-        getItem("PT License")!,
-        getItem("BLS Certification")!,
-        getItem("Background Check")!,
-        getItem("Drug Screening")!,
-        getItem("Immunization Record")!,
-      ].filter(Boolean),
+      listItemIds: [
+        getListItemId("PT License"),
+        getListItemId("BLS Certification"),
+        getListItemId("Background Check"),
+        getListItemId("Drug Screening"),
+        getListItemId("Immunization Record"),
+      ].filter((id): id is string => id !== null),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     },

@@ -75,7 +75,7 @@ export type RequisitionTemplate = {
   name: string
   department?: string
   occupation?: string
-  items: ComplianceItem[]
+  listItemIds: string[] // References to ComplianceListItem.id from admin module
 }
 
 type DemoDataContextValue = {
@@ -393,7 +393,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
             name: tmpl.name,
             department: tmpl.department,
             occupation: tmpl.occupation,
-            items: tmpl.items,
+            listItemIds: tmpl.listItemIds,
           }))
         console.log(`[Template Sync] Setting ${reqTmpls.length} requisition templates for org ${currentOrganizationId}:`, reqTmpls.map(t => `${t.name} (${t.id})`))
         setRequisitionTemplates(reqTmpls)
@@ -954,7 +954,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         name: payload.name,
         department: payload.department,
         occupation: payload.occupation,
-        items: [],
+        listItemIds: [],
       })
 
       const template: RequisitionTemplate = {
@@ -962,7 +962,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         name: dbTemplate.name,
         department: dbTemplate.department,
         occupation: dbTemplate.occupation,
-        items: dbTemplate.items,
+        listItemIds: dbTemplate.listItemIds,
       }
       
       setRequisitionTemplates((prev) => [...prev, template])
@@ -982,7 +982,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
           name: tmpl.name,
           department: tmpl.department,
           occupation: tmpl.occupation,
-          items: tmpl.items,
+          listItemIds: tmpl.listItemIds,
         }))
         setRequisitionTemplates(reqTmpls)
         return
@@ -1008,18 +1008,26 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const addRequisitionTemplateItem = useCallback((templateId: string, item: ComplianceItem) => {
+    // Extract list item ID from the ComplianceItem (it should have the original list item ID)
+    // The AddItemModal creates items with list item IDs
+    const listItemId = item.id
+    
     // Update in local DB
     if (typeof window !== "undefined" && currentOrganizationId) {
       try {
         const current = requisitionTemplates.find((t) => t.id === templateId)
-        if (current) {
-          updateRequisitionTemplateInDb(templateId, { items: [...current.items, item] })
+        if (current && listItemId) {
+          // Check if already exists
+          if (current.listItemIds.includes(listItemId)) {
+            return
+          }
+          updateRequisitionTemplateInDb(templateId, { listItemIds: [...current.listItemIds, listItemId] })
           // Refresh templates from DB
           const reqTmpls = getRequisitionTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
             id: tmpl.id,
             name: tmpl.name,
             department: tmpl.department,
-            items: tmpl.items,
+            listItemIds: tmpl.listItemIds,
           }))
           setRequisitionTemplates(reqTmpls)
           return
@@ -1029,24 +1037,31 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       }
     }
     // Fallback: Update state directly if DB update fails
-    setRequisitionTemplates((prev) =>
-      prev.map((template) => (template.id === templateId ? { ...template, items: [...template.items, item] } : template)),
-    )
+    if (listItemId) {
+      setRequisitionTemplates((prev) =>
+        prev.map((template) => 
+          template.id === templateId && !template.listItemIds.includes(listItemId)
+            ? { ...template, listItemIds: [...template.listItemIds, listItemId] }
+            : template
+        ),
+      )
+    }
   }, [requisitionTemplates, currentOrganizationId])
 
   const removeRequisitionTemplateItem = useCallback((templateId: string, itemId: string) => {
+    // itemId is the compliance list item ID to remove
     // Update in local DB
     if (typeof window !== "undefined" && currentOrganizationId) {
       try {
         const current = requisitionTemplates.find((t) => t.id === templateId)
         if (current) {
-          updateRequisitionTemplateInDb(templateId, { items: current.items.filter((item) => item.id !== itemId) })
+          updateRequisitionTemplateInDb(templateId, { listItemIds: current.listItemIds.filter((id) => id !== itemId) })
           // Refresh templates from DB
           const reqTmpls = getRequisitionTemplatesByOrganization(currentOrganizationId).map((tmpl) => ({
             id: tmpl.id,
             name: tmpl.name,
             department: tmpl.department,
-            items: tmpl.items,
+            listItemIds: tmpl.listItemIds,
           }))
           setRequisitionTemplates(reqTmpls)
           return
@@ -1057,7 +1072,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
     }
     // Fallback: Update state directly if DB update fails
     setRequisitionTemplates((prev) =>
-      prev.map((template) => (template.id === templateId ? { ...template, items: template.items.filter((item) => item.id !== itemId) } : template)),
+      prev.map((template) => (template.id === templateId ? { ...template, listItemIds: template.listItemIds.filter((id) => id !== itemId) } : template)),
     )
   }, [requisitionTemplates, currentOrganizationId])
 
