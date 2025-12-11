@@ -28,6 +28,7 @@ export default function SpecialtiesPage() {
     code: "",
     acronym: "",
     description: "",
+    group: "",
     isActive: true,
   })
 
@@ -55,6 +56,7 @@ export default function SpecialtiesPage() {
       code: "",
       acronym: "",
       description: "",
+      group: "",
       isActive: true,
     })
     setEditingId(null)
@@ -82,6 +84,7 @@ export default function SpecialtiesPage() {
         code: formData.code.trim(),
         acronym: formData.acronym.trim() || undefined,
         description: formData.description.trim() || undefined,
+        group: formData.group.trim() || undefined,
         isActive: formData.isActive,
       })
       if (updated) {
@@ -97,6 +100,7 @@ export default function SpecialtiesPage() {
         code: formData.code.trim(),
         acronym: formData.acronym.trim() || undefined,
         description: formData.description.trim() || undefined,
+        group: formData.group.trim() || undefined,
         isActive: formData.isActive,
       })
       pushToast({ title: "Success", description: "Specialty added successfully." })
@@ -111,6 +115,7 @@ export default function SpecialtiesPage() {
       code: spec.code,
       acronym: spec.acronym || "",
       description: spec.description || "",
+      group: spec.group || "",
       isActive: spec.isActive,
     })
     setEditingId(spec.id)
@@ -200,6 +205,15 @@ export default function SpecialtiesPage() {
                       onChange={handleInputChange("acronym")}
                       placeholder="e.g., ICU, ER"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-foreground">Group</label>
+                    <Input
+                      value={formData.group}
+                      onChange={handleInputChange("group")}
+                      placeholder="e.g., Critical Care, Medical, Surgical, Support Services"
+                    />
+                    <p className="text-xs text-muted-foreground">Group name for organizing specialties (optional)</p>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -316,6 +330,7 @@ export default function SpecialtiesPage() {
     </>
   )
 }
+
 
 
 

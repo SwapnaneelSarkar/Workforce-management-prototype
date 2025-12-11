@@ -6,6 +6,7 @@ export type Specialty = {
   code: string
   acronym?: string
   description?: string
+  group?: string // Group/category for grouping specialties (e.g., "Critical Care", "Medical", "Surgical")
   isActive: boolean // Active/Inactive toggle
   createdAt: string
   updatedAt: string
@@ -888,6 +889,7 @@ const defaultSpecialties: Specialty[] = [
     code: "ICU",
     acronym: "ICU",
     description: "Intensive Care Unit",
+    group: "Critical Care",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -898,6 +900,7 @@ const defaultSpecialties: Specialty[] = [
     code: "ER",
     acronym: "ER",
     description: "Emergency Room",
+    group: "Critical Care",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -908,6 +911,7 @@ const defaultSpecialties: Specialty[] = [
     code: "TELE",
     acronym: "TELE",
     description: "Telemetry",
+    group: "Medical",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -918,6 +922,7 @@ const defaultSpecialties: Specialty[] = [
     code: "MEDSURG",
     acronym: "MEDSURG",
     description: "Medical-Surgical",
+    group: "Medical",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -928,6 +933,7 @@ const defaultSpecialties: Specialty[] = [
     code: "MONITOR",
     acronym: "MT",
     description: "Monitor Technician",
+    group: "Support Services",
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

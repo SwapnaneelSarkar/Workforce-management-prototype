@@ -376,44 +376,149 @@ export default function OccupationsPage() {
                   
                   {hasSpecialties && (
                     <div className="ml-6 space-y-4 border-l-2 border-border pl-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-foreground">Specialties for this occupation</p>
+                      <div className="space-y-4">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground mb-3">Select specialties for this occupation</p>
+                          
+                          {/* Group specialties by group */}
+                          {(() => {
+                            // Group specialties by their group field
+                            const groupedSpecialties: Record<string, Specialty[]> = {}
+                            const selectedSpecialtyIds = new Set(occupationSpecialties.map(os => os.specialtyId))
+                            
+                            availableSpecialties.forEach((spec) => {
+                              if (!spec.isActive) return
+                              const group = spec.group || "Other"
+                              if (!groupedSpecialties[group]) {
+                                groupedSpecialties[group] = []
+                              }
+                              groupedSpecialties[group].push(spec)
+                            })
+                            
+                            // Sort groups alphabetically
+                            const sortedGroups = Object.keys(groupedSpecialties).sort()
+                            
+                            return (
+                              <div className="space-y-4 max-h-96 overflow-y-auto border border-border rounded-lg p-4">
+                                {sortedGroups.map((group) => (
+                                  <div key={group} className="space-y-2">
+                                    <h4 className="text-xs font-semibold text-foreground uppercase tracking-wide border-b border-border pb-1">
+                                      {group}
+                                    </h4>
+                                    <div className="space-y-1 pl-2">
+                                      {groupedSpecialties[group].map((spec) => {
+                                        const isSelected = selectedSpecialtyIds.has(spec.id)
+                                        return (
+                                          <label
+                                            key={spec.id}
+                                            className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                                              isSelected
+                                                ? "bg-primary/10 border border-primary"
+                                                : "hover:bg-muted/50 border border-transparent"
+                                            }`}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={isSelected}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  // Add specialty
+                                                  setOccupationSpecialties([
+                                                    ...occupationSpecialties,
+                                                    {
+                                                      id: `temp-${Date.now()}-${spec.id}`,
+                                                      specialtyId: spec.id,
+                                                      specialty: spec,
+                                                    },
+                                                  ])
+                                                } else {
+                                                  // Remove specialty
+                                                  setOccupationSpecialties(
+                                                    occupationSpecialties.filter((os) => os.specialtyId !== spec.id)
+                                                  )
+                                                }
+                                              }}
+                                              className="rounded border-border"
+                                            />
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2">
+                                                <span className="text-sm font-medium text-foreground">{spec.name}</span>
+                                                {spec.code && (
+                                                  <span className="text-xs text-muted-foreground font-mono">({spec.code})</span>
+                                                )}
+                                                {spec.acronym && (
+                                                  <span className="text-xs text-muted-foreground">- {spec.acronym}</span>
+                                                )}
+                                              </div>
+                                              {spec.description && (
+                                                <p className="text-xs text-muted-foreground mt-0.5">{spec.description}</p>
+                                              )}
+                                            </div>
+                                          </label>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                                {sortedGroups.length === 0 && (
+                                  <p className="text-sm text-muted-foreground text-center py-4">
+                                    No specialties available. Create specialties in Admin → Specialties first.
+                                  </p>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
                         
+                        {/* Show selected specialties */}
                         {occupationSpecialties.length > 0 && (
                           <div className="space-y-2">
-                            {occupationSpecialties.map((occSpec) => (
-                              <div
-                                key={occSpec.id}
-                                className="flex items-center justify-between rounded-md border border-border p-3 bg-muted/30"
-                              >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-foreground">{occSpec.specialty.name}</span>
-                                    {occSpec.specialty.code && (
-                                      <span className="text-xs text-muted-foreground font-mono">({occSpec.specialty.code})</span>
-                                    )}
-                                    {occSpec.specialty.acronym && (
-                                      <span className="text-xs text-muted-foreground">- {occSpec.specialty.acronym}</span>
+                            <p className="text-sm font-semibold text-foreground">Selected specialties ({occupationSpecialties.length})</p>
+                            <div className="space-y-2">
+                              {occupationSpecialties.map((occSpec) => (
+                                <div
+                                  key={occSpec.id}
+                                  className="flex items-center justify-between rounded-md border border-border p-3 bg-muted/30"
+                                >
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium text-foreground">{occSpec.specialty.name}</span>
+                                      {occSpec.specialty.code && (
+                                        <span className="text-xs text-muted-foreground font-mono">({occSpec.specialty.code})</span>
+                                      )}
+                                      {occSpec.specialty.acronym && (
+                                        <span className="text-xs text-muted-foreground">- {occSpec.specialty.acronym}</span>
+                                      )}
+                                      {occSpec.specialty.group && (
+                                        <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
+                                          {occSpec.specialty.group}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {occSpec.specialty.description && (
+                                      <p className="text-xs text-muted-foreground mt-1">{occSpec.specialty.description}</p>
                                     )}
                                   </div>
+                                  <button
+                                    type="button"
+                                    className="p-1 rounded-md hover:bg-destructive/10 transition-colors ml-2"
+                                    onClick={() => {
+                                      setOccupationSpecialties(occupationSpecialties.filter((os) => os.id !== occSpec.id))
+                                    }}
+                                    title="Remove specialty"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </button>
                                 </div>
-                                <button
-                                  type="button"
-                                  className="p-1 rounded-md hover:bg-destructive/10 transition-colors"
-                                  onClick={() => {
-                                    setOccupationSpecialties(occupationSpecialties.filter((os) => os.id !== occSpec.id))
-                                  }}
-                                  title="Remove specialty"
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </button>
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
                         )}
                         
+                        {/* Option to create new specialty */}
                         {isAddingSpecialty ? (
                           <div className="space-y-3 border border-border rounded-lg p-4 bg-background">
+                            <p className="text-sm font-semibold text-foreground">Create New Specialty</p>
                             <div className="grid gap-3 md:grid-cols-2">
                               <div className="space-y-2">
                                 <label className="text-xs font-semibold text-foreground">Specialty Name</label>
@@ -455,6 +560,7 @@ export default function OccupationsPage() {
                                     name: newSpecialtyData.name.trim(),
                                     code: newSpecialtyData.code.trim(),
                                     acronym: newSpecialtyData.acronym.trim() || undefined,
+                                    group: undefined, // Can be set later in specialties page
                                     isActive: newSpecialtyData.isActive,
                                   })
                                   
@@ -489,50 +595,14 @@ export default function OccupationsPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="space-y-2">
-                            <select
-                              value=""
-                              onChange={(e) => {
-                                const specialtyId = e.target.value
-                                if (!specialtyId) return
-                                
-                                const specialty = availableSpecialties.find((s) => s.id === specialtyId)
-                                if (!specialty) return
-                                
-                                // Check if already added
-                                if (occupationSpecialties.some((os) => os.specialtyId === specialtyId)) {
-                                  pushToast({ title: "Info", description: "This specialty is already added." })
-                                  return
-                                }
-                                
-                                setOccupationSpecialties([
-                                  ...occupationSpecialties,
-                                  {
-                                    id: `temp-${Date.now()}`,
-                                    specialtyId: specialty.id,
-                                    specialty,
-                                  },
-                                ])
-                                e.target.value = ""
-                              }}
-                              className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-                            >
-                              <option value="">Select existing specialty or create new...</option>
-                              {availableSpecialties.map((spec) => (
-                                <option key={spec.id} value={spec.id}>
-                                  {spec.name} {spec.code && `(${spec.code})`}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              className="ph5-button-secondary text-xs w-full"
-                              onClick={() => setIsAddingSpecialty(true)}
-                            >
-                              <Plus className="h-4 w-4 mr-2 inline" />
-                              Create New Specialty
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            className="ph5-button-secondary text-xs w-full"
+                            onClick={() => setIsAddingSpecialty(true)}
+                          >
+                            <Plus className="h-4 w-4 mr-2 inline" />
+                            Create New Specialty
+                          </button>
                         )}
                       </div>
                     </div>
