@@ -21,13 +21,13 @@ type AddItemModalProps = {
 function convertListItemToItem(listItem: ComplianceListItem): ComplianceItem {
   // Map ComplianceListItem category to ComplianceItem type
   let type: ComplianceItem["type"] = "Other"
-  if (listItem.category === "License") {
+  if (listItem.category === "Licenses") {
     type = "License"
-  } else if (listItem.category === "Certification") {
+  } else if (listItem.category === "Certifications") {
     type = "Certification"
-  } else if (listItem.category === "Background & Identification") {
+  } else if (listItem.category === "Background and Identification") {
     type = "Background"
-  } else if (listItem.category === "Training") {
+  } else if (listItem.category === "Education and Assessments") {
     type = "Training"
   } else {
     type = "Other"
@@ -62,11 +62,20 @@ export function AddItemModal({ open, onClose, onAdd, existingItemIds = [] }: Add
     if (open && typeof window !== "undefined") {
       try {
         const items = getAllComplianceListItems()
-        setListItems(items.filter((item) => item.isActive))
+        const activeItems = items.filter((item) => item.isActive)
+        console.log(`[AddItemModal] Loaded ${activeItems.length} active compliance list items out of ${items.length} total`)
+        setListItems(activeItems)
+        if (activeItems.length === 0) {
+          console.warn("[AddItemModal] No active compliance list items found. Make sure items are created in admin panel.")
+        }
       } catch (error) {
-        console.warn("Failed to load compliance list items", error)
+        console.error("Failed to load compliance list items", error)
         setListItems([])
       }
+    } else {
+      // Reset when modal closes
+      setListItems([])
+      setSelectedItemId(null)
     }
   }, [open])
 
@@ -171,9 +180,13 @@ export function AddItemModal({ open, onClose, onAdd, existingItemIds = [] }: Add
             </div>
           )
         })}
-        {availableItems.every(({ items }) => items.length === 0) && (
+        {listItems.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No compliance list items found. Please create items in the Admin → Compliance → List Items section first.
+          </p>
+        ) : availableItems.every(({ items }) => items.length === 0) ? (
           <p className="text-sm text-muted-foreground text-center py-8">All available items have been added.</p>
-        )}
+        ) : null}
       </div>
     </Modal>
   )
