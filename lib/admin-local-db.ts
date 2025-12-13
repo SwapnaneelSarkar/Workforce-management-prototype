@@ -186,6 +186,68 @@ export type User = {
   updatedAt: string
 }
 
+export type VendorUser = {
+  id: string
+  vendorId: string
+  firstName: string
+  lastName: string
+  title: string
+  email: string
+  officePhone?: string
+  mobilePhone?: string
+  status: "Active" | "Inactive"
+  createdAt: string
+  updatedAt: string
+}
+
+export type VendorDocument = {
+  id: string
+  vendorId: string
+  name: string
+  type: "Legal" | "Marketing" | "Finance" | "HR" | "Project" | "Other"
+  uploadedDate: string
+  uploadedBy: string
+  description?: string
+  fileUrl?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type VendorNote = {
+  id: string
+  vendorId: string
+  noteType: "General" | "Billing" | "Issue" | "Request" | "Other"
+  noteMessage: string
+  organization?: string
+  authorName: string
+  date: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type Vendor = {
+  id: string
+  name: string
+  logo?: string
+  industries: string[] // Multi-select industries
+  certifiedBusinessClassifications: string[] // Multi-select classifications
+  aboutVendor?: string
+  isActive: boolean
+  taxIdNumber?: string
+  mainPhoneNumber?: string
+  website?: string
+  address?: string
+  annualRevenue?: string
+  employeeCount?: number
+  internalVendorIdNumber?: string
+  createdDate?: string
+  occupationIds: string[] // Selected occupation IDs
+  activationDate?: string
+  inactivationDate?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type AdminLocalDbState = {
   organizations: Record<string, AdminLocalDbOrganizationEntry>
   occupations: Record<string, Occupation>
@@ -199,6 +261,10 @@ export type AdminLocalDbState = {
   taggingRules: Record<string, TaggingRule>
   tags: Record<string, Tag>
   users: Record<string, User>
+  vendors: Record<string, Vendor>
+  vendorUsers: Record<string, VendorUser>
+  vendorDocuments: Record<string, VendorDocument>
+  vendorNotes: Record<string, VendorNote>
   lastUpdated?: string
 }
 
@@ -1792,7 +1858,1212 @@ const defaultTagsRecord: Record<string, Tag> = defaultTags.reduce(
   {} as Record<string, Tag>,
 )
 
-export const defaultAdminLocalDbState: AdminLocalDbState = {
+export const defaultVendors: Vendor[] = [
+  {
+    id: "vendor-001",
+    name: "Nova Health",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Minority Owned Business", "Certified Women Owned Business"],
+    aboutVendor: "Leading healthcare provider with multiple facilities across the region. We specialize in providing quality healthcare services and workforce solutions. With over 20 years of experience, we have built a reputation for excellence in patient care and staff management.",
+    isActive: true,
+    taxIdNumber: "83-738893",
+    mainPhoneNumber: "602-908-1234",
+    website: "www.novahealth.com",
+    address: "Main Campus - 994 Tustin Avenue, Seattle, WA 98101",
+    annualRevenue: "$25,000,000",
+    employeeCount: 300,
+    internalVendorIdNumber: "12345678",
+    createdDate: "11/30/2023",
+    occupationIds: ["occ-001", "occ-002", "occ-003"],
+    activationDate: "2023-01-15",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "vendor-002",
+    name: "MedStaff Solutions",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Small Business"],
+    aboutVendor: "A premier healthcare staffing agency providing qualified medical professionals to hospitals and clinics nationwide. We focus on matching the right talent with the right opportunities.",
+    isActive: false,
+    taxIdNumber: "45-1234567",
+    mainPhoneNumber: "312-555-0100",
+    website: "www.medstaffsolutions.com",
+    address: "500 Medical Plaza, Chicago, IL 60601",
+    annualRevenue: "$15,000,000",
+    employeeCount: 150,
+    internalVendorIdNumber: "23456789",
+    createdDate: "03/20/2023",
+    occupationIds: ["occ-001", "occ-004", "occ-005"],
+    activationDate: "2023-03-20",
+    inactivationDate: "2024-01-10",
+    createdAt: "2023-03-20T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  {
+    id: "vendor-003",
+    name: "CareFirst Staffing",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Minority Owned Business", "Certified Veteran Owned Business"],
+    aboutVendor: "Dedicated to connecting healthcare facilities with exceptional nursing and allied health professionals. Our team understands the unique needs of healthcare organizations.",
+    isActive: true,
+    taxIdNumber: "12-9876543",
+    mainPhoneNumber: "415-555-0200",
+    website: "www.carefirststaffing.com",
+    address: "123 Healthcare Drive, San Francisco, CA 94102",
+    annualRevenue: "$18,500,000",
+    employeeCount: 200,
+    internalVendorIdNumber: "34567890",
+    createdDate: "02/01/2023",
+    occupationIds: ["occ-002", "occ-005", "occ-006"],
+    activationDate: "2023-02-01",
+    createdAt: "2023-02-01T10:00:00Z",
+    updatedAt: "2023-02-01T10:00:00Z",
+  },
+  {
+    id: "vendor-004",
+    name: "HealthPro Recruiters",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: [],
+    aboutVendor: "Specialized recruitment firm focusing on placing healthcare professionals in permanent and temporary positions. We pride ourselves on our extensive network and personalized service.",
+    isActive: false,
+    taxIdNumber: "78-4567890",
+    mainPhoneNumber: "713-555-0300",
+    website: "www.healthprorecruiters.com",
+    address: "789 Medical Center Blvd, Houston, TX 77030",
+    annualRevenue: "$12,000,000",
+    employeeCount: 120,
+    internalVendorIdNumber: "45678901",
+    createdDate: "04/10/2023",
+    occupationIds: ["occ-003", "occ-007"],
+    activationDate: "2023-04-10",
+    inactivationDate: "2024-02-15",
+    createdAt: "2023-04-10T10:00:00Z",
+    updatedAt: "2024-02-15T10:00:00Z",
+  },
+  {
+    id: "vendor-005",
+    name: "NurseConnect Agency",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Women Owned Business"],
+    aboutVendor: "Women-owned staffing agency specializing in nursing placements. We provide comprehensive support to both healthcare facilities and nursing professionals throughout their careers.",
+    isActive: true,
+    taxIdNumber: "34-5678901",
+    mainPhoneNumber: "305-555-0400",
+    website: "www.nurseconnect.com",
+    address: "456 Nursing Way, Miami, FL 33101",
+    annualRevenue: "$20,000,000",
+    employeeCount: 250,
+    internalVendorIdNumber: "56789012",
+    createdDate: "05/05/2023",
+    occupationIds: ["occ-001", "occ-006", "occ-008"],
+    activationDate: "2023-05-05",
+    createdAt: "2023-05-05T10:00:00Z",
+    updatedAt: "2023-05-05T10:00:00Z",
+  },
+  {
+    id: "vendor-006",
+    name: "Allied Health Partners",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Small Business"],
+    aboutVendor: "Comprehensive healthcare staffing solutions for allied health professionals including physical therapists, occupational therapists, and respiratory therapists.",
+    isActive: false,
+    taxIdNumber: "56-7890123",
+    mainPhoneNumber: "404-555-0500",
+    website: "www.alliedhealthpartners.com",
+    address: "321 Therapy Lane, Atlanta, GA 30309",
+    annualRevenue: "$10,500,000",
+    employeeCount: 100,
+    internalVendorIdNumber: "67890123",
+    createdDate: "06/12/2023",
+    occupationIds: ["occ-002", "occ-007", "occ-008"],
+    activationDate: "2023-06-12",
+    inactivationDate: "2024-03-20",
+    createdAt: "2023-06-12T10:00:00Z",
+    updatedAt: "2024-03-20T10:00:00Z",
+  },
+  {
+    id: "vendor-007",
+    name: "Premier Medical Staffing",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Minority Owned Business"],
+    aboutVendor: "Elite medical staffing agency providing top-tier healthcare professionals to leading medical facilities. Our rigorous screening process ensures only the best candidates.",
+    isActive: true,
+    taxIdNumber: "90-1234567",
+    mainPhoneNumber: "617-555-0600",
+    website: "www.premiermedicalstaffing.com",
+    address: "888 Medical Plaza, Boston, MA 02115",
+    annualRevenue: "$30,000,000",
+    employeeCount: 400,
+    internalVendorIdNumber: "78901234",
+    createdDate: "07/19/2023",
+    occupationIds: ["occ-003", "occ-008", "occ-001"],
+    activationDate: "2023-07-19",
+    createdAt: "2023-07-19T10:00:00Z",
+    updatedAt: "2023-07-19T10:00:00Z",
+  },
+  {
+    id: "vendor-008",
+    name: "Global Healthcare Resources",
+    industries: ["Healthcare", "Technology"],
+    certifiedBusinessClassifications: ["Certified Minority Owned Business", "Certified Small Business"],
+    aboutVendor: "International healthcare staffing and technology solutions provider. We combine cutting-edge technology with personalized service to deliver exceptional results.",
+    isActive: true,
+    taxIdNumber: "23-4567890",
+    mainPhoneNumber: "212-555-0700",
+    website: "www.globalhealthcare.com",
+    address: "1000 Healthcare Tower, New York, NY 10001",
+    annualRevenue: "$45,000,000",
+    employeeCount: 500,
+    internalVendorIdNumber: "89012345",
+    createdDate: "08/10/2023",
+    occupationIds: ["occ-001", "occ-002", "occ-003", "occ-004", "occ-005"],
+    activationDate: "2023-08-10",
+    createdAt: "2023-08-10T10:00:00Z",
+    updatedAt: "2023-08-10T10:00:00Z",
+  },
+  {
+    id: "vendor-009",
+    name: "Regional Medical Staffing",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: ["Certified Women Owned Business"],
+    aboutVendor: "Regional leader in healthcare staffing with deep roots in the community. We understand local healthcare needs and provide tailored staffing solutions.",
+    isActive: true,
+    taxIdNumber: "67-8901234",
+    mainPhoneNumber: "503-555-0800",
+    website: "www.regionalmedical.com",
+    address: "555 Regional Center, Portland, OR 97201",
+    annualRevenue: "$14,000,000",
+    employeeCount: 180,
+    internalVendorIdNumber: "90123456",
+    createdDate: "09/15/2023",
+    occupationIds: ["occ-001", "occ-006"],
+    activationDate: "2023-09-15",
+    createdAt: "2023-09-15T10:00:00Z",
+    updatedAt: "2023-09-15T10:00:00Z",
+  },
+  {
+    id: "vendor-010",
+    name: "Elite Nursing Services",
+    industries: ["Healthcare"],
+    certifiedBusinessClassifications: [],
+    aboutVendor: "Specialized nursing agency providing highly qualified registered nurses, nurse practitioners, and nursing assistants to healthcare facilities across the region.",
+    isActive: true,
+    taxIdNumber: "89-0123456",
+    mainPhoneNumber: "214-555-0900",
+    website: "www.elitenursing.com",
+    address: "777 Nursing Boulevard, Dallas, TX 75201",
+    annualRevenue: "$22,000,000",
+    employeeCount: 280,
+    internalVendorIdNumber: "01234567",
+    createdDate: "10/20/2023",
+    occupationIds: ["occ-001", "occ-002", "occ-005"],
+    activationDate: "2023-10-20",
+    createdAt: "2023-10-20T10:00:00Z",
+    updatedAt: "2023-10-20T10:00:00Z",
+  },
+]
+
+const defaultVendorsRecord: Record<string, Vendor> = defaultVendors.reduce(
+  (acc, vendor) => {
+    acc[vendor.id] = vendor
+    return acc
+  },
+  {} as Record<string, Vendor>
+)
+
+const defaultVendorUsers: VendorUser[] = [
+  // Nova Health (vendor-001)
+  {
+    id: "vuser-001",
+    vendorId: "vendor-001",
+    firstName: "Alice",
+    lastName: "Williams",
+    title: "CEO",
+    email: "alice.w@example.com",
+    officePhone: "555-123-4567",
+    mobilePhone: "555-987-6543",
+    status: "Active",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "vuser-002",
+    vendorId: "vendor-001",
+    firstName: "Bob",
+    lastName: "Brown",
+    title: "Marketing Specialist",
+    email: "bob.b@example.com",
+    officePhone: "123-987-6543",
+    mobilePhone: "456-789-0123",
+    status: "Active",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "vuser-003",
+    vendorId: "vendor-001",
+    firstName: "Charlie",
+    lastName: "Davis",
+    title: "HR Manager",
+    email: "charlie.d@example.com",
+    officePhone: "777-888-9999",
+    mobilePhone: "111-222-3333",
+    status: "Active",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "vuser-004",
+    vendorId: "vendor-001",
+    firstName: "Diana",
+    lastName: "Miller",
+    title: "CTO",
+    email: "diana.m@example.com",
+    officePhone: "222-333-4444",
+    mobilePhone: "555-666-7777",
+    status: "Active",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "vuser-005",
+    vendorId: "vendor-001",
+    firstName: "Eve",
+    lastName: "Wilson",
+    title: "Financial Analyst",
+    email: "eve.w@example.com",
+    officePhone: "333-444-5555",
+    mobilePhone: "888-999-0000",
+    status: "Active",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  // MedStaff Solutions (vendor-002)
+  {
+    id: "vuser-006",
+    vendorId: "vendor-002",
+    firstName: "Frank",
+    lastName: "Garcia",
+    title: "Operations Director",
+    email: "frank.g@medstaff.com",
+    officePhone: "312-555-0101",
+    mobilePhone: "312-555-0102",
+    status: "Inactive",
+    createdAt: "2023-03-20T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  {
+    id: "vuser-007",
+    vendorId: "vendor-002",
+    firstName: "Grace",
+    lastName: "Martinez",
+    title: "Recruitment Manager",
+    email: "grace.m@medstaff.com",
+    officePhone: "312-555-0103",
+    mobilePhone: "312-555-0104",
+    status: "Inactive",
+    createdAt: "2023-03-20T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  // CareFirst Staffing (vendor-003)
+  {
+    id: "vuser-008",
+    vendorId: "vendor-003",
+    firstName: "Henry",
+    lastName: "Rodriguez",
+    title: "President",
+    email: "henry.r@carefirst.com",
+    officePhone: "415-555-0201",
+    mobilePhone: "415-555-0202",
+    status: "Active",
+    createdAt: "2023-02-01T10:00:00Z",
+    updatedAt: "2023-02-01T10:00:00Z",
+  },
+  {
+    id: "vuser-009",
+    vendorId: "vendor-003",
+    firstName: "Iris",
+    lastName: "Lee",
+    title: "Business Development Manager",
+    email: "iris.l@carefirst.com",
+    officePhone: "415-555-0203",
+    mobilePhone: "415-555-0204",
+    status: "Active",
+    createdAt: "2023-02-01T10:00:00Z",
+    updatedAt: "2023-02-01T10:00:00Z",
+  },
+  // HealthPro Recruiters (vendor-004)
+  {
+    id: "vuser-010",
+    vendorId: "vendor-004",
+    firstName: "Jack",
+    lastName: "Taylor",
+    title: "Managing Director",
+    email: "jack.t@healthpro.com",
+    officePhone: "713-555-0301",
+    mobilePhone: "713-555-0302",
+    status: "Inactive",
+    createdAt: "2023-04-10T10:00:00Z",
+    updatedAt: "2024-02-15T10:00:00Z",
+  },
+  // NurseConnect Agency (vendor-005)
+  {
+    id: "vuser-011",
+    vendorId: "vendor-005",
+    firstName: "Karen",
+    lastName: "Anderson",
+    title: "Founder & CEO",
+    email: "karen.a@nurseconnect.com",
+    officePhone: "305-555-0401",
+    mobilePhone: "305-555-0402",
+    status: "Active",
+    createdAt: "2023-05-05T10:00:00Z",
+    updatedAt: "2023-05-05T10:00:00Z",
+  },
+  {
+    id: "vuser-012",
+    vendorId: "vendor-005",
+    firstName: "Larry",
+    lastName: "Thomas",
+    title: "Operations Manager",
+    email: "larry.t@nurseconnect.com",
+    officePhone: "305-555-0403",
+    mobilePhone: "305-555-0404",
+    status: "Active",
+    createdAt: "2023-05-05T10:00:00Z",
+    updatedAt: "2023-05-05T10:00:00Z",
+  },
+  // Allied Health Partners (vendor-006)
+  {
+    id: "vuser-013",
+    vendorId: "vendor-006",
+    firstName: "Maria",
+    lastName: "Jackson",
+    title: "Director of Recruiting",
+    email: "maria.j@alliedhealth.com",
+    officePhone: "404-555-0501",
+    mobilePhone: "404-555-0502",
+    status: "Inactive",
+    createdAt: "2023-06-12T10:00:00Z",
+    updatedAt: "2024-03-20T10:00:00Z",
+  },
+  // Premier Medical Staffing (vendor-007)
+  {
+    id: "vuser-014",
+    vendorId: "vendor-007",
+    firstName: "Nathan",
+    lastName: "White",
+    title: "CEO",
+    email: "nathan.w@premiermedical.com",
+    officePhone: "617-555-0601",
+    mobilePhone: "617-555-0602",
+    status: "Active",
+    createdAt: "2023-07-19T10:00:00Z",
+    updatedAt: "2023-07-19T10:00:00Z",
+  },
+  {
+    id: "vuser-015",
+    vendorId: "vendor-007",
+    firstName: "Olivia",
+    lastName: "Harris",
+    title: "VP of Operations",
+    email: "olivia.h@premiermedical.com",
+    officePhone: "617-555-0603",
+    mobilePhone: "617-555-0604",
+    status: "Active",
+    createdAt: "2023-07-19T10:00:00Z",
+    updatedAt: "2023-07-19T10:00:00Z",
+  },
+  {
+    id: "vuser-016",
+    vendorId: "vendor-007",
+    firstName: "Paul",
+    lastName: "Martin",
+    title: "Client Relations Manager",
+    email: "paul.m@premiermedical.com",
+    officePhone: "617-555-0605",
+    mobilePhone: "617-555-0606",
+    status: "Active",
+    createdAt: "2023-07-19T10:00:00Z",
+    updatedAt: "2023-07-19T10:00:00Z",
+  },
+  // Global Healthcare Resources (vendor-008)
+  {
+    id: "vuser-017",
+    vendorId: "vendor-008",
+    firstName: "Quinn",
+    lastName: "Thompson",
+    title: "Chief Executive Officer",
+    email: "quinn.t@globalhealthcare.com",
+    officePhone: "212-555-0701",
+    mobilePhone: "212-555-0702",
+    status: "Active",
+    createdAt: "2023-08-10T10:00:00Z",
+    updatedAt: "2023-08-10T10:00:00Z",
+  },
+  {
+    id: "vuser-018",
+    vendorId: "vendor-008",
+    firstName: "Rachel",
+    lastName: "Garcia",
+    title: "Chief Technology Officer",
+    email: "rachel.g@globalhealthcare.com",
+    officePhone: "212-555-0703",
+    mobilePhone: "212-555-0704",
+    status: "Active",
+    createdAt: "2023-08-10T10:00:00Z",
+    updatedAt: "2023-08-10T10:00:00Z",
+  },
+  {
+    id: "vuser-019",
+    vendorId: "vendor-008",
+    firstName: "Samuel",
+    lastName: "Martinez",
+    title: "Director of Staffing",
+    email: "samuel.m@globalhealthcare.com",
+    officePhone: "212-555-0705",
+    mobilePhone: "212-555-0706",
+    status: "Active",
+    createdAt: "2023-08-10T10:00:00Z",
+    updatedAt: "2023-08-10T10:00:00Z",
+  },
+  // Regional Medical Staffing (vendor-009)
+  {
+    id: "vuser-020",
+    vendorId: "vendor-009",
+    firstName: "Tina",
+    lastName: "Robinson",
+    title: "President",
+    email: "tina.r@regionalmedical.com",
+    officePhone: "503-555-0801",
+    mobilePhone: "503-555-0802",
+    status: "Active",
+    createdAt: "2023-09-15T10:00:00Z",
+    updatedAt: "2023-09-15T10:00:00Z",
+  },
+  {
+    id: "vuser-021",
+    vendorId: "vendor-009",
+    firstName: "Victor",
+    lastName: "Clark",
+    title: "Recruitment Coordinator",
+    email: "victor.c@regionalmedical.com",
+    officePhone: "503-555-0803",
+    mobilePhone: "503-555-0804",
+    status: "Active",
+    createdAt: "2023-09-15T10:00:00Z",
+    updatedAt: "2023-09-15T10:00:00Z",
+  },
+  // Elite Nursing Services (vendor-010)
+  {
+    id: "vuser-022",
+    vendorId: "vendor-010",
+    firstName: "Wendy",
+    lastName: "Lewis",
+    title: "CEO",
+    email: "wendy.l@elitenursing.com",
+    officePhone: "214-555-0901",
+    mobilePhone: "214-555-0902",
+    status: "Active",
+    createdAt: "2023-10-20T10:00:00Z",
+    updatedAt: "2023-10-20T10:00:00Z",
+  },
+  {
+    id: "vuser-023",
+    vendorId: "vendor-010",
+    firstName: "Xavier",
+    lastName: "Walker",
+    title: "Operations Director",
+    email: "xavier.w@elitenursing.com",
+    officePhone: "214-555-0903",
+    mobilePhone: "214-555-0904",
+    status: "Active",
+    createdAt: "2023-10-20T10:00:00Z",
+    updatedAt: "2023-10-20T10:00:00Z",
+  },
+  {
+    id: "vuser-024",
+    vendorId: "vendor-010",
+    firstName: "Yvonne",
+    lastName: "Hall",
+    title: "Client Success Manager",
+    email: "yvonne.h@elitenursing.com",
+    officePhone: "214-555-0905",
+    mobilePhone: "214-555-0906",
+    status: "Active",
+    createdAt: "2023-10-20T10:00:00Z",
+    updatedAt: "2023-10-20T10:00:00Z",
+  },
+]
+
+const defaultVendorUsersRecord: Record<string, VendorUser> = defaultVendorUsers.reduce(
+  (acc, user) => {
+    acc[user.id] = user
+    return acc
+  },
+  {} as Record<string, VendorUser>
+)
+
+const defaultVendorDocuments: VendorDocument[] = [
+  // Nova Health (vendor-001)
+  {
+    id: "vdoc-001",
+    vendorId: "vendor-001",
+    name: "Contract_2023_Q4.pdf",
+    type: "Legal",
+    uploadedDate: "2023-11-28",
+    uploadedBy: "Alice Johnson",
+    description: "Quarterly sales contract for Q4 2023.",
+    createdAt: "2023-11-28T10:00:00Z",
+    updatedAt: "2023-11-28T10:00:00Z",
+  },
+  {
+    id: "vdoc-002",
+    vendorId: "vendor-001",
+    name: "Marketing_Campaign_Report.xlsx",
+    type: "Marketing",
+    uploadedDate: "2023-11-25",
+    uploadedBy: "Bob Williams",
+    description: "Performance report for recent marketing campaign.",
+    createdAt: "2023-11-25T10:00:00Z",
+    updatedAt: "2023-11-25T10:00:00Z",
+  },
+  {
+    id: "vdoc-003",
+    vendorId: "vendor-001",
+    name: "Financial_Statement_Q3.docx",
+    type: "Finance",
+    uploadedDate: "2023-10-15",
+    uploadedBy: "Charlie Brown",
+    description: "Third quarter financial statement.",
+    createdAt: "2023-10-15T10:00:00Z",
+    updatedAt: "2023-10-15T10:00:00Z",
+  },
+  {
+    id: "vdoc-004",
+    vendorId: "vendor-001",
+    name: "HR_Policy_Update.pdf",
+    type: "HR",
+    uploadedDate: "2023-09-01",
+    uploadedBy: "Diana Miller",
+    description: "Updated HR policies and procedures.",
+    createdAt: "2023-09-01T10:00:00Z",
+    updatedAt: "2023-09-01T10:00:00Z",
+  },
+  {
+    id: "vdoc-005",
+    vendorId: "vendor-001",
+    name: "Project_Plan_Alpha.pptx",
+    type: "Project",
+    uploadedDate: "2023-08-20",
+    uploadedBy: "Eve Davis",
+    description: "Detailed project plan for Project Alpha.",
+    createdAt: "2023-08-20T10:00:00Z",
+    updatedAt: "2023-08-20T10:00:00Z",
+  },
+  // MedStaff Solutions (vendor-002)
+  {
+    id: "vdoc-006",
+    vendorId: "vendor-002",
+    name: "Service_Agreement_2023.pdf",
+    type: "Legal",
+    uploadedDate: "2023-03-25",
+    uploadedBy: "Frank Garcia",
+    description: "Master service agreement for 2023.",
+    createdAt: "2023-03-25T10:00:00Z",
+    updatedAt: "2023-03-25T10:00:00Z",
+  },
+  {
+    id: "vdoc-007",
+    vendorId: "vendor-002",
+    name: "Quarterly_Report_Q1_2023.xlsx",
+    type: "Finance",
+    uploadedDate: "2023-04-15",
+    uploadedBy: "Grace Martinez",
+    description: "First quarter financial report.",
+    createdAt: "2023-04-15T10:00:00Z",
+    updatedAt: "2023-04-15T10:00:00Z",
+  },
+  // CareFirst Staffing (vendor-003)
+  {
+    id: "vdoc-008",
+    vendorId: "vendor-003",
+    name: "Partnership_Agreement.pdf",
+    type: "Legal",
+    uploadedDate: "2023-02-10",
+    uploadedBy: "Henry Rodriguez",
+    description: "Strategic partnership agreement with major hospital network.",
+    createdAt: "2023-02-10T10:00:00Z",
+    updatedAt: "2023-02-10T10:00:00Z",
+  },
+  {
+    id: "vdoc-009",
+    vendorId: "vendor-003",
+    name: "Marketing_Strategy_2023.pdf",
+    type: "Marketing",
+    uploadedDate: "2023-02-15",
+    uploadedBy: "Iris Lee",
+    description: "Annual marketing strategy and campaign plan.",
+    createdAt: "2023-02-15T10:00:00Z",
+    updatedAt: "2023-02-15T10:00:00Z",
+  },
+  {
+    id: "vdoc-010",
+    vendorId: "vendor-003",
+    name: "Compliance_Certification.pdf",
+    type: "Legal",
+    uploadedDate: "2023-02-20",
+    uploadedBy: "Henry Rodriguez",
+    description: "Healthcare compliance certification document.",
+    createdAt: "2023-02-20T10:00:00Z",
+    updatedAt: "2023-02-20T10:00:00Z",
+  },
+  // HealthPro Recruiters (vendor-004)
+  {
+    id: "vdoc-011",
+    vendorId: "vendor-004",
+    name: "Business_Plan_2023.docx",
+    type: "Project",
+    uploadedDate: "2023-04-20",
+    uploadedBy: "Jack Taylor",
+    description: "Annual business plan and growth strategy.",
+    createdAt: "2023-04-20T10:00:00Z",
+    updatedAt: "2023-04-20T10:00:00Z",
+  },
+  // NurseConnect Agency (vendor-005)
+  {
+    id: "vdoc-012",
+    vendorId: "vendor-005",
+    name: "Vendor_Agreement_2023.pdf",
+    type: "Legal",
+    uploadedDate: "2023-05-10",
+    uploadedBy: "Karen Anderson",
+    description: "Vendor agreement and terms of service.",
+    createdAt: "2023-05-10T10:00:00Z",
+    updatedAt: "2023-05-10T10:00:00Z",
+  },
+  {
+    id: "vdoc-013",
+    vendorId: "vendor-005",
+    name: "HR_Handbook_2023.pdf",
+    type: "HR",
+    uploadedDate: "2023-05-15",
+    uploadedBy: "Larry Thomas",
+    description: "Updated employee handbook and policies.",
+    createdAt: "2023-05-15T10:00:00Z",
+    updatedAt: "2023-05-15T10:00:00Z",
+  },
+  {
+    id: "vdoc-014",
+    vendorId: "vendor-005",
+    name: "Financial_Audit_2023.pdf",
+    type: "Finance",
+    uploadedDate: "2023-06-01",
+    uploadedBy: "Karen Anderson",
+    description: "Annual financial audit report.",
+    createdAt: "2023-06-01T10:00:00Z",
+    updatedAt: "2023-06-01T10:00:00Z",
+  },
+  // Allied Health Partners (vendor-006)
+  {
+    id: "vdoc-015",
+    vendorId: "vendor-006",
+    name: "Service_Contract_2023.pdf",
+    type: "Legal",
+    uploadedDate: "2023-06-20",
+    uploadedBy: "Maria Jackson",
+    description: "Service contract for 2023 fiscal year.",
+    createdAt: "2023-06-20T10:00:00Z",
+    updatedAt: "2023-06-20T10:00:00Z",
+  },
+  // Premier Medical Staffing (vendor-007)
+  {
+    id: "vdoc-016",
+    vendorId: "vendor-007",
+    name: "Master_Agreement_2023.pdf",
+    type: "Legal",
+    uploadedDate: "2023-07-25",
+    uploadedBy: "Nathan White",
+    description: "Master service agreement with healthcare facilities.",
+    createdAt: "2023-07-25T10:00:00Z",
+    updatedAt: "2023-07-25T10:00:00Z",
+  },
+  {
+    id: "vdoc-017",
+    vendorId: "vendor-007",
+    name: "Marketing_Presentation_2023.pptx",
+    type: "Marketing",
+    uploadedDate: "2023-08-01",
+    uploadedBy: "Olivia Harris",
+    description: "Annual marketing presentation and strategy.",
+    createdAt: "2023-08-01T10:00:00Z",
+    updatedAt: "2023-08-01T10:00:00Z",
+  },
+  {
+    id: "vdoc-018",
+    vendorId: "vendor-007",
+    name: "Quarterly_Financial_Report_Q3.xlsx",
+    type: "Finance",
+    uploadedDate: "2023-10-05",
+    uploadedBy: "Paul Martin",
+    description: "Third quarter financial performance report.",
+    createdAt: "2023-10-05T10:00:00Z",
+    updatedAt: "2023-10-05T10:00:00Z",
+  },
+  {
+    id: "vdoc-019",
+    vendorId: "vendor-007",
+    name: "HR_Compliance_Report.pdf",
+    type: "HR",
+    uploadedDate: "2023-09-15",
+    uploadedBy: "Olivia Harris",
+    description: "HR compliance and audit report.",
+    createdAt: "2023-09-15T10:00:00Z",
+    updatedAt: "2023-09-15T10:00:00Z",
+  },
+  // Global Healthcare Resources (vendor-008)
+  {
+    id: "vdoc-020",
+    vendorId: "vendor-008",
+    name: "Corporate_Presentation_2023.pptx",
+    type: "Marketing",
+    uploadedDate: "2023-08-15",
+    uploadedBy: "Quinn Thompson",
+    description: "Corporate overview and capabilities presentation.",
+    createdAt: "2023-08-15T10:00:00Z",
+    updatedAt: "2023-08-15T10:00:00Z",
+  },
+  {
+    id: "vdoc-021",
+    vendorId: "vendor-008",
+    name: "Technology_Platform_Overview.pdf",
+    type: "Project",
+    uploadedDate: "2023-08-20",
+    uploadedBy: "Rachel Garcia",
+    description: "Technology platform and system documentation.",
+    createdAt: "2023-08-20T10:00:00Z",
+    updatedAt: "2023-08-20T10:00:00Z",
+  },
+  {
+    id: "vdoc-022",
+    vendorId: "vendor-008",
+    name: "Financial_Statement_2023.pdf",
+    type: "Finance",
+    uploadedDate: "2023-09-30",
+    uploadedBy: "Samuel Martinez",
+    description: "Annual financial statement and audit.",
+    createdAt: "2023-09-30T10:00:00Z",
+    updatedAt: "2023-09-30T10:00:00Z",
+  },
+  // Regional Medical Staffing (vendor-009)
+  {
+    id: "vdoc-023",
+    vendorId: "vendor-009",
+    name: "Partnership_Proposal_2023.pdf",
+    type: "Project",
+    uploadedDate: "2023-09-20",
+    uploadedBy: "Tina Robinson",
+    description: "Strategic partnership proposal document.",
+    createdAt: "2023-09-20T10:00:00Z",
+    updatedAt: "2023-09-20T10:00:00Z",
+  },
+  {
+    id: "vdoc-024",
+    vendorId: "vendor-009",
+    name: "Service_Agreement_Template.pdf",
+    type: "Legal",
+    uploadedDate: "2023-09-25",
+    uploadedBy: "Victor Clark",
+    description: "Standard service agreement template.",
+    createdAt: "2023-09-25T10:00:00Z",
+    updatedAt: "2023-09-25T10:00:00Z",
+  },
+  // Elite Nursing Services (vendor-010)
+  {
+    id: "vdoc-025",
+    vendorId: "vendor-010",
+    name: "Vendor_Contract_2023.pdf",
+    type: "Legal",
+    uploadedDate: "2023-10-25",
+    uploadedBy: "Wendy Lewis",
+    description: "Vendor contract and service agreement.",
+    createdAt: "2023-10-25T10:00:00Z",
+    updatedAt: "2023-10-25T10:00:00Z",
+  },
+  {
+    id: "vdoc-026",
+    vendorId: "vendor-010",
+    name: "Marketing_Materials_2023.pdf",
+    type: "Marketing",
+    uploadedDate: "2023-11-01",
+    uploadedBy: "Xavier Walker",
+    description: "Marketing materials and brand guidelines.",
+    createdAt: "2023-11-01T10:00:00Z",
+    updatedAt: "2023-11-01T10:00:00Z",
+  },
+  {
+    id: "vdoc-027",
+    vendorId: "vendor-010",
+    name: "Financial_Report_Q4_2023.xlsx",
+    type: "Finance",
+    uploadedDate: "2023-12-15",
+    uploadedBy: "Yvonne Hall",
+    description: "Fourth quarter financial report.",
+    createdAt: "2023-12-15T10:00:00Z",
+    updatedAt: "2023-12-15T10:00:00Z",
+  },
+]
+
+const defaultVendorDocumentsRecord: Record<string, VendorDocument> = defaultVendorDocuments.reduce(
+  (acc, doc) => {
+    acc[doc.id] = doc
+    return acc
+  },
+  {} as Record<string, VendorDocument>
+)
+
+const defaultVendorNotes: VendorNote[] = [
+  // Nova Health (vendor-001)
+  {
+    id: "vnote-001",
+    vendorId: "vendor-001",
+    noteType: "General",
+    noteMessage: "Meeting notes on project alpha progress. Discussed expansion plans and staffing requirements for Q1 2024.",
+    organization: "Acme Corp",
+    authorName: "John Doe",
+    date: "Nov 20, 2023",
+    createdAt: "2023-11-20T10:00:00Z",
+    updatedAt: "2023-11-20T10:00:00Z",
+  },
+  {
+    id: "vnote-002",
+    vendorId: "vendor-001",
+    noteType: "Billing",
+    noteMessage: "Reviewed billing statements for Q3. All invoices processed correctly. Payment received on time.",
+    organization: "Beta Solutions",
+    authorName: "Jane Smith",
+    date: "Nov 19, 2023",
+    createdAt: "2023-11-19T10:00:00Z",
+    updatedAt: "2023-11-19T10:00:00Z",
+  },
+  {
+    id: "vnote-003",
+    vendorId: "vendor-001",
+    noteType: "Issue",
+    noteMessage: "Reported staffing shortage for night shifts. Working on recruitment to fill positions.",
+    organization: "Gamma Inc.",
+    authorName: "Alice Brown",
+    date: "Nov 18, 2023",
+    createdAt: "2023-11-18T10:00:00Z",
+    updatedAt: "2023-11-18T10:00:00Z",
+  },
+  {
+    id: "vnote-004",
+    vendorId: "vendor-001",
+    noteType: "Request",
+    noteMessage: "Client requested additional RN coverage for ICU unit. Reviewing availability and scheduling.",
+    organization: "Delta Systems",
+    authorName: "Bob White",
+    date: "Nov 17, 2023",
+    createdAt: "2023-11-17T10:00:00Z",
+    updatedAt: "2023-11-17T10:00:00Z",
+  },
+  {
+    id: "vnote-005",
+    vendorId: "vendor-001",
+    noteType: "General",
+    noteMessage: "Quarterly review meeting scheduled for next week. Preparing performance metrics and reports.",
+    organization: "Acme Corp",
+    authorName: "John Doe",
+    date: "Nov 16, 2023",
+    createdAt: "2023-11-16T10:00:00Z",
+    updatedAt: "2023-11-16T10:00:00Z",
+  },
+  // MedStaff Solutions (vendor-002)
+  {
+    id: "vnote-006",
+    vendorId: "vendor-002",
+    noteType: "General",
+    noteMessage: "Initial onboarding meeting completed. Discussed service expectations and contract terms.",
+    organization: "Memorial Health System",
+    authorName: "Frank Garcia",
+    date: "Mar 25, 2023",
+    createdAt: "2023-03-25T10:00:00Z",
+    updatedAt: "2023-03-25T10:00:00Z",
+  },
+  {
+    id: "vnote-007",
+    vendorId: "vendor-002",
+    noteType: "Issue",
+    noteMessage: "Contract termination notice received. Final services to be completed by end of month.",
+    organization: "Memorial Health System",
+    authorName: "Grace Martinez",
+    date: "Dec 15, 2023",
+    createdAt: "2023-12-15T10:00:00Z",
+    updatedAt: "2023-12-15T10:00:00Z",
+  },
+  // CareFirst Staffing (vendor-003)
+  {
+    id: "vnote-008",
+    vendorId: "vendor-003",
+    noteType: "General",
+    noteMessage: "New partnership agreement signed. Excited to begin collaboration on staffing solutions.",
+    organization: "Nova Health",
+    authorName: "Henry Rodriguez",
+    date: "Feb 10, 2023",
+    createdAt: "2023-02-10T10:00:00Z",
+    updatedAt: "2023-02-10T10:00:00Z",
+  },
+  {
+    id: "vnote-009",
+    vendorId: "vendor-003",
+    noteType: "Request",
+    noteMessage: "Client requested specialized training for staff. Coordinating training program schedule.",
+    organization: "Nova Health",
+    authorName: "Iris Lee",
+    date: "Oct 15, 2023",
+    createdAt: "2023-10-15T10:00:00Z",
+    updatedAt: "2023-10-15T10:00:00Z",
+  },
+  {
+    id: "vnote-010",
+    vendorId: "vendor-003",
+    noteType: "Billing",
+    noteMessage: "Monthly billing cycle completed. All invoices submitted and approved.",
+    organization: "Nova Health",
+    authorName: "Henry Rodriguez",
+    date: "Nov 1, 2023",
+    createdAt: "2023-11-01T10:00:00Z",
+    updatedAt: "2023-11-01T10:00:00Z",
+  },
+  // HealthPro Recruiters (vendor-004)
+  {
+    id: "vnote-011",
+    vendorId: "vendor-004",
+    noteType: "General",
+    noteMessage: "Initial consultation completed. Discussed staffing needs and service capabilities.",
+    organization: "Vitality Health Group",
+    authorName: "Jack Taylor",
+    date: "Apr 15, 2023",
+    createdAt: "2023-04-15T10:00:00Z",
+    updatedAt: "2023-04-15T10:00:00Z",
+  },
+  // NurseConnect Agency (vendor-005)
+  {
+    id: "vnote-012",
+    vendorId: "vendor-005",
+    noteType: "General",
+    noteMessage: "Quarterly business review meeting. Discussed performance metrics and growth opportunities.",
+    organization: "Memorial Health System",
+    authorName: "Karen Anderson",
+    date: "Aug 10, 2023",
+    createdAt: "2023-08-10T10:00:00Z",
+    updatedAt: "2023-08-10T10:00:00Z",
+  },
+  {
+    id: "vnote-013",
+    vendorId: "vendor-005",
+    noteType: "Request",
+    noteMessage: "Client requested additional nursing staff for emergency department. Working on placement.",
+    organization: "Memorial Health System",
+    authorName: "Larry Thomas",
+    date: "Sep 20, 2023",
+    createdAt: "2023-09-20T10:00:00Z",
+    updatedAt: "2023-09-20T10:00:00Z",
+  },
+  {
+    id: "vnote-014",
+    vendorId: "vendor-005",
+    noteType: "Billing",
+    noteMessage: "Payment received for September services. All invoices current.",
+    organization: "Memorial Health System",
+    authorName: "Karen Anderson",
+    date: "Oct 5, 2023",
+    createdAt: "2023-10-05T10:00:00Z",
+    updatedAt: "2023-10-05T10:00:00Z",
+  },
+  // Allied Health Partners (vendor-006)
+  {
+    id: "vnote-015",
+    vendorId: "vendor-006",
+    noteType: "General",
+    noteMessage: "Service agreement signed. Beginning staffing services next month.",
+    organization: "Vitality Health Group",
+    authorName: "Maria Jackson",
+    date: "Jun 20, 2023",
+    createdAt: "2023-06-20T10:00:00Z",
+    updatedAt: "2023-06-20T10:00:00Z",
+  },
+  // Premier Medical Staffing (vendor-007)
+  {
+    id: "vnote-016",
+    vendorId: "vendor-007",
+    noteType: "General",
+    noteMessage: "Strategic partnership meeting. Discussed long-term collaboration and expansion plans.",
+    organization: "Nova Health",
+    authorName: "Nathan White",
+    date: "Aug 5, 2023",
+    createdAt: "2023-08-05T10:00:00Z",
+    updatedAt: "2023-08-05T10:00:00Z",
+  },
+  {
+    id: "vnote-017",
+    vendorId: "vendor-007",
+    noteType: "Request",
+    noteMessage: "Client requested specialized medical professionals for cardiac unit. Screening candidates.",
+    organization: "Nova Health",
+    authorName: "Olivia Harris",
+    date: "Sep 10, 2023",
+    createdAt: "2023-09-10T10:00:00Z",
+    updatedAt: "2023-09-10T10:00:00Z",
+  },
+  {
+    id: "vnote-018",
+    vendorId: "vendor-007",
+    noteType: "Billing",
+    noteMessage: "Monthly billing completed. All services invoiced and payment terms confirmed.",
+    organization: "Nova Health",
+    authorName: "Paul Martin",
+    date: "Oct 1, 2023",
+    createdAt: "2023-10-01T10:00:00Z",
+    updatedAt: "2023-10-01T10:00:00Z",
+  },
+  {
+    id: "vnote-019",
+    vendorId: "vendor-007",
+    noteType: "General",
+    noteMessage: "Performance review meeting scheduled. Preparing comprehensive service report.",
+    organization: "Nova Health",
+    authorName: "Nathan White",
+    date: "Nov 5, 2023",
+    createdAt: "2023-11-05T10:00:00Z",
+    updatedAt: "2023-11-05T10:00:00Z",
+  },
+  // Global Healthcare Resources (vendor-008)
+  {
+    id: "vnote-020",
+    vendorId: "vendor-008",
+    noteType: "General",
+    noteMessage: "Technology platform demonstration completed. Client impressed with capabilities.",
+    organization: "Nova Health",
+    authorName: "Quinn Thompson",
+    date: "Aug 20, 2023",
+    createdAt: "2023-08-20T10:00:00Z",
+    updatedAt: "2023-08-20T10:00:00Z",
+  },
+  {
+    id: "vnote-021",
+    vendorId: "vendor-008",
+    noteType: "Request",
+    noteMessage: "Client requested integration with their HR system. Technical team reviewing requirements.",
+    organization: "Nova Health",
+    authorName: "Rachel Garcia",
+    date: "Sep 15, 2023",
+    createdAt: "2023-09-15T10:00:00Z",
+    updatedAt: "2023-09-15T10:00:00Z",
+  },
+  {
+    id: "vnote-022",
+    vendorId: "vendor-008",
+    noteType: "Billing",
+    noteMessage: "Quarterly billing cycle completed. All invoices processed and payments received.",
+    organization: "Nova Health",
+    authorName: "Samuel Martinez",
+    date: "Oct 10, 2023",
+    createdAt: "2023-10-10T10:00:00Z",
+    updatedAt: "2023-10-10T10:00:00Z",
+  },
+  {
+    id: "vnote-023",
+    vendorId: "vendor-008",
+    noteType: "General",
+    noteMessage: "Annual contract renewal discussion. Terms and pricing under review.",
+    organization: "Nova Health",
+    authorName: "Quinn Thompson",
+    date: "Nov 15, 2023",
+    createdAt: "2023-11-15T10:00:00Z",
+    updatedAt: "2023-11-15T10:00:00Z",
+  },
+  // Regional Medical Staffing (vendor-009)
+  {
+    id: "vnote-024",
+    vendorId: "vendor-009",
+    noteType: "General",
+    noteMessage: "Initial partnership meeting. Discussed regional staffing needs and service model.",
+    organization: "Vitality Health Group",
+    authorName: "Tina Robinson",
+    date: "Sep 20, 2023",
+    createdAt: "2023-09-20T10:00:00Z",
+    updatedAt: "2023-09-20T10:00:00Z",
+  },
+  {
+    id: "vnote-025",
+    vendorId: "vendor-009",
+    noteType: "Request",
+    noteMessage: "Client requested additional coverage for weekend shifts. Coordinating staff availability.",
+    organization: "Vitality Health Group",
+    authorName: "Victor Clark",
+    date: "Oct 25, 2023",
+    createdAt: "2023-10-25T10:00:00Z",
+    updatedAt: "2023-10-25T10:00:00Z",
+  },
+  // Elite Nursing Services (vendor-010)
+  {
+    id: "vnote-026",
+    vendorId: "vendor-010",
+    noteType: "General",
+    noteMessage: "Service agreement signed. Beginning staffing services for multiple departments.",
+    organization: "Memorial Health System",
+    authorName: "Wendy Lewis",
+    date: "Oct 25, 2023",
+    createdAt: "2023-10-25T10:00:00Z",
+    updatedAt: "2023-10-25T10:00:00Z",
+  },
+  {
+    id: "vnote-027",
+    vendorId: "vendor-010",
+    noteType: "Request",
+    noteMessage: "Client requested specialized ICU nurses. Screening qualified candidates.",
+    organization: "Memorial Health System",
+    authorName: "Xavier Walker",
+    date: "Nov 10, 2023",
+    createdAt: "2023-11-10T10:00:00Z",
+    updatedAt: "2023-11-10T10:00:00Z",
+  },
+  {
+    id: "vnote-028",
+    vendorId: "vendor-010",
+    noteType: "Billing",
+    noteMessage: "First month billing completed. All services invoiced according to agreement.",
+    organization: "Memorial Health System",
+    authorName: "Yvonne Hall",
+    date: "Nov 30, 2023",
+    createdAt: "2023-11-30T10:00:00Z",
+    updatedAt: "2023-11-30T10:00:00Z",
+  },
+  {
+    id: "vnote-029",
+    vendorId: "vendor-010",
+    noteType: "General",
+    noteMessage: "Monthly check-in meeting. Service performance meeting expectations. Client satisfied.",
+    organization: "Memorial Health System",
+    authorName: "Wendy Lewis",
+    date: "Dec 5, 2023",
+    createdAt: "2023-12-05T10:00:00Z",
+    updatedAt: "2023-12-05T10:00:00Z",
+  },
+]
+
+const defaultVendorNotesRecord: Record<string, VendorNote> = defaultVendorNotes.reduce(
+  (acc, note) => {
+    acc[note.id] = note
+    return acc
+  },
+  {} as Record<string, VendorNote>
+)
+
+const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
   occupationQuestionnaires: defaultOccupationQuestionnaires,
@@ -1805,6 +3076,10 @@ export const defaultAdminLocalDbState: AdminLocalDbState = {
   taggingRules: {},
   tags: defaultTagsRecord,
   users: defaultUsersRecord,
+  vendors: defaultVendorsRecord,
+  vendorUsers: defaultVendorUsersRecord,
+  vendorDocuments: defaultVendorDocumentsRecord,
+  vendorNotes: defaultVendorNotesRecord,
   lastUpdated: undefined,
 }
 
@@ -1917,6 +3192,30 @@ export function readAdminLocalDb(): AdminLocalDbState {
       ? { ...defaultTagsRecord, ...existingTags }
       : defaultTagsRecord
     
+    // Merge vendors: use defaults if none exist, otherwise merge with existing (existing takes precedence)
+    const existingVendors = parsed.vendors || {}
+    const mergedVendors = Object.keys(existingVendors).length > 0
+      ? { ...defaultVendorsRecord, ...existingVendors }
+      : defaultVendorsRecord
+    
+    // Merge vendor users: use defaults if none exist, otherwise merge with existing (existing takes precedence)
+    const existingVendorUsers = parsed.vendorUsers || {}
+    const mergedVendorUsers = Object.keys(existingVendorUsers).length > 0
+      ? { ...defaultVendorUsersRecord, ...existingVendorUsers }
+      : defaultVendorUsersRecord
+    
+    // Merge vendor documents: use defaults if none exist, otherwise merge with existing (existing takes precedence)
+    const existingVendorDocuments = parsed.vendorDocuments || {}
+    const mergedVendorDocuments = Object.keys(existingVendorDocuments).length > 0
+      ? { ...defaultVendorDocumentsRecord, ...existingVendorDocuments }
+      : defaultVendorDocumentsRecord
+    
+    // Merge vendor notes: use defaults if none exist, otherwise merge with existing (existing takes precedence)
+    const existingVendorNotes = parsed.vendorNotes || {}
+    const mergedVendorNotes = Object.keys(existingVendorNotes).length > 0
+      ? { ...defaultVendorNotesRecord, ...existingVendorNotes }
+      : defaultVendorNotesRecord
+
     const mergedState: AdminLocalDbState = {
       organizations: Object.keys(migratedOrganizations).length > 0 ? migratedOrganizations : defaultOrganizationsRecord,
       occupations: Object.keys(migratedOccupations).length > 0 ? migratedOccupations : defaultOccupationsRecord,
@@ -1930,6 +3229,10 @@ export function readAdminLocalDb(): AdminLocalDbState {
       taggingRules: mergedTaggingRules,
       tags: mergedTags,
       users: mergedUsers,
+      vendors: mergedVendors,
+      vendorUsers: mergedVendorUsers,
+      vendorDocuments: mergedVendorDocuments,
+      vendorNotes: mergedVendorNotes,
       lastUpdated: parsed.lastUpdated,
     }
     
@@ -3373,5 +4676,306 @@ export function migrateUserTagsToTagIds(): void {
     }
     persistAdminLocalDb(updatedState)
   }
+}
+
+// Helper functions for vendors
+export function getAllVendors(): Vendor[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendors).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function getVendorById(id: string): Vendor | null {
+  const state = readAdminLocalDb()
+  return state.vendors[id] || null
+}
+
+export function addVendor(vendor: Omit<Vendor, "id" | "createdAt" | "updatedAt">): Vendor {
+  const state = readAdminLocalDb()
+  const newVendor: Vendor = {
+    ...vendor,
+    id: `vendor-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendors: {
+      ...state.vendors,
+      [newVendor.id]: newVendor,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newVendor
+}
+
+export function updateVendor(id: string, updates: Partial<Omit<Vendor, "id" | "createdAt">>): Vendor | null {
+  const state = readAdminLocalDb()
+  const existing = state.vendors[id]
+  if (!existing) {
+    return null
+  }
+  const updatedVendor: Vendor = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendors: {
+      ...state.vendors,
+      [id]: updatedVendor,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedVendor
+}
+
+export function deleteVendor(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.vendors[id]) {
+    return false
+  }
+  
+  // Delete all related vendor users
+  const vendorUsers = Object.values(state.vendorUsers).filter((user) => user.vendorId === id)
+  const remainingVendorUsers = { ...state.vendorUsers }
+  vendorUsers.forEach((user) => {
+    delete remainingVendorUsers[user.id]
+  })
+  
+  // Delete all related vendor documents
+  const vendorDocuments = Object.values(state.vendorDocuments).filter((doc) => doc.vendorId === id)
+  const remainingVendorDocuments = { ...state.vendorDocuments }
+  vendorDocuments.forEach((doc) => {
+    delete remainingVendorDocuments[doc.id]
+  })
+  
+  // Delete all related vendor notes
+  const vendorNotes = Object.values(state.vendorNotes).filter((note) => note.vendorId === id)
+  const remainingVendorNotes = { ...state.vendorNotes }
+  vendorNotes.forEach((note) => {
+    delete remainingVendorNotes[note.id]
+  })
+  
+  // Delete the vendor
+  const { [id]: removed, ...remaining } = state.vendors
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendors: remaining,
+    vendorUsers: remainingVendorUsers,
+    vendorDocuments: remainingVendorDocuments,
+    vendorNotes: remainingVendorNotes,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for vendor users
+export function getVendorUsersByVendorId(vendorId: string): VendorUser[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendorUsers)
+    .filter((user) => user.vendorId === vendorId)
+    .sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`
+      const nameB = `${b.firstName} ${b.lastName}`
+      return nameA.localeCompare(nameB)
+    })
+}
+
+export function getVendorUserById(id: string): VendorUser | null {
+  const state = readAdminLocalDb()
+  return state.vendorUsers[id] || null
+}
+
+export function addVendorUser(user: Omit<VendorUser, "id" | "createdAt" | "updatedAt">): VendorUser {
+  const state = readAdminLocalDb()
+  const newUser: VendorUser = {
+    ...user,
+    id: `vuser-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorUsers: {
+      ...state.vendorUsers,
+      [newUser.id]: newUser,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newUser
+}
+
+export function updateVendorUser(id: string, updates: Partial<Omit<VendorUser, "id" | "createdAt">>): VendorUser | null {
+  const state = readAdminLocalDb()
+  const existing = state.vendorUsers[id]
+  if (!existing) {
+    return null
+  }
+  const updatedUser: VendorUser = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorUsers: {
+      ...state.vendorUsers,
+      [id]: updatedUser,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedUser
+}
+
+export function deleteVendorUser(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.vendorUsers[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.vendorUsers
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorUsers: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for vendor documents
+export function getVendorDocumentsByVendorId(vendorId: string): VendorDocument[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendorDocuments)
+    .filter((doc) => doc.vendorId === vendorId)
+    .sort((a, b) => new Date(b.uploadedDate).getTime() - new Date(a.uploadedDate).getTime())
+}
+
+export function getVendorDocumentById(id: string): VendorDocument | null {
+  const state = readAdminLocalDb()
+  return state.vendorDocuments[id] || null
+}
+
+export function addVendorDocument(doc: Omit<VendorDocument, "id" | "createdAt" | "updatedAt">): VendorDocument {
+  const state = readAdminLocalDb()
+  const newDoc: VendorDocument = {
+    ...doc,
+    id: `vdoc-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorDocuments: {
+      ...state.vendorDocuments,
+      [newDoc.id]: newDoc,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newDoc
+}
+
+export function updateVendorDocument(id: string, updates: Partial<Omit<VendorDocument, "id" | "createdAt">>): VendorDocument | null {
+  const state = readAdminLocalDb()
+  const existing = state.vendorDocuments[id]
+  if (!existing) {
+    return null
+  }
+  const updatedDoc: VendorDocument = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorDocuments: {
+      ...state.vendorDocuments,
+      [id]: updatedDoc,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedDoc
+}
+
+export function deleteVendorDocument(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.vendorDocuments[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.vendorDocuments
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorDocuments: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for vendor notes
+export function getVendorNotesByVendorId(vendorId: string): VendorNote[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendorNotes)
+    .filter((note) => note.vendorId === vendorId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
+export function getVendorNoteById(id: string): VendorNote | null {
+  const state = readAdminLocalDb()
+  return state.vendorNotes[id] || null
+}
+
+export function addVendorNote(note: Omit<VendorNote, "id" | "createdAt" | "updatedAt">): VendorNote {
+  const state = readAdminLocalDb()
+  const newNote: VendorNote = {
+    ...note,
+    id: `vnote-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorNotes: {
+      ...state.vendorNotes,
+      [newNote.id]: newNote,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newNote
+}
+
+export function updateVendorNote(id: string, updates: Partial<Omit<VendorNote, "id" | "createdAt">>): VendorNote | null {
+  const state = readAdminLocalDb()
+  const existing = state.vendorNotes[id]
+  if (!existing) {
+    return null
+  }
+  const updatedNote: VendorNote = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorNotes: {
+      ...state.vendorNotes,
+      [id]: updatedNote,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedNote
+}
+
+export function deleteVendorNote(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.vendorNotes[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.vendorNotes
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorNotes: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
 }
 
