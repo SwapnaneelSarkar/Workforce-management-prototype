@@ -76,8 +76,17 @@ export default function AdminWalletTemplateDetailPage() {
   }
 
   const loadListItems = () => {
-    const items = getAllComplianceListItems()
-    setAllListItems(items)
+    if (typeof window === "undefined") {
+      setAllListItems([])
+      return
+    }
+    try {
+      const items = getAllComplianceListItems()
+      setAllListItems(items)
+    } catch (error) {
+      console.error("Failed to load compliance list items:", error)
+      setAllListItems([])
+    }
   }
 
   const loadOccupations = () => {
@@ -181,11 +190,15 @@ export default function AdminWalletTemplateDetailPage() {
     return acc
   }, {} as Record<string, ComplianceListItem[]>)
 
-  const categoryOrder = [
-    "Background & Identification",
-    "License",
-    "Certification",
-    "Training",
+  const categoryOrder: ComplianceListItem["category"][] = [
+    "Background and Identification",
+    "Licenses",
+    "Certifications",
+    "Education and Assessments",
+    "Employee Health",
+    "Immigration",
+    "Human Resources",
+    "Other Qualifications",
     "Other",
   ]
 
