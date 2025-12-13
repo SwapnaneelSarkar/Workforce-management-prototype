@@ -14,10 +14,14 @@ import {
 } from "@/lib/admin-local-db"
 
 const CATEGORIES: ComplianceListItem["category"][] = [
-  "Background & Identification",
-  "License",
-  "Certification",
-  "Training",
+  "Background and Identification",
+  "Licenses",
+  "Certifications",
+  "Education and Assessments",
+  "Employee Health",
+  "Immigration",
+  "Human Resources",
+  "Other Qualifications",
   "Other",
 ]
 
@@ -32,10 +36,20 @@ export default function ComplianceListItemsPage() {
   }, [])
 
   const loadItems = () => {
+    if (typeof window === "undefined") {
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    const allItems = getAllComplianceListItems()
-    setItems(allItems)
-    setLoading(false)
+    try {
+      const allItems = getAllComplianceListItems()
+      setItems(allItems)
+    } catch (error) {
+      console.error("Failed to load compliance list items:", error)
+      setItems([])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const itemsByCategory = useMemo(() => {

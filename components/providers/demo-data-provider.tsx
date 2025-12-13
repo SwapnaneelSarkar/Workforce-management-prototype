@@ -406,8 +406,8 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
 
     // Immediate sync
     syncTemplates()
-    // Also poll every 1 second to catch updates
-    const interval = setInterval(syncTemplates, 1000)
+    // Poll every 5 seconds to catch updates (reduced from 1 second to prevent excessive logging)
+    const interval = setInterval(syncTemplates, 5000)
     return () => {
       clearInterval(interval)
     }
