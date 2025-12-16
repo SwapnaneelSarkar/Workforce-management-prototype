@@ -9,7 +9,7 @@ import { Plus, Search, Edit, ArrowUpDown, Trash2 } from "lucide-react"
 import { getAllVendors, deleteVendor, type Vendor } from "@/lib/admin-local-db"
 import { useToast } from "@/components/system"
 
-type SortField = "name" | "status" | "activationDate" | "inactivationDate"
+type SortField = "name" | "status" | "activationDate" | "industry"
 type SortDirection = "asc" | "desc"
 
 export default function AdminVendorsPage() {
@@ -68,10 +68,10 @@ export default function AdminVendorsPage() {
           const dateB = b.activationDate ? new Date(b.activationDate).getTime() : 0
           comparison = dateA - dateB
           break
-        case "inactivationDate":
-          const inactDateA = a.inactivationDate ? new Date(a.inactivationDate).getTime() : 0
-          const inactDateB = b.inactivationDate ? new Date(b.inactivationDate).getTime() : 0
-          comparison = inactDateA - inactDateB
+        case "industry":
+          const industryA = a.industries && a.industries.length > 0 ? a.industries[0] : ""
+          const industryB = b.industries && b.industries.length > 0 ? b.industries[0] : ""
+          comparison = industryA.localeCompare(industryB)
           break
       }
       return sortDirection === "asc" ? comparison : -comparison
@@ -215,10 +215,10 @@ export default function AdminVendorsPage() {
                     </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">
                       <button
-                        onClick={() => handleSort("inactivationDate")}
+                        onClick={() => handleSort("industry")}
                         className="flex items-center gap-2 hover:text-primary"
                       >
-                        INACTIVATION DATE
+                        INDUSTRY
                         <ArrowUpDown className="h-4 w-4" />
                       </button>
                     </th>
@@ -235,7 +235,14 @@ export default function AdminVendorsPage() {
                   ) : (
                     paginatedVendors.map((vendor) => (
                       <tr key={vendor.id} className="border-b border-border hover:bg-muted/50">
-                        <td className="py-3 px-4 text-sm text-foreground">{vendor.name}</td>
+                        <td className="py-3 px-4 text-sm">
+                          <Link
+                            href={`/admin/vendors/${vendor.id}/view`}
+                            className="text-primary hover:underline font-medium"
+                          >
+                            {vendor.name}
+                          </Link>
+                        </td>
                         <td className="py-3 px-4 text-sm">
                           <div className="flex items-center gap-2">
                             <div
@@ -249,7 +256,9 @@ export default function AdminVendorsPage() {
                           </div>
                         </td>
                         <td className="py-3 px-4 text-sm text-foreground">{formatDate(vendor.activationDate)}</td>
-                        <td className="py-3 px-4 text-sm text-foreground">{formatDate(vendor.inactivationDate)}</td>
+                        <td className="py-3 px-4 text-sm text-foreground">
+                          {vendor.industries && vendor.industries.length > 0 ? vendor.industries[0] : "-"}
+                        </td>
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-3">
                             <Link

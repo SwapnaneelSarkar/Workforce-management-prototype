@@ -225,6 +225,18 @@ export type VendorNote = {
   updatedAt: string
 }
 
+export type VendorOrganization = {
+  id: string
+  vendorId: string
+  organizationId: string
+  status: "Active" | "Inactive" | "Pending"
+  startDate?: string
+  endDate?: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type Vendor = {
   id: string
   name: string
@@ -265,6 +277,7 @@ export type AdminLocalDbState = {
   vendorUsers: Record<string, VendorUser>
   vendorDocuments: Record<string, VendorDocument>
   vendorNotes: Record<string, VendorNote>
+  vendorOrganizations: Record<string, VendorOrganization>
   lastUpdated?: string
 }
 
@@ -3063,6 +3076,249 @@ const defaultVendorNotesRecord: Record<string, VendorNote> = defaultVendorNotes.
   {} as Record<string, VendorNote>
 )
 
+// Default vendor-organization associations (many-to-many relationship)
+const defaultVendorOrganizations: VendorOrganization[] = [
+  // Nova Health (vendor-001) associated with multiple orgs
+  {
+    id: "vo-001",
+    vendorId: "vendor-001",
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2023-01-15",
+    notes: "Primary vendor for nursing staff",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "vo-002",
+    vendorId: "vendor-001",
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2023-02-01",
+    notes: "Contract for ICU and ER staffing",
+    createdAt: "2023-02-01T10:00:00Z",
+    updatedAt: "2023-02-01T10:00:00Z",
+  },
+  {
+    id: "vo-003",
+    vendorId: "vendor-001",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-03-10",
+    notes: "Regional coverage agreement",
+    createdAt: "2023-03-10T10:00:00Z",
+    updatedAt: "2023-03-10T10:00:00Z",
+  },
+  // MedStaff Solutions (vendor-002)
+  {
+    id: "vo-004",
+    vendorId: "vendor-002",
+    organizationId: "org-002", // Memorial Health System
+    status: "Inactive",
+    startDate: "2023-03-20",
+    endDate: "2024-01-10",
+    notes: "Contract terminated",
+    createdAt: "2023-03-20T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  {
+    id: "vo-005",
+    vendorId: "vendor-002",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-04-01",
+    notes: "Specialized in allied health professionals",
+    createdAt: "2023-04-01T10:00:00Z",
+    updatedAt: "2023-04-01T10:00:00Z",
+  },
+  // CareFirst Staffing (vendor-003)
+  {
+    id: "vo-006",
+    vendorId: "vendor-003",
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2023-02-10",
+    notes: "Partnership for healthcare staffing solutions",
+    createdAt: "2023-02-10T10:00:00Z",
+    updatedAt: "2023-02-10T10:00:00Z",
+  },
+  {
+    id: "vo-007",
+    vendorId: "vendor-003",
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2023-05-15",
+    notes: "Multi-department coverage",
+    createdAt: "2023-05-15T10:00:00Z",
+    updatedAt: "2023-05-15T10:00:00Z",
+  },
+  // HealthPro Recruiters (vendor-004)
+  {
+    id: "vo-008",
+    vendorId: "vendor-004",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-04-15",
+    notes: "Initial consultation completed",
+    createdAt: "2023-04-15T10:00:00Z",
+    updatedAt: "2023-04-15T10:00:00Z",
+  },
+  {
+    id: "vo-009",
+    vendorId: "vendor-004",
+    organizationId: "org-001", // Nova Health
+    status: "Pending",
+    startDate: "2024-01-01",
+    notes: "New contract under review",
+    createdAt: "2023-12-15T10:00:00Z",
+    updatedAt: "2023-12-15T10:00:00Z",
+  },
+  // NurseConnect Agency (vendor-005)
+  {
+    id: "vo-010",
+    vendorId: "vendor-005",
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2023-08-10",
+    notes: "Quarterly business review meeting",
+    createdAt: "2023-08-10T10:00:00Z",
+    updatedAt: "2023-08-10T10:00:00Z",
+  },
+  {
+    id: "vo-011",
+    vendorId: "vendor-005",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-09-01",
+    notes: "Emergency department coverage",
+    createdAt: "2023-09-01T10:00:00Z",
+    updatedAt: "2023-09-01T10:00:00Z",
+  },
+  // Allied Health Partners (vendor-006)
+  {
+    id: "vo-012",
+    vendorId: "vendor-006",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-06-20",
+    notes: "Service agreement signed",
+    createdAt: "2023-06-20T10:00:00Z",
+    updatedAt: "2023-06-20T10:00:00Z",
+  },
+  {
+    id: "vo-013",
+    vendorId: "vendor-006",
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2023-07-01",
+    notes: "Physical therapy and occupational therapy specialists",
+    createdAt: "2023-07-01T10:00:00Z",
+    updatedAt: "2023-07-01T10:00:00Z",
+  },
+  // Premier Medical Staffing (vendor-007)
+  {
+    id: "vo-014",
+    vendorId: "vendor-007",
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2023-08-05",
+    notes: "Strategic partnership meeting",
+    createdAt: "2023-08-05T10:00:00Z",
+    updatedAt: "2023-08-05T10:00:00Z",
+  },
+  {
+    id: "vo-015",
+    vendorId: "vendor-007",
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2023-09-15",
+    notes: "Cardiac unit specialists",
+    createdAt: "2023-09-15T10:00:00Z",
+    updatedAt: "2023-09-15T10:00:00Z",
+  },
+  // Global Healthcare Resources (vendor-008)
+  {
+    id: "vo-016",
+    vendorId: "vendor-008",
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2023-08-20",
+    notes: "Technology platform demonstration completed",
+    createdAt: "2023-08-20T10:00:00Z",
+    updatedAt: "2023-08-20T10:00:00Z",
+  },
+  {
+    id: "vo-017",
+    vendorId: "vendor-008",
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2023-10-01",
+    notes: "HR system integration",
+    createdAt: "2023-10-01T10:00:00Z",
+    updatedAt: "2023-10-01T10:00:00Z",
+  },
+  {
+    id: "vo-018",
+    vendorId: "vendor-008",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-11-01",
+    notes: "Annual contract renewal discussion",
+    createdAt: "2023-11-01T10:00:00Z",
+    updatedAt: "2023-11-01T10:00:00Z",
+  },
+  // Regional Medical Staffing (vendor-009)
+  {
+    id: "vo-019",
+    vendorId: "vendor-009",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-09-20",
+    notes: "Initial partnership meeting",
+    createdAt: "2023-09-20T10:00:00Z",
+    updatedAt: "2023-09-20T10:00:00Z",
+  },
+  {
+    id: "vo-020",
+    vendorId: "vendor-009",
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2023-10-15",
+    notes: "Regional coverage expansion",
+    createdAt: "2023-10-15T10:00:00Z",
+    updatedAt: "2023-10-15T10:00:00Z",
+  },
+  // Elite Nursing Services (vendor-010)
+  {
+    id: "vo-021",
+    vendorId: "vendor-010",
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2023-10-25",
+    notes: "Service agreement signed",
+    createdAt: "2023-10-25T10:00:00Z",
+    updatedAt: "2023-10-25T10:00:00Z",
+  },
+  {
+    id: "vo-022",
+    vendorId: "vendor-010",
+    organizationId: "org-003", // Vitality Health Group
+    status: "Active",
+    startDate: "2023-11-01",
+    notes: "Multiple departments coverage",
+    createdAt: "2023-11-01T10:00:00Z",
+    updatedAt: "2023-11-01T10:00:00Z",
+  },
+]
+
+const defaultVendorOrganizationsRecord: Record<string, VendorOrganization> = defaultVendorOrganizations.reduce(
+  (acc, vo) => {
+    acc[vo.id] = vo
+    return acc
+  },
+  {} as Record<string, VendorOrganization>
+)
+
 const defaultAdminLocalDbState: AdminLocalDbState = {
   organizations: defaultOrganizationsRecord,
   occupations: defaultOccupationsRecord,
@@ -3080,6 +3336,7 @@ const defaultAdminLocalDbState: AdminLocalDbState = {
   vendorUsers: defaultVendorUsersRecord,
   vendorDocuments: defaultVendorDocumentsRecord,
   vendorNotes: defaultVendorNotesRecord,
+  vendorOrganizations: defaultVendorOrganizationsRecord,
   lastUpdated: undefined,
 }
 
@@ -3216,6 +3473,12 @@ export function readAdminLocalDb(): AdminLocalDbState {
       ? { ...defaultVendorNotesRecord, ...existingVendorNotes }
       : defaultVendorNotesRecord
 
+    // Merge vendor organizations: use defaults if none exist, otherwise merge with existing (existing takes precedence)
+    const existingVendorOrganizations = parsed.vendorOrganizations || {}
+    const mergedVendorOrganizations = Object.keys(existingVendorOrganizations).length > 0
+      ? { ...defaultVendorOrganizationsRecord, ...existingVendorOrganizations }
+      : defaultVendorOrganizationsRecord
+
     const mergedState: AdminLocalDbState = {
       organizations: Object.keys(migratedOrganizations).length > 0 ? migratedOrganizations : defaultOrganizationsRecord,
       occupations: Object.keys(migratedOccupations).length > 0 ? migratedOccupations : defaultOccupationsRecord,
@@ -3233,6 +3496,7 @@ export function readAdminLocalDb(): AdminLocalDbState {
       vendorUsers: mergedVendorUsers,
       vendorDocuments: mergedVendorDocuments,
       vendorNotes: mergedVendorNotes,
+      vendorOrganizations: mergedVendorOrganizations,
       lastUpdated: parsed.lastUpdated,
     }
     
@@ -4974,6 +5238,153 @@ export function deleteVendorNote(id: string): boolean {
   const updatedState: AdminLocalDbState = {
     ...state,
     vendorNotes: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper function to get organizations associated with a vendor (from vendor notes) - DEPRECATED: Use getVendorOrganizationsByVendorId instead
+export function getOrganizationsByVendorId(vendorId: string): Array<{ organizationName: string; organizationId: string | null }> {
+  const state = readAdminLocalDb()
+  const vendorNotes = Object.values(state.vendorNotes)
+    .filter((note) => note.vendorId === vendorId && note.organization)
+  
+  // Get unique organization names
+  const uniqueOrgNames = new Set<string>()
+  vendorNotes.forEach((note) => {
+    if (note.organization) {
+      uniqueOrgNames.add(note.organization)
+    }
+  })
+  
+  // Try to match organization names with actual organizations
+  const organizations: Array<{ organizationName: string; organizationId: string | null }> = []
+  uniqueOrgNames.forEach((orgName) => {
+    // Find matching organization by name
+    const matchingOrg = Object.values(state.organizations).find(
+      (org) => org.name === orgName
+    )
+    organizations.push({
+      organizationName: orgName,
+      organizationId: matchingOrg?.id || null,
+    })
+  })
+  
+  // Sort alphabetically by organization name
+  return organizations.sort((a, b) => a.organizationName.localeCompare(b.organizationName))
+}
+
+// CRUD functions for vendor-organization associations
+export function getVendorOrganizationsByVendorId(vendorId: string): VendorOrganization[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendorOrganizations)
+    .filter((vo) => vo.vendorId === vendorId)
+    .sort((a, b) => {
+      // Sort by status (Active first), then by start date
+      if (a.status !== b.status) {
+        const statusOrder = { Active: 0, Pending: 1, Inactive: 2 }
+        return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3)
+      }
+      const dateA = a.startDate ? new Date(a.startDate).getTime() : 0
+      const dateB = b.startDate ? new Date(b.startDate).getTime() : 0
+      return dateB - dateA
+    })
+}
+
+export function getVendorOrganizationsByOrganizationId(organizationId: string): VendorOrganization[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendorOrganizations)
+    .filter((vo) => vo.organizationId === organizationId)
+    .sort((a, b) => {
+      // Sort by status (Active first), then by start date
+      if (a.status !== b.status) {
+        const statusOrder = { Active: 0, Pending: 1, Inactive: 2 }
+        return (statusOrder[a.status] || 3) - (statusOrder[b.status] || 3)
+      }
+      const dateA = a.startDate ? new Date(a.startDate).getTime() : 0
+      const dateB = b.startDate ? new Date(b.startDate).getTime() : 0
+      return dateB - dateA
+    })
+}
+
+export function getVendorOrganizationById(id: string): VendorOrganization | null {
+  const state = readAdminLocalDb()
+  return state.vendorOrganizations[id] || null
+}
+
+export function getVendorOrganizationByVendorAndOrg(vendorId: string, organizationId: string): VendorOrganization | null {
+  const state = readAdminLocalDb()
+  return Object.values(state.vendorOrganizations).find(
+    (vo) => vo.vendorId === vendorId && vo.organizationId === organizationId
+  ) || null
+}
+
+export function addVendorOrganization(
+  association: Omit<VendorOrganization, "id" | "createdAt" | "updatedAt">
+): VendorOrganization {
+  const state = readAdminLocalDb()
+  
+  // Check if association already exists
+  const existing = getVendorOrganizationByVendorAndOrg(association.vendorId, association.organizationId)
+  if (existing) {
+    throw new Error("Vendor-organization association already exists")
+  }
+  
+  const newAssociation: VendorOrganization = {
+    ...association,
+    id: `vo-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorOrganizations: {
+      ...state.vendorOrganizations,
+      [newAssociation.id]: newAssociation,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newAssociation
+}
+
+export function updateVendorOrganization(
+  id: string,
+  updates: Partial<Omit<VendorOrganization, "id" | "createdAt">>
+): VendorOrganization | null {
+  const state = readAdminLocalDb()
+  const existing = state.vendorOrganizations[id]
+  if (!existing) {
+    return null
+  }
+  
+  const updatedAssociation: VendorOrganization = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorOrganizations: {
+      ...state.vendorOrganizations,
+      [id]: updatedAssociation,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedAssociation
+}
+
+export function deleteVendorOrganization(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.vendorOrganizations[id]) {
+    return false
+  }
+  
+  const { [id]: removed, ...remaining } = state.vendorOrganizations
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    vendorOrganizations: remaining,
   }
   persistAdminLocalDb(updatedState)
   return true

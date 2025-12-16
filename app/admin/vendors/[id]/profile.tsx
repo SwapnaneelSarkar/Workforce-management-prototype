@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { X } from "lucide-react"
 import { getVendorById, addVendor, updateVendor, addVendorUser, addVendorDocument, addVendorNote, type Vendor } from "@/lib/admin-local-db"
+import AssociatedOrganizations from "./associated-organizations"
 
 type VendorProfileProps = {
   vendor: Vendor | null
@@ -381,6 +382,11 @@ export default function VendorProfile({ vendor, vendorId }: VendorProfileProps) 
           </div>
         </div>
       </Card>
+      
+      {/* Associated Organizations - Only show for existing vendors, not when adding new */}
+      {vendor && vendorId !== "add" && (
+        <AssociatedOrganizations vendorId={vendorId} isEditMode={true} />
+      )}
     </div>
   )
 }
