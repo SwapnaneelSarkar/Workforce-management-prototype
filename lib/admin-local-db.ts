@@ -200,6 +200,25 @@ export type VendorUser = {
   updatedAt: string
 }
 
+export type PortalUser = {
+  id: string
+  userType: "Program" | "Vendor" | "Organization"
+  groupName?: string // e.g., Vendor A, Organization B
+  role?: string // Display role (e.g., Hiring Manager)
+  firstName: string
+  lastName: string
+  title: string
+  email: string
+  officePhone?: string
+  mobilePhone?: string
+  status: "Active" | "Inactive"
+  userIdNumber?: string
+  createDate?: string // display-friendly date
+  lastLogin?: string // display-friendly date/time
+  createdAt: string
+  updatedAt: string
+}
+
 export type VendorDocument = {
   id: string
   vendorId: string
@@ -273,6 +292,9 @@ export type AdminLocalDbState = {
   taggingRules: Record<string, TaggingRule>
   tags: Record<string, Tag>
   users: Record<string, User>
+  portalUsers: Record<string, PortalUser>
+  portalUserAffiliations: Record<string, PortalUserAffiliation>
+  portalUserNotes: Record<string, PortalUserNote>
   vendors: Record<string, Vendor>
   vendorUsers: Record<string, VendorUser>
   vendorDocuments: Record<string, VendorDocument>
@@ -2418,6 +2440,397 @@ const defaultVendorUsersRecord: Record<string, VendorUser> = defaultVendorUsers.
   {} as Record<string, VendorUser>
 )
 
+// Portal users are used for the Admin > Users tabbed experience (Program, Vendor, Organization)
+const defaultPortalUsers: PortalUser[] = [
+  // Program Users
+  {
+    id: "puser-001",
+    userType: "Program",
+    groupName: "Program",
+    role: "Hiring Manager",
+    firstName: "Alice",
+    lastName: "Williams",
+    title: "CEO",
+    email: "alice.w@example.com",
+    officePhone: "555-123-4567",
+    mobilePhone: "555-987-6543",
+    status: "Active",
+    userIdNumber: "123456",
+    createDate: "2023-01-01",
+    lastLogin: "2023-10-26 10:30 AM",
+    createdAt: "2023-01-10T10:00:00Z",
+    updatedAt: "2023-01-10T10:00:00Z",
+  },
+  {
+    id: "puser-002",
+    userType: "Program",
+    groupName: "Program",
+    role: "Marketing Specialist",
+    firstName: "Bob",
+    lastName: "Brown",
+    title: "Marketing Specialist",
+    email: "bob.b@example.com",
+    officePhone: "123-987-6543",
+    mobilePhone: "456-789-0123",
+    status: "Active",
+    userIdNumber: "654321",
+    createDate: "2023-02-12",
+    lastLogin: "2023-10-25 09:15 AM",
+    createdAt: "2023-02-12T10:00:00Z",
+    updatedAt: "2023-02-12T10:00:00Z",
+  },
+  // Vendor Users (matches screenshot groupings)
+  {
+    id: "puser-101",
+    userType: "Vendor",
+    groupName: "Vendor A",
+    role: "HR Manager",
+    firstName: "Charlie",
+    lastName: "Davis",
+    title: "HR Manager",
+    email: "charlie.d@example.com",
+    officePhone: "777-888-9999",
+    mobilePhone: "111-222-3333",
+    status: "Inactive",
+    createDate: "2023-03-01",
+    lastLogin: "2023-10-10 01:00 PM",
+    createdAt: "2023-03-01T10:00:00Z",
+    updatedAt: "2023-03-01T10:00:00Z",
+  },
+  {
+    id: "puser-102",
+    userType: "Vendor",
+    groupName: "Vendor A",
+    role: "Sales Lead",
+    firstName: "Frank",
+    lastName: "Green",
+    title: "Sales Lead",
+    email: "frank.g@example.com",
+    officePhone: "111-222-3333",
+    mobilePhone: "444-555-6666",
+    status: "Active",
+    createDate: "2023-03-02",
+    lastLogin: "2023-10-12 11:20 AM",
+    createdAt: "2023-03-02T10:00:00Z",
+    updatedAt: "2023-03-02T10:00:00Z",
+  },
+  {
+    id: "puser-103",
+    userType: "Vendor",
+    groupName: "Vendor A",
+    role: "Executive",
+    firstName: "Alice",
+    lastName: "Williams",
+    title: "CEO",
+    email: "alice.wi@example.com",
+    officePhone: "555-123-4567",
+    mobilePhone: "555-987-6543",
+    status: "Active",
+    createDate: "2023-03-03",
+    lastLogin: "2023-10-14 02:45 PM",
+    createdAt: "2023-03-03T10:00:00Z",
+    updatedAt: "2023-03-03T10:00:00Z",
+  },
+  {
+    id: "puser-104",
+    userType: "Vendor",
+    groupName: "Vendor B",
+    role: "Staff",
+    firstName: "Bob",
+    lastName: "Brown",
+    title: "Marketing Specialist",
+    email: "bob.bj@example.com",
+    officePhone: "123-987-6543",
+    mobilePhone: "456-789-0123",
+    status: "Active",
+    createDate: "2023-03-04",
+    lastLogin: "2023-10-16 08:30 AM",
+    createdAt: "2023-03-04T10:00:00Z",
+    updatedAt: "2023-03-04T10:00:00Z",
+  },
+  {
+    id: "puser-105",
+    userType: "Vendor",
+    groupName: "Vendor B",
+    role: "Staff",
+    firstName: "Eve",
+    lastName: "Wilson",
+    title: "Financial Analyst",
+    email: "eve.wj@example.com",
+    officePhone: "333-444-5555",
+    mobilePhone: "888-999-0000",
+    status: "Active",
+    createDate: "2023-03-05",
+    lastLogin: "2023-10-18 04:00 PM",
+    createdAt: "2023-03-05T10:00:00Z",
+    updatedAt: "2023-03-05T10:00:00Z",
+  },
+  {
+    id: "puser-106",
+    userType: "Vendor",
+    groupName: "Vendor C",
+    role: "Manager",
+    firstName: "Grace",
+    lastName: "Hall",
+    title: "Project Manager",
+    email: "grace.h@example.com",
+    officePhone: "666-777-8888",
+    mobilePhone: "999-000-1111",
+    status: "Inactive",
+    createDate: "2023-03-06",
+    lastLogin: "2023-10-20 03:10 PM",
+    createdAt: "2023-03-06T10:00:00Z",
+    updatedAt: "2023-03-06T10:00:00Z",
+  },
+  {
+    id: "puser-107",
+    userType: "Vendor",
+    groupName: "Vendor C",
+    role: "Executive",
+    firstName: "Diana",
+    lastName: "Miller",
+    title: "CTO",
+    email: "diana.m@example.com",
+    officePhone: "222-333-4444",
+    mobilePhone: "555-666-7777",
+    status: "Inactive",
+    createDate: "2023-03-07",
+    lastLogin: "2023-10-22 12:00 PM",
+    createdAt: "2023-03-07T10:00:00Z",
+    updatedAt: "2023-03-07T10:00:00Z",
+  },
+  // Organization Users (matches screenshot groupings)
+  {
+    id: "puser-201",
+    userType: "Organization",
+    groupName: "Organization A",
+    role: "Staff",
+    firstName: "Charlie",
+    lastName: "Davis",
+    title: "HR Manager",
+    email: "charlie.d@example.com",
+    officePhone: "777-888-9999",
+    mobilePhone: "111-222-3333",
+    status: "Inactive",
+    createDate: "2023-04-01",
+    lastLogin: "2023-10-10 01:00 PM",
+    createdAt: "2023-04-01T10:00:00Z",
+    updatedAt: "2023-04-01T10:00:00Z",
+  },
+  {
+    id: "puser-202",
+    userType: "Organization",
+    groupName: "Organization A",
+    role: "Manager",
+    firstName: "Frank",
+    lastName: "Green",
+    title: "Sales Lead",
+    email: "frank.g@example.com",
+    officePhone: "111-222-3333",
+    mobilePhone: "444-555-6666",
+    status: "Active",
+    createDate: "2023-04-02",
+    lastLogin: "2023-10-12 11:20 AM",
+    createdAt: "2023-04-02T10:00:00Z",
+    updatedAt: "2023-04-02T10:00:00Z",
+  },
+  {
+    id: "puser-203",
+    userType: "Organization",
+    groupName: "Organization A",
+    role: "Executive",
+    firstName: "Alice",
+    lastName: "Williams",
+    title: "CEO",
+    email: "alice.w@example.com",
+    officePhone: "555-123-4567",
+    mobilePhone: "555-987-6543",
+    status: "Active",
+    createDate: "2023-04-03",
+    lastLogin: "2023-10-14 02:45 PM",
+    createdAt: "2023-04-03T10:00:00Z",
+    updatedAt: "2023-04-03T10:00:00Z",
+  },
+  {
+    id: "puser-204",
+    userType: "Organization",
+    groupName: "Organization B",
+    role: "Staff",
+    firstName: "Bob",
+    lastName: "Brown",
+    title: "Marketing Specialist",
+    email: "bob.b@example.com",
+    officePhone: "123-987-6543",
+    mobilePhone: "456-789-0123",
+    status: "Active",
+    createDate: "2023-04-04",
+    lastLogin: "2023-10-16 08:30 AM",
+    createdAt: "2023-04-04T10:00:00Z",
+    updatedAt: "2023-04-04T10:00:00Z",
+  },
+  {
+    id: "puser-205",
+    userType: "Organization",
+    groupName: "Organization B",
+    role: "Staff",
+    firstName: "Eve",
+    lastName: "Wilson",
+    title: "Financial Analyst",
+    email: "eve.w@example.com",
+    officePhone: "333-444-5555",
+    mobilePhone: "888-999-0000",
+    status: "Inactive",
+    createDate: "2023-04-05",
+    lastLogin: "2023-10-18 04:00 PM",
+    createdAt: "2023-04-05T10:00:00Z",
+    updatedAt: "2023-04-05T10:00:00Z",
+  },
+  {
+    id: "puser-206",
+    userType: "Organization",
+    groupName: "Organization C",
+    role: "Manager",
+    firstName: "Grace",
+    lastName: "Hall",
+    title: "Project Manager",
+    email: "grace.h@example.com",
+    officePhone: "666-777-8888",
+    mobilePhone: "999-000-1111",
+    status: "Active",
+    createDate: "2023-04-06",
+    lastLogin: "2023-10-20 03:10 PM",
+    createdAt: "2023-04-06T10:00:00Z",
+    updatedAt: "2023-04-06T10:00:00Z",
+  },
+  {
+    id: "puser-207",
+    userType: "Organization",
+    groupName: "Organization C",
+    role: "Executive",
+    firstName: "Diana",
+    lastName: "Miller",
+    title: "CTO",
+    email: "diana.m@example.com",
+    officePhone: "222-333-4444",
+    mobilePhone: "555-666-7777",
+    status: "Active",
+    createDate: "2023-04-07",
+    lastLogin: "2023-10-22 12:00 PM",
+    createdAt: "2023-04-07T10:00:00Z",
+    updatedAt: "2023-04-07T10:00:00Z",
+  },
+]
+
+const defaultPortalUsersRecord: Record<string, PortalUser> = defaultPortalUsers.reduce(
+  (acc, user) => {
+    acc[user.id] = user
+    return acc
+  },
+  {} as Record<string, PortalUser>
+)
+
+export type PortalUserAffiliation = {
+  id: string
+  userId: string
+  organizationName: string
+  roleAtOrganization: string
+  status: "Added" | "Removed"
+  activationDate?: string
+  inactivationDate?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type PortalUserNote = {
+  id: string
+  userId: string
+  noteType: "General" | "Meeting" | "System"
+  date: string
+  noteMessage: string
+  createdAt: string
+  updatedAt: string
+}
+
+const defaultPortalUserAffiliations: PortalUserAffiliation[] = [
+  {
+    id: "pua-001",
+    userId: "puser-001",
+    organizationName: "Tech Solutions",
+    roleAtOrganization: "Viewer",
+    status: "Added",
+    activationDate: "2023-07-01",
+    createdAt: "2023-07-01T10:00:00Z",
+    updatedAt: "2023-07-01T10:00:00Z",
+  },
+  {
+    id: "pua-002",
+    userId: "puser-001",
+    organizationName: "Recovered Health",
+    roleAtOrganization: "Administrator",
+    status: "Added",
+    activationDate: "2022-01-15",
+    createdAt: "2022-01-15T10:00:00Z",
+    updatedAt: "2022-01-15T10:00:00Z",
+  },
+  {
+    id: "pua-003",
+    userId: "puser-001",
+    organizationName: "Global Corp",
+    roleAtOrganization: "Contributor",
+    status: "Removed",
+    activationDate: "2021-03-10",
+    inactivationDate: "2023-05-20",
+    createdAt: "2021-03-10T10:00:00Z",
+    updatedAt: "2023-05-20T10:00:00Z",
+  },
+]
+
+const defaultPortalUserNotes: PortalUserNote[] = [
+  {
+    id: "pun-001",
+    userId: "puser-001",
+    noteType: "General",
+    date: "2023-10-26",
+    noteMessage: "Followed up on pending requests.",
+    createdAt: "2023-10-26T09:00:00Z",
+    updatedAt: "2023-10-26T09:00:00Z",
+  },
+  {
+    id: "pun-002",
+    userId: "puser-001",
+    noteType: "Meeting",
+    date: "2023-10-25",
+    noteMessage: "Discussed Q4 strategy with the team.",
+    createdAt: "2023-10-25T11:00:00Z",
+    updatedAt: "2023-10-25T11:00:00Z",
+  },
+  {
+    id: "pun-003",
+    userId: "puser-001",
+    noteType: "System",
+    date: "2023-10-20",
+    noteMessage: "Account created and onboarding initiated.",
+    createdAt: "2023-10-20T08:00:00Z",
+    updatedAt: "2023-10-20T08:00:00Z",
+  },
+]
+
+const defaultPortalUserAffiliationsRecord: Record<string, PortalUserAffiliation> = defaultPortalUserAffiliations.reduce(
+  (acc, entry) => {
+    acc[entry.id] = entry
+    return acc
+  },
+  {} as Record<string, PortalUserAffiliation>
+)
+
+const defaultPortalUserNotesRecord: Record<string, PortalUserNote> = defaultPortalUserNotes.reduce(
+  (acc, entry) => {
+    acc[entry.id] = entry
+    return acc
+  },
+  {} as Record<string, PortalUserNote>
+)
+
 const defaultVendorDocuments: VendorDocument[] = [
   // Nova Health (vendor-001)
   {
@@ -3332,6 +3745,9 @@ const defaultAdminLocalDbState: AdminLocalDbState = {
   taggingRules: {},
   tags: defaultTagsRecord,
   users: defaultUsersRecord,
+  portalUsers: defaultPortalUsersRecord,
+  portalUserAffiliations: defaultPortalUserAffiliationsRecord,
+  portalUserNotes: defaultPortalUserNotesRecord,
   vendors: defaultVendorsRecord,
   vendorUsers: defaultVendorUsersRecord,
   vendorDocuments: defaultVendorDocumentsRecord,
@@ -3440,6 +3856,24 @@ export function readAdminLocalDb(): AdminLocalDbState {
       ? { ...defaultUsersRecord, ...existingUsers }
       : defaultUsersRecord
     
+    // Merge portal users (Program, Vendor, Organization): use defaults if none exist or empty
+    const existingPortalUsers = parsed.portalUsers || {}
+    const mergedPortalUsers = Object.keys(existingPortalUsers).length > 0
+      ? { ...defaultPortalUsersRecord, ...existingPortalUsers }
+      : defaultPortalUsersRecord
+
+    // Merge portal user affiliations
+    const existingPortalUserAffiliations = parsed.portalUserAffiliations || {}
+    const mergedPortalUserAffiliations = Object.keys(existingPortalUserAffiliations).length > 0
+      ? { ...defaultPortalUserAffiliationsRecord, ...existingPortalUserAffiliations }
+      : defaultPortalUserAffiliationsRecord
+
+    // Merge portal user notes
+    const existingPortalUserNotes = parsed.portalUserNotes || {}
+    const mergedPortalUserNotes = Object.keys(existingPortalUserNotes).length > 0
+      ? { ...defaultPortalUserNotesRecord, ...existingPortalUserNotes }
+      : defaultPortalUserNotesRecord
+    
     // Merge tagging rules: use empty if none exist, otherwise use existing
     const mergedTaggingRules = parsed.taggingRules || {}
     
@@ -3492,6 +3926,9 @@ export function readAdminLocalDb(): AdminLocalDbState {
       taggingRules: mergedTaggingRules,
       tags: mergedTags,
       users: mergedUsers,
+      portalUsers: mergedPortalUsers,
+      portalUserAffiliations: mergedPortalUserAffiliations,
+      portalUserNotes: mergedPortalUserNotes,
       vendors: mergedVendors,
       vendorUsers: mergedVendorUsers,
       vendorDocuments: mergedVendorDocuments,
@@ -3501,7 +3938,13 @@ export function readAdminLocalDb(): AdminLocalDbState {
     }
     
     // If we merged defaults (because existing was empty), persist the merged state
-    if (Object.keys(existingWalletTemplates).length === 0 || Object.keys(existingUsers).length === 0) {
+    if (
+      Object.keys(existingWalletTemplates).length === 0 ||
+      Object.keys(existingUsers).length === 0 ||
+      Object.keys(existingPortalUsers).length === 0 ||
+      Object.keys(existingPortalUserAffiliations).length === 0 ||
+      Object.keys(existingPortalUserNotes).length === 0
+    ) {
       persistAdminLocalDb(mergedState)
     }
     
@@ -5030,6 +5473,173 @@ export function deleteVendor(id: string): boolean {
     vendorUsers: remainingVendorUsers,
     vendorDocuments: remainingVendorDocuments,
     vendorNotes: remainingVendorNotes,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for portal users (Program, Vendor, Organization)
+export function getPortalUsers(filter?: { userType?: PortalUser["userType"]; search?: string }): PortalUser[] {
+  const state = readAdminLocalDb()
+  let users = Object.values(state.portalUsers)
+
+  if (filter?.userType) {
+    users = users.filter((u) => u.userType === filter.userType)
+  }
+  if (filter?.search) {
+    const term = filter.search.toLowerCase()
+    users = users.filter(
+      (u) =>
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(term) ||
+        u.email.toLowerCase().includes(term) ||
+        (u.groupName || "").toLowerCase().includes(term)
+    )
+  }
+
+  return users.sort((a, b) => {
+    const groupA = a.groupName || ""
+    const groupB = b.groupName || ""
+    if (groupA === groupB) {
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`)
+    }
+    return groupA.localeCompare(groupB)
+  })
+}
+
+export function getPortalUserById(id: string): PortalUser | null {
+  const state = readAdminLocalDb()
+  return state.portalUsers[id] || null
+}
+
+export function addPortalUser(user: Omit<PortalUser, "id" | "createdAt" | "updatedAt">): PortalUser {
+  const state = readAdminLocalDb()
+  const newUser: PortalUser = {
+    ...user,
+    id: `puser-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUsers: {
+      ...state.portalUsers,
+      [newUser.id]: newUser,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newUser
+}
+
+export function updatePortalUser(id: string, updates: Partial<Omit<PortalUser, "id" | "createdAt">>): PortalUser | null {
+  const state = readAdminLocalDb()
+  const existing = state.portalUsers[id]
+  if (!existing) {
+    return null
+  }
+  const updated: PortalUser = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUsers: {
+      ...state.portalUsers,
+      [id]: updated,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updated
+}
+
+export function deletePortalUser(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.portalUsers[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.portalUsers
+
+  // Remove related affiliations and notes
+  const remainingAffiliations = Object.fromEntries(
+    Object.entries(state.portalUserAffiliations).filter(([, a]) => a.userId !== id)
+  )
+  const remainingNotes = Object.fromEntries(
+    Object.entries(state.portalUserNotes).filter(([, n]) => n.userId !== id)
+  )
+
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUsers: remaining,
+    portalUserAffiliations: remainingAffiliations,
+    portalUserNotes: remainingNotes,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+export function getPortalUserAffiliations(userId: string): PortalUserAffiliation[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.portalUserAffiliations)
+    .filter((a) => a.userId === userId)
+    .sort((a, b) => (b.activationDate || "").localeCompare(a.activationDate || ""))
+}
+
+export function addPortalUserAffiliation(
+  entry: Omit<PortalUserAffiliation, "id" | "createdAt" | "updatedAt">
+): PortalUserAffiliation {
+  const state = readAdminLocalDb()
+  const newAff: PortalUserAffiliation = {
+    ...entry,
+    id: `pua-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUserAffiliations: {
+      ...state.portalUserAffiliations,
+      [newAff.id]: newAff,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newAff
+}
+
+export function getPortalUserNotes(userId: string): PortalUserNote[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.portalUserNotes)
+    .filter((n) => n.userId === userId)
+    .sort((a, b) => b.date.localeCompare(a.date))
+}
+
+export function addPortalUserNote(entry: Omit<PortalUserNote, "id" | "createdAt" | "updatedAt">): PortalUserNote {
+  const state = readAdminLocalDb()
+  const newNote: PortalUserNote = {
+    ...entry,
+    id: `pun-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUserNotes: {
+      ...state.portalUserNotes,
+      [newNote.id]: newNote,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newNote
+}
+
+export function deletePortalUserNote(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.portalUserNotes[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.portalUserNotes
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUserNotes: remaining,
   }
   persistAdminLocalDb(updatedState)
   return true

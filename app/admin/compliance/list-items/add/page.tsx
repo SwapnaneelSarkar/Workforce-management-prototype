@@ -6,7 +6,7 @@ import Link from "next/link"
 import { Header, Card } from "@/components/system"
 import { useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, FileText, Upload } from "lucide-react"
 import {
   addComplianceListItem,
   type ComplianceListItem,
@@ -17,6 +17,7 @@ function AddComplianceListItemForm() {
   const searchParams = useSearchParams()
   const { pushToast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [issuerFile, setIssuerFile] = useState<File | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     category: (searchParams.get("category") as ComplianceListItem["category"]) || "Background and Identification",
@@ -53,6 +54,15 @@ function AddComplianceListItemForm() {
         ? (e.target as HTMLInputElement).checked
         : e.target.value
       setFormData((prev) => ({ ...prev, [field]: value }))
+    }
+  }
+
+  const handleIssuerUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null
+    if (file) {
+      setIssuerFile(file)
+      // Store the file name in the issuer field
+      setFormData((prev) => ({ ...prev, issuer: file.name }))
     }
   }
 
@@ -223,14 +233,29 @@ function AddComplianceListItemForm() {
                     <label className="block text-sm font-medium text-foreground mb-2">
                       Issuer <span className="text-red-500">*</span>
                     </label>
-                    <Input
-                      type="text"
-                      required={formData.issuerRequirement}
-                      value={formData.issuer}
-                      onChange={handleInputChange("issuer")}
-                      className="w-full"
-                      placeholder="e.g., State Board of Nursing"
-                    />
+                    <div className="space-y-2">
+                      <label
+                        htmlFor="issuer-upload"
+                        className="flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent cursor-pointer"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {issuerFile ? "Change File" : "Upload Issuer Document"}
+                      </label>
+                      <input
+                        id="issuer-upload"
+                        type="file"
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                        onChange={handleIssuerUpload}
+                        className="hidden"
+                        required={formData.issuerRequirement}
+                      />
+                      {issuerFile && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileText className="h-4 w-4" />
+                          <span>{issuerFile.name}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
