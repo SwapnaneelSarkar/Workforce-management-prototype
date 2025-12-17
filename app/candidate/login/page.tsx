@@ -65,8 +65,15 @@ function getOccupationOptions() {
   try {
     const occupations = getActiveOccupations()
     const options = [{ label: "Select occupation", value: "" }]
+    const seenCodes = new Set<string>()
     occupations.forEach((occ) => {
-      options.push({ label: occ.name, value: occ.code })
+      const uniqueCode = occ.code || occ.id || occ.name
+      if (!uniqueCode || seenCodes.has(uniqueCode)) return
+      seenCodes.add(uniqueCode)
+      options.push({
+        label: occ.code ? `${occ.name} (${occ.code})` : occ.name,
+        value: occ.id ?? uniqueCode,
+      })
     })
     return options
   } catch (error) {
@@ -165,12 +172,16 @@ export default function CandidateLoginPage() {
 
     // On signup, save all form data and initialize wallet with occupation
     if (isSignUp) {
+      const occupations = getActiveOccupations()
+      const selectedOcc = occupations.find((occ) => occ.id === formState.occupation)
+      const occupationName = selectedOcc?.name || formState.occupation
+
       // Save all signup form data to local DB
       saveOnboardingDetails({
         firstName: formState.firstName,
         lastName: formState.lastName,
         email: formState.email,
-        occupation: formState.occupation,
+        occupation: occupationName,
         specialty: formState.specialty,
       })
 
@@ -183,9 +194,9 @@ export default function CandidateLoginPage() {
       }
 
       // Initialize wallet with occupation
-      if (formState.occupation) {
+      if (occupationName) {
         try {
-          await actions.initializeCandidateWalletWithOccupation(formState.occupation)
+          await actions.initializeCandidateWalletWithOccupation(occupationName)
         } catch (error) {
           console.error("Failed to initialize wallet:", error)
           // Continue with signup even if wallet initialization fails
@@ -198,7 +209,10 @@ export default function CandidateLoginPage() {
       if (isSignUp) {
         // Store occupation in sessionStorage for questionnaire page
         if (formState.occupation) {
-          sessionStorage.setItem("candidate_signup_occupation", formState.occupation)
+          const occupations = getActiveOccupations()
+          const selectedOcc = occupations.find((occ) => occ.id === formState.occupation)
+          const occupationName = selectedOcc?.name || formState.occupation
+          sessionStorage.setItem("candidate_signup_occupation", occupationName)
         }
         router.push("/candidate/questionnaire")
       } else {

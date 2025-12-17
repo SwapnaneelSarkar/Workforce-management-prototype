@@ -429,7 +429,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-001",
     name: "Registered Nurse",
-    code: "29-2061.00",
+    code: "29-1141.00",
     acronym: "RN",
     modality: "Clinical",
     description: "Registered Nurse",
@@ -451,7 +451,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-003",
     name: "Certified Nursing Assistant",
-    code: "29-2061.00",
+    code: "31-1014.00",
     acronym: "CNA",
     modality: "Clinical",
     description: "CNA",
@@ -462,7 +462,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-004",
     name: "Medical Assistant",
-    code: "29-2061.00",
+    code: "31-9092.00",
     acronym: "MA",
     modality: "Administrative",
     description: "Medical Assistant",
@@ -473,7 +473,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-005",
     name: "Nurse Practitioner",
-    code: "29-2061.00",
+    code: "29-1171.00",
     acronym: "NP",
     modality: "Clinical",
     description: "Nurse Practitioner",
@@ -484,7 +484,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-006",
     name: "Physical Therapist",
-    code: "29-2061.00",
+    code: "29-1123.00",
     acronym: "PT",
     modality: "Therapy",
     description: "Physical Therapist",
@@ -495,7 +495,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-007",
     name: "Occupational Therapist",
-    code: "29-2061.00",
+    code: "29-1122.00",
     acronym: "OT",
     modality: "Therapy",
     description: "Occupational Therapist",
@@ -506,7 +506,7 @@ const defaultOccupations: Occupation[] = [
   {
     id: "occ-008",
     name: "Physician Assistant",
-    code: "29-2061.00",
+    code: "29-1071.00",
     acronym: "PA",
     modality: "Clinical",
     description: "Physician Assistant",

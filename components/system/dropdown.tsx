@@ -37,8 +37,8 @@ export function Dropdown({ label, value, onChange, options, helper, required, di
           disabled={disabled}
           className="w-full appearance-none rounded-lg border border-border bg-input px-3 py-2 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
+          {options.map((option, index) => (
+            <option key={`${option.value}-${index}`} value={option.value}>
               {option.label}
             </option>
           ))}
