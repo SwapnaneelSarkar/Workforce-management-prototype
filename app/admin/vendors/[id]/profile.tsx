@@ -390,3 +390,4 @@ export default function VendorProfile({ vendor, vendorId }: VendorProfileProps) 
     </div>
   )
 }
+

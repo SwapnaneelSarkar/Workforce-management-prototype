@@ -38,12 +38,66 @@ export type OrganizationLocalDbLegacyTemplate = ComplianceTemplate & {
   updatedAt: string
 }
 
+export type OrganizationQuestionnaireQuestion = {
+  id: string
+  question: string
+  type: "text" | "yesno"
+  required: boolean
+  isReadOnly?: boolean // For required questions that can't be edited
+}
+
+export type OrganizationQuestionnaire = {
+  id: string
+  organizationId: string
+  customQuestions: OrganizationQuestionnaireQuestion[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type OrganizationPlacement = {
+  id: string
+  organizationId: string
+  candidateId: string
+  candidateName: string
+  candidateEmail: string
+  candidateAvatar: string
+  jobId: string
+  jobTitle: string
+  requisitionId?: string
+  location?: string
+  department?: string
+  startDate: string
+  endDate: string
+  shiftType?: string
+  billRate?: string
+  notes?: string
+  status: "Active" | "Upcoming" | "Completed" | "Ending Soon"
+  complianceStatus: "Complete" | "Expiring" | "Missing"
+  createdAt: string
+  updatedAt: string
+}
+
+export type OrganizationWorkforceGroup = {
+  id: string
+  organizationId: string
+  name: string
+  description: string
+  occupationCodes: string[] // Array of occupation codes (e.g., ["RN", "LPN", "CNA"])
+  specialtyCodes?: string[] // Array of specialty codes (e.g., ["ICU", "Emergency"])
+  complianceTemplateId?: string // Reference to a compliance template
+  createdAt: string
+  updatedAt: string
+}
+
 export type OrganizationLocalDbState = {
   jobs: Record<string, OrganizationLocalDbJob>
   applications: Record<string, OrganizationLocalDbApplication>
   walletTemplates: Record<string, OrganizationLocalDbWalletTemplate>
   requisitionTemplates: Record<string, OrganizationLocalDbRequisitionTemplate>
   legacyTemplates: Record<string, OrganizationLocalDbLegacyTemplate>
+  questionnaires: Record<string, OrganizationQuestionnaire>
+  placements: Record<string, OrganizationPlacement>
+  workforceGroups: Record<string, OrganizationWorkforceGroup>
   currentOrganizationId: string | null
   lastUpdated?: string
 }
@@ -54,6 +108,9 @@ export const defaultOrganizationLocalDbState: OrganizationLocalDbState = {
   walletTemplates: {},
   requisitionTemplates: {},
   legacyTemplates: {},
+  questionnaires: {},
+  placements: {},
+  workforceGroups: {},
   currentOrganizationId: null,
   lastUpdated: undefined,
 }
@@ -430,6 +487,9 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         walletTemplates: defaultWalletTemplates,
         requisitionTemplates: defaultRequisitionTemplates,
         legacyTemplates: defaultLegacyTemplates,
+        questionnaires: {},
+        placements: {},
+        workforceGroups: {},
         currentOrganizationId: null,
         lastUpdated: undefined,
       }
@@ -476,6 +536,8 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         walletTemplates: { ...existingWalletTemplates, ...defaultWalletTemplates },
         requisitionTemplates: existingRequisitionTemplates,
         legacyTemplates: existingLegacyTemplates,
+        questionnaires: parsed.questionnaires ?? {},
+        placements: parsed.placements ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -491,6 +553,8 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         walletTemplates: existingWalletTemplates,
         requisitionTemplates: existingRequisitionTemplates,
         legacyTemplates: existingLegacyTemplates,
+        questionnaires: parsed.questionnaires ?? {},
+        placements: parsed.placements ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -510,6 +574,8 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         walletTemplates: existingWalletTemplates,
         requisitionTemplates: existingRequisitionTemplates,
         legacyTemplates: existingLegacyTemplates,
+        questionnaires: parsed.questionnaires ?? {},
+        placements: parsed.placements ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
@@ -521,6 +587,16 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
     }
     
     if (needsUpdate && stateWithDefaults) {
+      // Ensure questionnaires, placements, and workforceGroups fields exist
+      if (!stateWithDefaults.questionnaires) {
+        stateWithDefaults.questionnaires = {}
+      }
+      if (!stateWithDefaults.placements) {
+        stateWithDefaults.placements = {}
+      }
+      if (!stateWithDefaults.workforceGroups) {
+        stateWithDefaults.workforceGroups = {}
+      }
       // Persist the default templates
       persistOrganizationLocalDb(stateWithDefaults)
       console.log("Initialized default templates:", {
@@ -537,6 +613,9 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
       walletTemplates: existingWalletTemplates,
       requisitionTemplates: existingRequisitionTemplates,
       legacyTemplates: existingLegacyTemplates,
+      questionnaires: parsed.questionnaires ?? {},
+      placements: parsed.placements ?? {},
+      workforceGroups: parsed.workforceGroups ?? {},
       currentOrganizationId: parsed.currentOrganizationId ?? null,
       lastUpdated: parsed.lastUpdated,
     }
@@ -985,6 +1064,217 @@ export function deleteLegacyTemplate(id: string): boolean {
   const updatedState: OrganizationLocalDbState = {
     ...state,
     legacyTemplates: remaining,
+  }
+  persistOrganizationLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for questionnaires
+export function getQuestionnaireByOrganization(organizationId: string): OrganizationQuestionnaire | null {
+  const state = readOrganizationLocalDb()
+  const questionnaire = Object.values(state.questionnaires).find(
+    (q) => q.organizationId === organizationId
+  )
+  return questionnaire || null
+}
+
+export function addOrUpdateQuestionnaire(organizationId: string, questionnaire: Omit<OrganizationQuestionnaire, "id" | "organizationId" | "createdAt" | "updatedAt">): OrganizationQuestionnaire {
+  const state = readOrganizationLocalDb()
+  const existing = Object.values(state.questionnaires).find(
+    (q) => q.organizationId === organizationId
+  )
+
+  if (existing) {
+    // Update existing
+    const updated: OrganizationQuestionnaire = {
+      ...existing,
+      customQuestions: questionnaire.customQuestions,
+      updatedAt: new Date().toISOString(),
+    }
+    const updatedState: OrganizationLocalDbState = {
+      ...state,
+      questionnaires: {
+        ...state.questionnaires,
+        [existing.id]: updated,
+      },
+    }
+    persistOrganizationLocalDb(updatedState)
+    return updated
+  } else {
+    // Create new
+    const newQuestionnaire: OrganizationQuestionnaire = {
+      ...questionnaire,
+      id: `questionnaire-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      organizationId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    const updatedState: OrganizationLocalDbState = {
+      ...state,
+      questionnaires: {
+        ...state.questionnaires,
+        [newQuestionnaire.id]: newQuestionnaire,
+      },
+    }
+    persistOrganizationLocalDb(updatedState)
+    return newQuestionnaire
+  }
+}
+
+export function deleteQuestionnaire(organizationId: string): boolean {
+  const state = readOrganizationLocalDb()
+  const questionnaire = Object.values(state.questionnaires).find(
+    (q) => q.organizationId === organizationId
+  )
+  if (!questionnaire) {
+    return false
+  }
+  const { [questionnaire.id]: removed, ...remaining } = state.questionnaires
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    questionnaires: remaining,
+  }
+  persistOrganizationLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for placements
+export function getAllPlacements(): OrganizationPlacement[] {
+  const state = readOrganizationLocalDb()
+  return Object.values(state.placements).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function getPlacementsByOrganization(organizationId: string): OrganizationPlacement[] {
+  return getAllPlacements().filter((placement) => placement.organizationId === organizationId)
+}
+
+export function getPlacementById(id: string): OrganizationPlacement | null {
+  const state = readOrganizationLocalDb()
+  return state.placements[id] || null
+}
+
+export function addPlacement(organizationId: string, placement: Omit<OrganizationPlacement, "id" | "organizationId" | "createdAt" | "updatedAt">): OrganizationPlacement {
+  const state = readOrganizationLocalDb()
+  const newPlacement: OrganizationPlacement = {
+    ...placement,
+    id: `placement-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    organizationId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    placements: {
+      ...state.placements,
+      [newPlacement.id]: newPlacement,
+    },
+  }
+  persistOrganizationLocalDb(updatedState)
+  return newPlacement
+}
+
+export function updatePlacement(id: string, updates: Partial<Omit<OrganizationPlacement, "id" | "organizationId" | "createdAt">>): OrganizationPlacement | null {
+  const state = readOrganizationLocalDb()
+  const existing = state.placements[id]
+  if (!existing) {
+    return null
+  }
+  const updatedPlacement: OrganizationPlacement = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    placements: {
+      ...state.placements,
+      [id]: updatedPlacement,
+    },
+  }
+  persistOrganizationLocalDb(updatedState)
+  return updatedPlacement
+}
+
+export function deletePlacement(id: string): boolean {
+  const state = readOrganizationLocalDb()
+  if (!state.placements[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.placements
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    placements: remaining,
+  }
+  persistOrganizationLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for workforce groups
+export function getAllWorkforceGroups(): OrganizationWorkforceGroup[] {
+  const state = readOrganizationLocalDb()
+  return Object.values(state.workforceGroups).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+}
+
+export function getWorkforceGroupsByOrganization(organizationId: string): OrganizationWorkforceGroup[] {
+  return getAllWorkforceGroups().filter((group) => group.organizationId === organizationId)
+}
+
+export function getWorkforceGroupById(id: string): OrganizationWorkforceGroup | null {
+  const state = readOrganizationLocalDb()
+  return state.workforceGroups[id] || null
+}
+
+export function addWorkforceGroup(organizationId: string, group: Omit<OrganizationWorkforceGroup, "id" | "organizationId" | "createdAt" | "updatedAt">): OrganizationWorkforceGroup {
+  const state = readOrganizationLocalDb()
+  const newGroup: OrganizationWorkforceGroup = {
+    ...group,
+    id: `wf-group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    organizationId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    workforceGroups: {
+      ...state.workforceGroups,
+      [newGroup.id]: newGroup,
+    },
+  }
+  persistOrganizationLocalDb(updatedState)
+  return newGroup
+}
+
+export function updateWorkforceGroup(id: string, updates: Partial<Omit<OrganizationWorkforceGroup, "id" | "organizationId" | "createdAt">>): OrganizationWorkforceGroup | null {
+  const state = readOrganizationLocalDb()
+  const existing = state.workforceGroups[id]
+  if (!existing) {
+    return null
+  }
+  const updatedGroup: OrganizationWorkforceGroup = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    workforceGroups: {
+      ...state.workforceGroups,
+      [id]: updatedGroup,
+    },
+  }
+  persistOrganizationLocalDb(updatedState)
+  return updatedGroup
+}
+
+export function deleteWorkforceGroup(id: string): boolean {
+  const state = readOrganizationLocalDb()
+  if (!state.workforceGroups[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.workforceGroups
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    workforceGroups: remaining,
   }
   persistOrganizationLocalDb(updatedState)
   return true

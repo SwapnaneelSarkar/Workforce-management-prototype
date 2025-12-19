@@ -40,6 +40,11 @@ import {
   Download,
   Upload,
   Link2,
+  UserPlus,
+  StickyNote,
+  Calendar,
+  FileQuestion,
+  UserCheck,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -53,10 +58,63 @@ export const candidateNavLinks: NavLink[] = [
 ]
 
 export const organizationNavLinks: NavLink[] = [
-  { href: "/organization/dashboard", label: "Dashboard", icon: Command },
-  { href: "/organization/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/organization/applications", label: "Applications", icon: FileText },
-  { href: "/organization/compliance/templates", label: "Compliance templates", icon: ClipboardCheck },
+  { href: "/organization/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  {
+    href: "/organization/hiring",
+    label: "Hiring",
+    icon: UserPlus,
+    children: [
+      { href: "/organization/compliance/requisition-templates", label: "Requisition Templates", icon: ClipboardCheck },
+      { href: "/organization/jobs", label: "Jobs", icon: Briefcase },
+      { href: "/organization/applications", label: "Applications", icon: FileText },
+    ],
+  },
+  {
+    href: "/organization/compliance",
+    label: "Compliance",
+    icon: ClipboardCheck,
+    children: [
+      { href: "/organization/compliance/templates", label: "Templates", icon: ClipboardCheck },
+      { href: "/organization/compliance/questionnaire", label: "Questionnaire", icon: FileQuestion },
+    ],
+  },
+  {
+    href: "/organization/workforce",
+    label: "Workforce",
+    icon: Users,
+    children: [
+      { href: "/organization/workforce/placements", label: "Placements", icon: UserCheck },
+      { href: "/organization/workforce/workforce-groups", label: "Workforce Groups", icon: Users },
+      { href: "/organization/workforce/locations-departments", label: "Locations & Departments", icon: Building2 },
+    ],
+  },
+  {
+    href: "/organization/time-billing",
+    label: "Time & Billing",
+    icon: DollarSign,
+    children: [
+      { href: "/organization/time-billing/timekeeping", label: "Timekeeping", icon: Clock },
+      { href: "/organization/time-billing/invoicing", label: "Invoicing", icon: Receipt },
+    ],
+  },
+  {
+    href: "/organization/management",
+    label: "Management",
+    icon: Settings,
+    children: [
+      { href: "/organization/management/vendors", label: "Vendors", icon: Network },
+      { href: "/organization/management/users", label: "Users", icon: UserCog },
+      { href: "/organization/management/notes", label: "Notes", icon: StickyNote },
+    ],
+  },
+  {
+    href: "/organization/settings",
+    label: "Settings",
+    icon: Settings,
+    children: [
+      { href: "/organization/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ]
 
 export const vendorNavLinks: NavLink[] = [

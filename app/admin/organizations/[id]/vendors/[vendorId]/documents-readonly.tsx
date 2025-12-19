@@ -247,3 +247,4 @@ export default function VendorDocumentsReadOnly({ vendorId }: VendorDocumentsRea
     </div>
   )
 }
+

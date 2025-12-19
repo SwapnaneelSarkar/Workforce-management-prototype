@@ -287,3 +287,4 @@ export default function VendorOccupations({ vendor, vendorId }: VendorOccupation
     </div>
   )
 }
+

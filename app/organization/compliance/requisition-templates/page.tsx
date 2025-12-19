@@ -114,7 +114,7 @@ export default function RequisitionTemplatesPage() {
                         <div className="text-xs text-muted-foreground">{template.department}</div>
                       )}
                     </div>
-                    <span className="text-xs text-muted-foreground">{template.listItemIds.length} items</span>
+                    <span className="text-xs text-muted-foreground">{template.listItemIds?.length || 0} items</span>
                   </div>
                 </Link>
               ))}
