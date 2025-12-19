@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Fragment, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 import { ChevronDown, ChevronUp } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -166,8 +166,8 @@ export function DataTable<T>({
               const key = resolveRowKey(row, index)
               const expanded = expandedRow === key
               return (
-                <>
-                  <tr key={key} className="bg-card hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent transition-all duration-200 group">
+                <Fragment key={key}>
+                  <tr className="bg-card hover:bg-gradient-to-r hover:from-blue-50/30 hover:to-transparent transition-all duration-200 group">
                     {selectable ? (
                       <td className="px-4 py-3">
                         <Checkbox
@@ -214,7 +214,7 @@ export function DataTable<T>({
                       </td>
                     </tr>
                   ) : null}
-                </>
+                </Fragment>
               )
             })
           ) : (

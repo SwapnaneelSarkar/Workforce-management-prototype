@@ -101,9 +101,12 @@ export default function LocationsDepartmentsPage() {
   }
 
   const createMockLocations = (organizationId: string): OrganizationLocation[] => {
+    const baseTimestamp = Date.now()
+    let deptCounter = 1
+    
     const mockLocations: OrganizationLocation[] = [
       {
-        id: `loc-${Date.now()}-1`,
+        id: `loc-${baseTimestamp}-1`,
         name: "CHP Administration",
         address: "444 Stockbridge Rd",
         city: "Great Barrington",
@@ -114,7 +117,7 @@ export default function LocationsDepartmentsPage() {
         departments: [],
       },
       {
-        id: `loc-${Date.now()}-2`,
+        id: `loc-${baseTimestamp}-2`,
         name: "Barrington OB/GYN",
         address: "27 Lewis Ave",
         city: "Great Barrington",
@@ -122,10 +125,17 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01230",
         phone: "(413) 528-1470",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Obstetrics & Gynecology",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-3`,
+        id: `loc-${baseTimestamp}-3`,
         name: "Berkshire Pediatrics",
         address: "777 North St",
         city: "Pittsfield",
@@ -133,10 +143,23 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01201",
         phone: "(413) 499-8531",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Pediatrics",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Pediatric Cardiology",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-4`,
+        id: `loc-${baseTimestamp}-4`,
         name: "Great Barrington Family Dental",
         address: "444 Stockbridge Rd",
         city: "Great Barrington",
@@ -144,10 +167,23 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01230",
         phone: "(413) 528-5565",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "General Dentistry",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Orthodontics",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-5`,
+        id: `loc-${baseTimestamp}-5`,
         name: "Great Barrington Health Center",
         address: "444 Stockbridge Rd",
         city: "Great Barrington",
@@ -157,15 +193,27 @@ export default function LocationsDepartmentsPage() {
         locationType: "Outpatient",
         departments: [
           {
-            id: `dept-${Date.now()}-1`,
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
             name: "Family Medicine",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Pediatrics",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Internal Medicine",
             relatedUsers: [],
             relatedOccupationSpecialties: [],
           },
         ],
       },
       {
-        id: `loc-${Date.now()}-6`,
+        id: `loc-${baseTimestamp}-6`,
         name: "Lee Family Practice",
         address: "11 Quarry Hill Rd",
         city: "Lee",
@@ -173,10 +221,17 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01238",
         phone: "(413) 243-0536",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Family Medicine",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-7`,
+        id: `loc-${baseTimestamp}-7`,
         name: "Neighborhood Health Center",
         address: "510 North St",
         city: "Pittsfield",
@@ -184,10 +239,29 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01201",
         phone: "(413) 447-2351",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Primary Care",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Behavioral Health",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Women's Health",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-8`,
+        id: `loc-${baseTimestamp}-8`,
         name: "Neighborhood Dental Center",
         address: "510 North St",
         city: "Pittsfield",
@@ -195,10 +269,17 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01201",
         phone: "(413) 447-2781",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "General Dentistry",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-9`,
+        id: `loc-${baseTimestamp}-9`,
         name: "Adams Family Medicine",
         address: "19 Depot St",
         city: "Adams",
@@ -206,10 +287,23 @@ export default function LocationsDepartmentsPage() {
         zipCode: "01220",
         phone: "(413) 664-4088",
         locationType: "Outpatient",
-        departments: [],
+        departments: [
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Family Medicine",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: `dept-${baseTimestamp}-${deptCounter++}`,
+            name: "Urgent Care",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
-        id: `loc-${Date.now()}-10`,
+        id: `loc-${baseTimestamp}-10`,
         name: "Family Services & WIC",
         address: "442 Stockbridge Rd",
         city: "Great Barrington",
@@ -239,13 +333,29 @@ export default function LocationsDepartmentsPage() {
     return depts
   }, [locations])
 
-  // Calculate employee counts (mock calculation)
+  // Calculate employee counts (mock calculation - deterministic based on department name)
   const departmentEmployeeCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     allDepartments.forEach((dept) => {
-      // Mock employee count based on department name
-      const baseCount = dept.name.toLowerCase().includes("family") ? 12 : 8
-      counts[dept.id] = baseCount + Math.floor(Math.random() * 5)
+      // Deterministic employee count based on department name hash
+      const nameHash = dept.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      const baseCounts: Record<string, number> = {
+        "Family Medicine": 12,
+        "Pediatrics": 10,
+        "Internal Medicine": 9,
+        "Obstetrics & Gynecology": 8,
+        "Pediatric Cardiology": 6,
+        "General Dentistry": 7,
+        "Orthodontics": 5,
+        "Primary Care": 11,
+        "Behavioral Health": 8,
+        "Women's Health": 7,
+        "Urgent Care": 9,
+      }
+      const baseCount = baseCounts[dept.name] || 8
+      // Add small variation based on hash for consistency
+      const variation = (nameHash % 5) - 2 // -2 to +2
+      counts[dept.id] = Math.max(3, baseCount + variation)
     })
     return counts
   }, [allDepartments])

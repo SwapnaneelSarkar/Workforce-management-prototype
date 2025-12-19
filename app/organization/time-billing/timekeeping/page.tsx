@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
 import { Header, Card } from "@/components/system"
 import { DataTable } from "@/components/system/table"
 import { StatusChip } from "@/components/system/status-chip"
@@ -20,30 +19,28 @@ import {
   type LocalDbTimecard,
   type LocalDbTimecardStatus,
 } from "@/lib/local-db"
+import { getCurrentOrganization } from "@/lib/organization-local-db"
 import { Clock } from "lucide-react"
-
-type RouteParams = {
-  id: string
-}
 
 type StatusFilter = "all" | LocalDbTimecardStatus
 
-export default function OrganizationTimekeepingPage() {
-  const params = useParams<RouteParams>()
-  const organizationId = params?.id
-
+export default function OrganizationTimeBillingTimekeepingPage() {
+  const [orgId, setOrgId] = useState<string | null>(null)
   const [timecards, setTimecards] = useState<LocalDbTimecard[]>([])
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [periodFilter, setPeriodFilter] = useState<"last7" | "last30" | "all">("all")
 
   useEffect(() => {
-    // Load from local DB on mount
+    if (typeof window === "undefined") return
+    const currentOrg = getCurrentOrganization()
+    setOrgId(currentOrg)
+
     const all = getAllTimecards().filter((tc) =>
-      organizationId ? tc.organizationId === String(organizationId) : true,
+      currentOrg ? tc.organizationId === currentOrg : true,
     )
     setTimecards(all)
-  }, [organizationId])
+  }, [])
 
   const filteredTimecards = useMemo(() => {
     const now = new Date()
@@ -103,10 +100,10 @@ export default function OrganizationTimekeepingPage() {
     <>
       <Header
         title="Timekeeping"
-        subtitle="Review and approve candidate timecards linked to active assignments."
+        subtitle="Review and approve timecards submitted by candidates for your organization."
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: "Organizations", href: "/admin/organizations" },
+          { label: "Organization", href: "/organization/dashboard" },
+          { label: "Time & Billing", href: "/organization/time-billing" },
           { label: "Timekeeping" },
         ]}
       />
@@ -284,9 +281,7 @@ export default function OrganizationTimekeepingPage() {
                 render: (tc) => (
                   <Button asChild size="sm" variant="outline">
                     <Link
-                      href={`/admin/organizations/${organizationId ?? "org_1"}/timekeeping/${
-                        tc.id
-                      }`}
+                      href={`/organization/time-billing/timekeeping/${tc.id}`}
                     >
                       View
                     </Link>
