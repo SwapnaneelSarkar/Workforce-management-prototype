@@ -169,6 +169,7 @@ export function getOrganizationNavLinks(organizationId: string, organizationName
       label: "Organization",
       icon: Building2,
       children: [
+        { href: basePath, label: "Profile", icon: Building2 },
         { href: `${basePath}/locations`, label: "Locations", icon: MapPin },
         { href: `${basePath}/departments`, label: "Departments", icon: FolderOpen },
         { href: `${basePath}/workforce-groups`, label: "Workforce Groups", icon: Users },
