@@ -53,6 +53,21 @@ export type LocalDbTimecard = {
   days: LocalDbTimecardDay[]
 }
 
+export type LocalDbInvoice = {
+  id: string
+  organizationId: string
+  /** Human-readable file name, e.g. Invoice_RN_ICU_Jan2025.pdf */
+  fileName: string
+  /** Simple label like "Sarah Johnson - RN ICU" */
+  relatedAssignment: string
+  /** Optional link to a timecard id */
+  timecardId?: string
+  /** ISO date string (yyyy-mm-dd) */
+  dateUploaded: string
+  amount: number
+  status: LocalDbInvoiceStatus
+}
+
 export type LocalDbState = {
   onboardingDetails: LocalDbOnboardingDetails
   uploadedDocuments: Record<string, LocalDbDocumentEntry>
@@ -62,21 +77,6 @@ export type LocalDbState = {
   /** Invoices generated from approved timecards */
   invoices: Record<string, LocalDbInvoice>
   lastUpdated?: string
-}
-
-export type LocalDbInvoice = {
-  id: string
-  organizationId: string
-  /** Human-readable file name, e.g. Invoice_RN_ICU_Jan2025.pdf */
-  fileName: string
-  /** Simple label like \"Sarah Johnson - RN ICU\" */
-  relatedAssignment: string
-  /** Optional link to a timecard id */
-  timecardId?: string
-  /** ISO date string (yyyy-mm-dd) */
-  dateUploaded: string
-  amount: number
-  status: LocalDbInvoiceStatus
 }
 
 export const defaultLocalDbState: LocalDbState = {
@@ -262,7 +262,7 @@ export const defaultLocalDbState: LocalDbState = {
       submittedOn: "2025-01-15T08:45:00Z",
       lastUpdated: "2025-01-16T09:00:00Z",
       days: [
-       {
+        {
           date: "2025-01-08",
           label: "Monday, Jan 8",
           startTime: "19:00",
@@ -668,5 +668,4 @@ export function deleteInvoice(id: string): void {
 
   persistLocalDb(next)
 }
-
 

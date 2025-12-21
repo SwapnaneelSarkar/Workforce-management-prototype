@@ -1,4 +1,4 @@
- "use client"
+"use client"
 
 import { useMemo, useState } from "react"
 import { Header, Card } from "@/components/system"
@@ -277,4 +277,3 @@ export default function OrganizationNotesPage() {
     </>
   )
 }
-

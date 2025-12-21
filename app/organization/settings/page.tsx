@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Save } from "lucide-react"
 
 export default function OrganizationSettingsPage() {
   const [tab, setTab] = useState("profile")
@@ -166,6 +167,7 @@ function ProfileTab() {
 
       <div className="pt-4 border-t border-border/60">
         <Button onClick={handleSave}>
+          <Save className="mr-2 h-4 w-4" />
           Save Changes
         </Button>
       </div>
@@ -243,4 +245,3 @@ function NotesTab() {
     </div>
   )
 }
-

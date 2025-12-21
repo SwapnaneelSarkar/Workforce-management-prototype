@@ -25,6 +25,12 @@ function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem
   const active = pathname.startsWith(item.href)
   const childActive = hasChildren && item.children?.some(child => pathname.startsWith(child.href))
   const [isOpen, setIsOpen] = useState(() => Boolean(childActive))
+  const [mounted, setMounted] = useState(false)
+  
+  // Only render Collapsible after mount to avoid hydration mismatch with Radix UI IDs
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
   // Update open state when pathname changes and a child becomes active
   useEffect(() => {
@@ -55,6 +61,92 @@ function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem
   }
   
   if (hasChildren) {
+    // Render static version during SSR to avoid hydration mismatch
+    if (!mounted) {
+      return (
+        <li suppressHydrationWarning>
+          <button
+            type="button"
+            className={cn(
+              "group relative flex w-full items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-semibold transition-all duration-200",
+              (active || childActive)
+                ? "text-[#3182ce] bg-blue-50/50 shadow-sm" 
+                : "text-muted-foreground hover:bg-[#eef0f4] hover:text-foreground hover:shadow-sm",
+              collapsed ? "justify-center" : "justify-between",
+            )}
+          >
+            <div className={cn("flex items-center gap-3", collapsed && "w-full justify-center")}>
+              <span
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-full bg-[#eef0f4] text-muted-foreground transition-all duration-200",
+                  (active || childActive) && "bg-blue-100 text-[#3182ce] shadow-sm",
+                )}
+              >
+                {iconContent}
+              </span>
+              <span className={cn("truncate", collapsed && "hidden lg:hidden")}>{item.label}</span>
+            </div>
+            {!collapsed && (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+            {(active || childActive) ? <span className="absolute inset-y-1 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#3182ce] to-[#2563EB] shadow-sm" aria-hidden /> : null}
+          </button>
+          {childActive && (
+            <div className="mt-1 space-y-1 pl-4">
+              {item.children?.map((child, childIndex) => {
+                const childActive = pathname.startsWith(child.href)
+                let childIconContent: React.ReactNode = child.label.charAt(0)
+                
+                if (child.icon) {
+                  try {
+                    if (React.isValidElement(child.icon)) {
+                      childIconContent = child.icon
+                    } else if (typeof child.icon === 'function') {
+                      const IconComponent = child.icon as LucideIcon
+                      childIconContent = <IconComponent className="h-4 w-4" size={16} />
+                    }
+                  } catch (error) {
+                    childIconContent = child.label.charAt(0)
+                  }
+                }
+                
+                return (
+                  <Link
+                    key={`${item.label}-${child.label}-${child.href}-${childIndex}`}
+                    href={child.href}
+                    aria-current={childActive ? "page" : undefined}
+                    className={cn(
+                      "group relative flex gap-3 rounded-[8px] px-3 py-2 text-sm font-medium transition-all duration-200",
+                      child.subtitle ? "items-start py-2.5" : "items-center",
+                      childActive 
+                        ? "text-[#3182ce] bg-blue-50/50 shadow-sm" 
+                        : "text-muted-foreground hover:bg-[#eef0f4] hover:text-foreground hover:shadow-sm",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full bg-[#eef0f4] text-muted-foreground transition-all duration-200 flex-shrink-0",
+                        childActive && "bg-blue-100 text-[#3182ce] shadow-sm",
+                      )}
+                    >
+                      {childIconContent}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="truncate block leading-tight">{child.label}</span>
+                      {child.subtitle && (
+                        <span className="text-xs text-muted-foreground/70 truncate block leading-tight mt-0.5">{child.subtitle}</span>
+                      )}
+                    </div>
+                    {childActive ? <span className="absolute inset-y-1 left-0 w-1 rounded-r-full bg-gradient-to-b from-[#3182ce] to-[#2563EB] shadow-sm" aria-hidden /> : null}
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </li>
+      )
+    }
+    
     return (
       <li suppressHydrationWarning>
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>

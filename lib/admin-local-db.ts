@@ -58,6 +58,7 @@ export type AdminLocalDbOrganizationEntry = {
   serviceAgreement?: string
   timezone?: string
   agreementRenewalDate?: string
+  estimatedAnnualSpend?: number // Estimated annual spend for MSP calculations
   locations: AdminLocalDbOrganizationLocation[]
   occupationIds?: string[] // Array of Occupation IDs
   createdAt: string
@@ -256,6 +257,49 @@ export type VendorOrganization = {
   updatedAt: string
 }
 
+export type MSP = {
+  id: string
+  name: string
+  logo?: string
+  industry?: string
+  organizationType: "Staffing agency" | "MSP firm" | "Organization staffing office"
+  // Headquarters Address
+  headquartersStreet?: string
+  headquartersCity?: string
+  headquartersState?: string
+  headquartersZip?: string
+  headquartersCountry?: string
+  // Billing Address
+  billingSameAsHeadquarters: boolean
+  billingStreet?: string
+  billingCity?: string
+  billingState?: string
+  billingZip?: string
+  billingCountry?: string
+  // Contact Details
+  organizationPhone?: string
+  timezone?: string
+  // Master Services Agreement
+  msaDocument?: string // File URL or name
+  agreementRenewalDate?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type MSPOrganization = {
+  id: string
+  mspId: string
+  organizationId: string
+  addendumAgreement?: string // File URL or name
+  mspFeePercentage?: number // MSP fee percentage
+  sasFeePercentage?: number // SAS fee percentage
+  agreementStartDate?: string
+  agreementRenewalDate?: string
+  possibleCancellationDate?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export type Vendor = {
   id: string
   name: string
@@ -300,6 +344,8 @@ export type AdminLocalDbState = {
   vendorDocuments: Record<string, VendorDocument>
   vendorNotes: Record<string, VendorNote>
   vendorOrganizations: Record<string, VendorOrganization>
+  msps: Record<string, MSP>
+  mspOrganizations: Record<string, MSPOrganization>
   lastUpdated?: string
 }
 
@@ -317,6 +363,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     serviceAgreement: "Nova Health MSA.pdf",
     timezone: "CST",
     agreementRenewalDate: "2025-12-31",
+    estimatedAnnualSpend: 2500000,
     occupationIds: ["occ-001", "occ-002", "occ-003", "occ-004", "occ-005", "occ-006", "occ-007", "occ-008"],
     locations: [
       {
@@ -328,7 +375,81 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         zipCode: "62701",
         phone: "+1 (555) 123-4567",
         email: "main@novahealth.com",
-        departments: [],
+        locationType: "Inpatient",
+        departments: [
+          {
+            id: "dept-001",
+            name: "Emergency Department",
+            deptType: "Clinical",
+            costCentre: "ED-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-002",
+            name: "Intensive Care Unit",
+            deptType: "Clinical",
+            costCentre: "ICU-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-003",
+            name: "Medical-Surgical",
+            deptType: "Clinical",
+            costCentre: "MED-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-004",
+            name: "Operating Room",
+            deptType: "Clinical",
+            costCentre: "OR-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-005",
+            name: "Laboratory",
+            deptType: "Clinical Support",
+            costCentre: "LAB-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-034",
+            name: "Pharmacy",
+            deptType: "Clinical Support",
+            costCentre: "PHARM-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-035",
+            name: "Radiology",
+            deptType: "Clinical Support",
+            costCentre: "RAD-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-036",
+            name: "Cardiology",
+            deptType: "Clinical",
+            costCentre: "CARD-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-037",
+            name: "Orthopedics",
+            deptType: "Clinical",
+            costCentre: "ORTHO-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
         id: "loc-002",
@@ -339,7 +460,106 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         zipCode: "62702",
         phone: "+1 (555) 123-4568",
         email: "downtown@novahealth.com",
-        departments: [],
+        locationType: "Outpatient",
+        departments: [
+          {
+            id: "dept-006",
+            name: "Family Medicine",
+            deptType: "Clinical",
+            costCentre: "FM-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-007",
+            name: "Pediatrics",
+            deptType: "Clinical",
+            costCentre: "PED-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-008",
+            name: "Internal Medicine",
+            deptType: "Clinical",
+            costCentre: "IM-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-038",
+            name: "Women's Health",
+            deptType: "Clinical",
+            costCentre: "WH-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-039",
+            name: "Behavioral Health",
+            deptType: "Clinical",
+            costCentre: "BH-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
+      },
+      {
+        id: "loc-009",
+        name: "Nova Urgent Care",
+        address: "789 Fast Track Way",
+        city: "Springfield",
+        state: "IL",
+        zipCode: "62703",
+        phone: "+1 (555) 123-4569",
+        email: "urgent@novahealth.com",
+        locationType: "Emergency",
+        departments: [
+          {
+            id: "dept-009",
+            name: "Urgent Care",
+            deptType: "Clinical",
+            costCentre: "UC-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
+      },
+      {
+        id: "loc-010",
+        name: "Nova Rehabilitation Center",
+        address: "321 Recovery Blvd",
+        city: "Springfield",
+        state: "IL",
+        zipCode: "62704",
+        phone: "+1 (555) 123-4570",
+        locationType: "Outpatient",
+        departments: [
+          {
+            id: "dept-010",
+            name: "Physical Therapy",
+            deptType: "Clinical",
+            costCentre: "PT-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-011",
+            name: "Occupational Therapy",
+            deptType: "Clinical",
+            costCentre: "OT-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-040",
+            name: "Speech Therapy",
+            deptType: "Clinical",
+            costCentre: "ST-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
     ],
     createdAt: "2025-01-15T10:00:00Z",
@@ -357,6 +577,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     logo: undefined,
     serviceAgreement: "Memorial Health MSA.pdf",
     timezone: "CST",
+    estimatedAnnualSpend: 4200000,
     agreementRenewalDate: "2025-06-30",
     occupationIds: ["occ-001", "occ-002", "occ-003", "occ-005", "occ-006", "occ-007"],
     locations: [
@@ -369,7 +590,89 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         zipCode: "60601",
         phone: "+1 (555) 234-5678",
         email: "main@memorialhealth.com",
-        departments: [],
+        locationType: "Inpatient",
+        departments: [
+          {
+            id: "dept-012",
+            name: "Cardiac Care Unit",
+            deptType: "Clinical",
+            costCentre: "CCU-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-013",
+            name: "Neonatal Intensive Care",
+            deptType: "Clinical",
+            costCentre: "NICU-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-014",
+            name: "Oncology",
+            deptType: "Clinical",
+            costCentre: "ONC-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-015",
+            name: "Radiology",
+            deptType: "Clinical Support",
+            costCentre: "RAD-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-016",
+            name: "Pharmacy",
+            deptType: "Clinical Support",
+            costCentre: "PHARM-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-017",
+            name: "Emergency Department",
+            deptType: "Clinical",
+            costCentre: "ED-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-041",
+            name: "Medical-Surgical",
+            deptType: "Clinical",
+            costCentre: "MED-003",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-042",
+            name: "Operating Room",
+            deptType: "Clinical",
+            costCentre: "OR-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-043",
+            name: "Laboratory",
+            deptType: "Clinical Support",
+            costCentre: "LAB-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-044",
+            name: "Pathology",
+            deptType: "Clinical Support",
+            costCentre: "PATH-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
       {
         id: "loc-004",
@@ -379,7 +682,85 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         state: "IL",
         zipCode: "60201",
         phone: "+1 (555) 234-5679",
-        departments: [],
+        locationType: "Outpatient",
+        departments: [
+          {
+            id: "dept-018",
+            name: "Primary Care",
+            deptType: "Clinical",
+            costCentre: "PC-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-019",
+            name: "Women's Health",
+            deptType: "Clinical",
+            costCentre: "WH-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-020",
+            name: "Behavioral Health",
+            deptType: "Clinical",
+            costCentre: "BH-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-045",
+            name: "Dermatology",
+            deptType: "Clinical",
+            costCentre: "DERM-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-046",
+            name: "Endocrinology",
+            deptType: "Clinical",
+            costCentre: "ENDO-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
+      },
+      {
+        id: "loc-011",
+        name: "Memorial Surgical Center",
+        address: "555 Surgery Lane",
+        city: "Chicago",
+        state: "IL",
+        zipCode: "60602",
+        phone: "+1 (555) 234-5680",
+        locationType: "Outpatient",
+        departments: [
+          {
+            id: "dept-021",
+            name: "Ambulatory Surgery",
+            deptType: "Clinical",
+            costCentre: "ASC-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-022",
+            name: "Post-Anesthesia Care",
+            deptType: "Clinical",
+            costCentre: "PACU-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-047",
+            name: "Pre-Operative Services",
+            deptType: "Clinical",
+            costCentre: "PREOP-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
     ],
     createdAt: "2025-02-01T10:00:00Z",
@@ -397,6 +778,7 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
     logo: undefined,
     serviceAgreement: "Vitality MSA.pdf",
     timezone: "EST",
+    estimatedAnnualSpend: 3200000,
     agreementRenewalDate: "2025-01-20",
     occupationIds: ["occ-001", "occ-003", "occ-004", "occ-006", "occ-008"],
     locations: [
@@ -405,11 +787,125 @@ const defaultOrganizations: AdminLocalDbOrganizationEntry[] = [
         name: "Vitality Main Hospital",
         address: "123 Main St",
         city: "Anytown",
-        state: "USA",
+        state: "NY",
         zipCode: "12345",
         phone: "+1 (555) 345-6789",
         email: "main@vitalityhealth.org",
-        departments: [],
+        locationType: "Inpatient",
+        departments: [
+          {
+            id: "dept-023",
+            name: "Emergency Department",
+            deptType: "Clinical",
+            costCentre: "ED-003",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-024",
+            name: "Intensive Care Unit",
+            deptType: "Clinical",
+            costCentre: "ICU-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-025",
+            name: "Medical-Surgical",
+            deptType: "Clinical",
+            costCentre: "MED-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-026",
+            name: "Obstetrics & Gynecology",
+            deptType: "Clinical",
+            costCentre: "OBGYN-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-027",
+            name: "Pediatrics",
+            deptType: "Clinical",
+            costCentre: "PED-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
+      },
+      {
+        id: "loc-012",
+        name: "Vitality Community Health Center",
+        address: "456 Wellness Ave",
+        city: "Anytown",
+        state: "NY",
+        zipCode: "12346",
+        phone: "+1 (555) 345-6790",
+        locationType: "Outpatient",
+        departments: [
+          {
+            id: "dept-028",
+            name: "Family Medicine",
+            deptType: "Clinical",
+            costCentre: "FM-002",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-029",
+            name: "Pediatrics",
+            deptType: "Clinical",
+            costCentre: "PED-003",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-030",
+            name: "Dental Services",
+            deptType: "Clinical",
+            costCentre: "DENT-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
+      },
+      {
+        id: "loc-013",
+        name: "Vitality Specialty Clinic",
+        address: "789 Specialist Dr",
+        city: "Anytown",
+        state: "NY",
+        zipCode: "12347",
+        phone: "+1 (555) 345-6791",
+        locationType: "Outpatient",
+        departments: [
+          {
+            id: "dept-031",
+            name: "Cardiology",
+            deptType: "Clinical",
+            costCentre: "CARD-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-032",
+            name: "Orthopedics",
+            deptType: "Clinical",
+            costCentre: "ORTHO-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+          {
+            id: "dept-033",
+            name: "Dermatology",
+            deptType: "Clinical",
+            costCentre: "DERM-001",
+            relatedUsers: [],
+            relatedOccupationSpecialties: [],
+          },
+        ],
       },
     ],
     createdAt: "2017-02-10T10:00:00Z",
@@ -3722,6 +4218,98 @@ const defaultVendorOrganizations: VendorOrganization[] = [
     createdAt: "2023-11-01T10:00:00Z",
     updatedAt: "2023-11-01T10:00:00Z",
   },
+  // Additional associations for org-001 (Nova Health)
+  {
+    id: "vo-023",
+    vendorId: "vendor-002", // MedStaff Solutions
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2024-01-15",
+    notes: "Allied health professionals for rehabilitation services",
+    createdAt: "2024-01-15T10:00:00Z",
+    updatedAt: "2024-01-15T10:00:00Z",
+  },
+  {
+    id: "vo-024",
+    vendorId: "vendor-004", // HealthPro Recruiters
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2024-02-01",
+    notes: "Specialized recruitment for urgent care positions",
+    createdAt: "2024-02-01T10:00:00Z",
+    updatedAt: "2024-02-01T10:00:00Z",
+  },
+  {
+    id: "vo-025",
+    vendorId: "vendor-005", // NurseConnect Agency
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2024-02-10",
+    notes: "Nursing staff for main campus",
+    createdAt: "2024-02-10T10:00:00Z",
+    updatedAt: "2024-02-10T10:00:00Z",
+  },
+  {
+    id: "vo-026",
+    vendorId: "vendor-006", // Allied Health Partners
+    organizationId: "org-001", // Nova Health
+    status: "Active",
+    startDate: "2024-03-01",
+    notes: "Physical therapy and occupational therapy specialists",
+    createdAt: "2024-03-01T10:00:00Z",
+    updatedAt: "2024-03-01T10:00:00Z",
+  },
+  // Additional associations for org-002 (Memorial Health System)
+  {
+    id: "vo-027",
+    vendorId: "vendor-001", // Nova Health (vendor)
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2024-01-20",
+    notes: "ICU and ER staffing support",
+    createdAt: "2024-01-20T10:00:00Z",
+    updatedAt: "2024-01-20T10:00:00Z",
+  },
+  {
+    id: "vo-028",
+    vendorId: "vendor-003", // CareFirst Staffing
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2024-02-15",
+    notes: "Multi-department coverage including surgical center",
+    createdAt: "2024-02-15T10:00:00Z",
+    updatedAt: "2024-02-15T10:00:00Z",
+  },
+  {
+    id: "vo-029",
+    vendorId: "vendor-004", // HealthPro Recruiters
+    organizationId: "org-002", // Memorial Health System
+    status: "Pending",
+    startDate: "2024-03-01",
+    notes: "Oncology department staffing - contract under review",
+    createdAt: "2024-02-20T10:00:00Z",
+    updatedAt: "2024-02-20T10:00:00Z",
+  },
+  {
+    id: "vo-030",
+    vendorId: "vendor-006", // Allied Health Partners
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2024-01-10",
+    notes: "Radiology and pathology support staff",
+    createdAt: "2024-01-10T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  {
+    id: "vo-031",
+    vendorId: "vendor-009", // Regional Medical Staffing
+    organizationId: "org-002", // Memorial Health System
+    status: "Active",
+    startDate: "2024-02-01",
+    notes: "Satellite clinic coverage",
+    createdAt: "2024-02-01T10:00:00Z",
+    updatedAt: "2024-02-01T10:00:00Z",
+  },
 ]
 
 const defaultVendorOrganizationsRecord: Record<string, VendorOrganization> = defaultVendorOrganizations.reduce(
@@ -3730,6 +4318,382 @@ const defaultVendorOrganizationsRecord: Record<string, VendorOrganization> = def
     return acc
   },
   {} as Record<string, VendorOrganization>
+)
+
+// Default MSP data
+const defaultMSPs: MSP[] = [
+  {
+    id: "msp-001",
+    name: "Apex Solutions Inc.",
+    logo: "/logos/apex.png",
+    industry: "Technology",
+    organizationType: "MSP firm",
+    headquartersStreet: "123 Main St",
+    headquartersCity: "New York",
+    headquartersState: "NY",
+    headquartersZip: "10001",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 123-4567",
+    timezone: "(UTC-05:00) Eastern Time (US & Canada)",
+    msaDocument: "Master_Services_Agreement_2023.pdf",
+    agreementRenewalDate: "2024-12-31",
+    createdAt: "2021-03-15T10:00:00Z",
+    updatedAt: "2024-01-15T10:00:00Z",
+  },
+  {
+    id: "msp-002",
+    name: "BlueWave Technology",
+    logo: "/logos/bluewave.png",
+    industry: "Technology",
+    organizationType: "MSP firm",
+    headquartersStreet: "456 Market St",
+    headquartersCity: "San Francisco",
+    headquartersState: "CA",
+    headquartersZip: "94102",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 234-5678",
+    timezone: "(UTC-08:00) Pacific Time (US & Canada)",
+    msaDocument: "MSA_BlueWave_2023.pdf",
+    agreementRenewalDate: "2024-11-30",
+    createdAt: "2020-11-01T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  {
+    id: "msp-003",
+    name: "GreenLeaf IT",
+    logo: "/logos/greenleaf.png",
+    industry: "Technology",
+    organizationType: "Staffing agency",
+    headquartersStreet: "789 Tech Blvd",
+    headquartersCity: "Austin",
+    headquartersState: "TX",
+    headquartersZip: "78701",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 345-6789",
+    timezone: "(UTC-06:00) Central Time (US & Canada)",
+    msaDocument: "GreenLeaf_MSA_2023.pdf",
+    agreementRenewalDate: "2025-01-20",
+    createdAt: "2022-01-20T10:00:00Z",
+    updatedAt: "2024-01-20T10:00:00Z",
+  },
+  {
+    id: "msp-004",
+    name: "BrightStar Network",
+    logo: "/logos/brightstar.png",
+    industry: "Technology",
+    organizationType: "MSP firm",
+    headquartersStreet: "321 Commerce Dr",
+    headquartersCity: "Chicago",
+    headquartersState: "IL",
+    headquartersZip: "60601",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 456-7890",
+    timezone: "(UTC-06:00) Central Time (US & Canada)",
+    msaDocument: "BrightStar_MSA_2023.pdf",
+    agreementRenewalDate: "2024-07-10",
+    createdAt: "2019-07-10T10:00:00Z",
+    updatedAt: "2024-01-05T10:00:00Z",
+  },
+  {
+    id: "msp-005",
+    name: "Firewall Security",
+    logo: "/logos/firewall.png",
+    industry: "Technology",
+    organizationType: "MSP firm",
+    headquartersStreet: "654 Security Ave",
+    headquartersCity: "Seattle",
+    headquartersState: "WA",
+    headquartersZip: "98101",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 567-8901",
+    timezone: "(UTC-08:00) Pacific Time (US & Canada)",
+    msaDocument: "Firewall_MSA_2023.pdf",
+    agreementRenewalDate: "2025-05-22",
+    createdAt: "2023-05-22T10:00:00Z",
+    updatedAt: "2024-01-22T10:00:00Z",
+  },
+  {
+    id: "msp-006",
+    name: "SecureCore MSP",
+    logo: "/logos/securecore.png",
+    industry: "Technology",
+    organizationType: "MSP firm",
+    headquartersStreet: "987 Enterprise Way",
+    headquartersCity: "Boston",
+    headquartersState: "MA",
+    headquartersZip: "02101",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 678-9012",
+    timezone: "(UTC-05:00) Eastern Time (US & Canada)",
+    msaDocument: "SecureCore_MSA_2023.pdf",
+    agreementRenewalDate: "2024-09-01",
+    createdAt: "2021-09-01T10:00:00Z",
+    updatedAt: "2024-01-15T10:00:00Z",
+  },
+  {
+    id: "msp-007",
+    name: "GlobalTech Solutions",
+    logo: "/logos/globaltech.png",
+    industry: "Technology",
+    organizationType: "MSP firm",
+    headquartersStreet: "147 Innovation Rd",
+    headquartersCity: "Dallas",
+    headquartersState: "TX",
+    headquartersZip: "75201",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 789-0123",
+    timezone: "(UTC-06:00) Central Time (US & Canada)",
+    msaDocument: "GlobalTech_MSA_2023.pdf",
+    agreementRenewalDate: "2024-04-01",
+    createdAt: "2020-04-01T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  {
+    id: "msp-008",
+    name: "Quantum Innovation",
+    logo: "/logos/quantum.png",
+    industry: "Technology",
+    organizationType: "Organization staffing office",
+    headquartersStreet: "258 Future St",
+    headquartersCity: "Denver",
+    headquartersState: "CO",
+    headquartersZip: "80201",
+    headquartersCountry: "United States",
+    billingSameAsHeadquarters: true,
+    organizationPhone: "(555) 890-1234",
+    timezone: "(UTC-07:00) Mountain Time (US & Canada)",
+    msaDocument: "Quantum_MSA_2023.pdf",
+    agreementRenewalDate: "2024-08-10",
+    createdAt: "2022-08-10T10:00:00Z",
+    updatedAt: "2024-01-18T10:00:00Z",
+  },
+]
+
+const defaultMSPsRecord: Record<string, MSP> = defaultMSPs.reduce(
+  (acc, msp) => {
+    acc[msp.id] = msp
+    return acc
+  },
+  {} as Record<string, MSP>
+)
+
+// Default MSP-Organization relationships
+const defaultMSPOrganizations: MSPOrganization[] = [
+  {
+    id: "mspo-001",
+    mspId: "msp-001",
+    organizationId: "org-001",
+    addendumAgreement: "Addendum_Acme_2023.pdf",
+    mspFeePercentage: 5.00,
+    sasFeePercentage: 2.00,
+    agreementStartDate: "2023-01-15",
+    agreementRenewalDate: "2024-01-15",
+    possibleCancellationDate: "2023-12-15",
+    createdAt: "2023-01-15T10:00:00Z",
+    updatedAt: "2023-01-15T10:00:00Z",
+  },
+  {
+    id: "mspo-002",
+    mspId: "msp-001",
+    organizationId: "org-002",
+    addendumAgreement: "Addendum_Globex_2022.pdf",
+    mspFeePercentage: 8.00,
+    sasFeePercentage: 3.00,
+    agreementStartDate: "2022-11-01",
+    agreementRenewalDate: "2023-11-01",
+    possibleCancellationDate: "2023-10-01",
+    createdAt: "2022-11-01T10:00:00Z",
+    updatedAt: "2022-11-01T10:00:00Z",
+  },
+  {
+    id: "mspo-003",
+    mspId: "msp-002",
+    organizationId: "org-001",
+    addendumAgreement: "Addendum_Soylent_2024.pdf",
+    mspFeePercentage: 10.00,
+    sasFeePercentage: 4.00,
+    agreementStartDate: "2024-03-20",
+    agreementRenewalDate: "2025-03-20",
+    possibleCancellationDate: "2025-02-20",
+    createdAt: "2024-03-20T10:00:00Z",
+    updatedAt: "2024-03-20T10:00:00Z",
+  },
+  {
+    id: "mspo-004",
+    mspId: "msp-002",
+    organizationId: "org-002",
+    addendumAgreement: "Addendum_Wayne_2023.pdf",
+    mspFeePercentage: undefined,
+    sasFeePercentage: 1.00,
+    agreementStartDate: "2023-07-01",
+    agreementRenewalDate: "2024-07-01",
+    possibleCancellationDate: "2024-06-01",
+    createdAt: "2023-07-01T10:00:00Z",
+    updatedAt: "2023-07-01T10:00:00Z",
+  },
+  {
+    id: "mspo-005",
+    mspId: "msp-003",
+    organizationId: "org-001",
+    addendumAgreement: "Addendum_Umbrella_2023.pdf",
+    mspFeePercentage: 6.00,
+    sasFeePercentage: 2.50,
+    agreementStartDate: "2023-04-10",
+    agreementRenewalDate: "2024-04-10",
+    possibleCancellationDate: "2024-03-10",
+    createdAt: "2023-04-10T10:00:00Z",
+    updatedAt: "2023-04-10T10:00:00Z",
+  },
+  // Firewall Security (msp-005) - Seattle, WA
+  {
+    id: "mspo-006",
+    mspId: "msp-005",
+    organizationId: "org-001",
+    addendumAgreement: "Addendum_Firewall_Nova_2024.pdf",
+    mspFeePercentage: 7.50,
+    sasFeePercentage: 2.75,
+    agreementStartDate: "2024-01-15",
+    agreementRenewalDate: "2025-01-15",
+    possibleCancellationDate: "2024-12-15",
+    createdAt: "2024-01-15T10:00:00Z",
+    updatedAt: "2024-01-15T10:00:00Z",
+  },
+  {
+    id: "mspo-007",
+    mspId: "msp-005",
+    organizationId: "org-003",
+    addendumAgreement: "Addendum_Firewall_Vitality_2024.pdf",
+    mspFeePercentage: 6.25,
+    sasFeePercentage: 2.25,
+    agreementStartDate: "2024-02-01",
+    agreementRenewalDate: "2025-02-01",
+    possibleCancellationDate: "2025-01-01",
+    createdAt: "2024-02-01T10:00:00Z",
+    updatedAt: "2024-02-01T10:00:00Z",
+  },
+  // Quantum Innovation (msp-008) - Denver, CO
+  {
+    id: "mspo-008",
+    mspId: "msp-008",
+    organizationId: "org-002",
+    addendumAgreement: "Addendum_Quantum_Memorial_2023.pdf",
+    mspFeePercentage: 9.00,
+    sasFeePercentage: 3.50,
+    agreementStartDate: "2023-09-01",
+    agreementRenewalDate: "2024-09-01",
+    possibleCancellationDate: "2024-08-01",
+    createdAt: "2023-09-01T10:00:00Z",
+    updatedAt: "2023-09-01T10:00:00Z",
+  },
+  {
+    id: "mspo-009",
+    mspId: "msp-008",
+    organizationId: "org-003",
+    addendumAgreement: "Addendum_Quantum_Vitality_2024.pdf",
+    mspFeePercentage: 8.50,
+    sasFeePercentage: 3.00,
+    agreementStartDate: "2024-03-15",
+    agreementRenewalDate: "2025-03-15",
+    possibleCancellationDate: "2025-02-15",
+    createdAt: "2024-03-15T10:00:00Z",
+    updatedAt: "2024-03-15T10:00:00Z",
+  },
+  // SecureCore MSP (msp-006) - Boston, MA
+  {
+    id: "mspo-010",
+    mspId: "msp-006",
+    organizationId: "org-001",
+    addendumAgreement: "Addendum_SecureCore_Nova_2023.pdf",
+    mspFeePercentage: 5.75,
+    sasFeePercentage: 2.00,
+    agreementStartDate: "2023-11-01",
+    agreementRenewalDate: "2024-11-01",
+    possibleCancellationDate: "2024-10-01",
+    createdAt: "2023-11-01T10:00:00Z",
+    updatedAt: "2023-11-01T10:00:00Z",
+  },
+  {
+    id: "mspo-011",
+    mspId: "msp-006",
+    organizationId: "org-002",
+    addendumAgreement: "Addendum_SecureCore_Memorial_2024.pdf",
+    mspFeePercentage: 6.50,
+    sasFeePercentage: 2.25,
+    agreementStartDate: "2024-01-10",
+    agreementRenewalDate: "2025-01-10",
+    possibleCancellationDate: "2024-12-10",
+    createdAt: "2024-01-10T10:00:00Z",
+    updatedAt: "2024-01-10T10:00:00Z",
+  },
+  // GlobalTech Solutions (msp-007) - Dallas, TX
+  {
+    id: "mspo-012",
+    mspId: "msp-007",
+    organizationId: "org-001",
+    addendumAgreement: "Addendum_GlobalTech_Nova_2023.pdf",
+    mspFeePercentage: 7.00,
+    sasFeePercentage: 2.50,
+    agreementStartDate: "2023-06-01",
+    agreementRenewalDate: "2024-06-01",
+    possibleCancellationDate: "2024-05-01",
+    createdAt: "2023-06-01T10:00:00Z",
+    updatedAt: "2023-06-01T10:00:00Z",
+  },
+  {
+    id: "mspo-013",
+    mspId: "msp-007",
+    organizationId: "org-003",
+    addendumAgreement: "Addendum_GlobalTech_Vitality_2024.pdf",
+    mspFeePercentage: 6.75,
+    sasFeePercentage: 2.75,
+    agreementStartDate: "2024-04-01",
+    agreementRenewalDate: "2025-04-01",
+    possibleCancellationDate: "2025-03-01",
+    createdAt: "2024-04-01T10:00:00Z",
+    updatedAt: "2024-04-01T10:00:00Z",
+  },
+  // BrightStar Network (msp-004) - Chicago, IL
+  {
+    id: "mspo-014",
+    mspId: "msp-004",
+    organizationId: "org-002",
+    addendumAgreement: "Addendum_BrightStar_Memorial_2023.pdf",
+    mspFeePercentage: 8.25,
+    sasFeePercentage: 3.25,
+    agreementStartDate: "2023-08-15",
+    agreementRenewalDate: "2024-08-15",
+    possibleCancellationDate: "2024-07-15",
+    createdAt: "2023-08-15T10:00:00Z",
+    updatedAt: "2023-08-15T10:00:00Z",
+  },
+  {
+    id: "mspo-015",
+    mspId: "msp-004",
+    organizationId: "org-003",
+    addendumAgreement: "Addendum_BrightStar_Vitality_2024.pdf",
+    mspFeePercentage: 7.75,
+    sasFeePercentage: 3.00,
+    agreementStartDate: "2024-05-01",
+    agreementRenewalDate: "2025-05-01",
+    possibleCancellationDate: "2025-04-01",
+    createdAt: "2024-05-01T10:00:00Z",
+    updatedAt: "2024-05-01T10:00:00Z",
+  },
+]
+
+const defaultMSPOrganizationsRecord: Record<string, MSPOrganization> = defaultMSPOrganizations.reduce(
+  (acc, mspo) => {
+    acc[mspo.id] = mspo
+    return acc
+  },
+  {} as Record<string, MSPOrganization>
 )
 
 const defaultAdminLocalDbState: AdminLocalDbState = {
@@ -3753,6 +4717,8 @@ const defaultAdminLocalDbState: AdminLocalDbState = {
   vendorDocuments: defaultVendorDocumentsRecord,
   vendorNotes: defaultVendorNotesRecord,
   vendorOrganizations: defaultVendorOrganizationsRecord,
+  msps: defaultMSPsRecord,
+  mspOrganizations: defaultMSPOrganizationsRecord,
   lastUpdated: undefined,
 }
 
@@ -3934,6 +4900,8 @@ export function readAdminLocalDb(): AdminLocalDbState {
       vendorDocuments: mergedVendorDocuments,
       vendorNotes: mergedVendorNotes,
       vendorOrganizations: mergedVendorOrganizations,
+      msps: parsed.msps || defaultMSPsRecord,
+      mspOrganizations: parsed.mspOrganizations || defaultMSPOrganizationsRecord,
       lastUpdated: parsed.lastUpdated,
     }
     
@@ -5584,6 +6552,13 @@ export function getPortalUserAffiliations(userId: string): PortalUserAffiliation
     .sort((a, b) => (b.activationDate || "").localeCompare(a.activationDate || ""))
 }
 
+export function getPortalUserAffiliationsByOrganization(organizationName: string): PortalUserAffiliation[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.portalUserAffiliations)
+    .filter((a) => a.organizationName === organizationName && a.status === "Added")
+    .sort((a, b) => (b.activationDate || "").localeCompare(a.activationDate || ""))
+}
+
 export function addPortalUserAffiliation(
   entry: Omit<PortalUserAffiliation, "id" | "createdAt" | "updatedAt">
 ): PortalUserAffiliation {
@@ -5603,6 +6578,45 @@ export function addPortalUserAffiliation(
   }
   persistAdminLocalDb(updatedState)
   return newAff
+}
+
+export function updatePortalUserAffiliation(
+  id: string,
+  updates: Partial<Omit<PortalUserAffiliation, "id" | "createdAt">>
+): PortalUserAffiliation | null {
+  const state = readAdminLocalDb()
+  const existing = state.portalUserAffiliations[id]
+  if (!existing) {
+    return null
+  }
+  const updated: PortalUserAffiliation = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUserAffiliations: {
+      ...state.portalUserAffiliations,
+      [id]: updated,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updated
+}
+
+export function deletePortalUserAffiliation(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.portalUserAffiliations[id]) {
+    return false
+  }
+  const { [id]: removed, ...remaining } = state.portalUserAffiliations
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    portalUserAffiliations: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
 }
 
 export function getPortalUserNotes(userId: string): PortalUserNote[] {
@@ -6000,3 +7014,223 @@ export function deleteVendorOrganization(id: string): boolean {
   return true
 }
 
+// Helper functions for MSPs
+export function getAllMSPs(): MSP[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.msps).sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+    return dateB - dateA
+  })
+}
+
+export function getMSPById(id: string): MSP | null {
+  const state = readAdminLocalDb()
+  return state.msps[id] || null
+}
+
+export function addMSP(msp: Omit<MSP, "id" | "createdAt" | "updatedAt">): MSP {
+  const state = readAdminLocalDb()
+  const newMSP: MSP = {
+    ...msp,
+    id: `msp-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    msps: {
+      ...state.msps,
+      [newMSP.id]: newMSP,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newMSP
+}
+
+export function updateMSP(id: string, updates: Partial<Omit<MSP, "id" | "createdAt">>): MSP | null {
+  const state = readAdminLocalDb()
+  const existing = state.msps[id]
+  if (!existing) {
+    return null
+  }
+  const updatedMSP: MSP = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    msps: {
+      ...state.msps,
+      [id]: updatedMSP,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedMSP
+}
+
+export function deleteMSP(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.msps[id]) {
+    return false
+  }
+  
+  // Delete all related MSP-Organization relationships
+  const mspOrgs = Object.values(state.mspOrganizations).filter((mspo) => mspo.mspId === id)
+  const remainingMSPOrgs = { ...state.mspOrganizations }
+  mspOrgs.forEach((mspo) => {
+    delete remainingMSPOrgs[mspo.id]
+  })
+  
+  const { [id]: removed, ...remaining } = state.msps
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    msps: remaining,
+    mspOrganizations: remainingMSPOrgs,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Helper functions for MSP-Organization relationships
+export function getMSPOrganizationsByMSPId(mspId: string): MSPOrganization[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.mspOrganizations)
+    .filter((mspo) => mspo.mspId === mspId)
+    .sort((a, b) => {
+      const dateA = a.agreementStartDate ? new Date(a.agreementStartDate).getTime() : 0
+      const dateB = b.agreementStartDate ? new Date(b.agreementStartDate).getTime() : 0
+      return dateB - dateA
+    })
+}
+
+export function getMSPOrganizationsByOrganizationId(organizationId: string): MSPOrganization[] {
+  const state = readAdminLocalDb()
+  return Object.values(state.mspOrganizations)
+    .filter((mspo) => mspo.organizationId === organizationId)
+    .sort((a, b) => {
+      const dateA = a.agreementStartDate ? new Date(a.agreementStartDate).getTime() : 0
+      const dateB = b.agreementStartDate ? new Date(b.agreementStartDate).getTime() : 0
+      return dateB - dateA
+    })
+}
+
+export function getMSPOrganizationById(id: string): MSPOrganization | null {
+  const state = readAdminLocalDb()
+  return state.mspOrganizations[id] || null
+}
+
+export function getMSPOrganizationByMSPAndOrg(mspId: string, organizationId: string): MSPOrganization | null {
+  const state = readAdminLocalDb()
+  return Object.values(state.mspOrganizations).find(
+    (mspo) => mspo.mspId === mspId && mspo.organizationId === organizationId
+  ) || null
+}
+
+export function addMSPOrganization(
+  association: Omit<MSPOrganization, "id" | "createdAt" | "updatedAt">
+): MSPOrganization {
+  const state = readAdminLocalDb()
+  
+  // Check if association already exists
+  const existing = getMSPOrganizationByMSPAndOrg(association.mspId, association.organizationId)
+  if (existing) {
+    throw new Error("MSP-organization association already exists")
+  }
+  
+  const newAssociation: MSPOrganization = {
+    ...association,
+    id: `mspo-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    mspOrganizations: {
+      ...state.mspOrganizations,
+      [newAssociation.id]: newAssociation,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return newAssociation
+}
+
+export function updateMSPOrganization(
+  id: string,
+  updates: Partial<Omit<MSPOrganization, "id" | "createdAt">>
+): MSPOrganization | null {
+  const state = readAdminLocalDb()
+  const existing = state.mspOrganizations[id]
+  if (!existing) {
+    return null
+  }
+  
+  const updatedAssociation: MSPOrganization = {
+    ...existing,
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  }
+  
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    mspOrganizations: {
+      ...state.mspOrganizations,
+      [id]: updatedAssociation,
+    },
+  }
+  persistAdminLocalDb(updatedState)
+  return updatedAssociation
+}
+
+export function deleteMSPOrganization(id: string): boolean {
+  const state = readAdminLocalDb()
+  if (!state.mspOrganizations[id]) {
+    return false
+  }
+  
+  const { [id]: removed, ...remaining } = state.mspOrganizations
+  const updatedState: AdminLocalDbState = {
+    ...state,
+    mspOrganizations: remaining,
+  }
+  persistAdminLocalDb(updatedState)
+  return true
+}
+
+// Calculate total annual spend for an MSP
+export function calculateMSPTotalAnnualSpend(mspId: string): number {
+  const state = readAdminLocalDb()
+  const mspOrgs = getMSPOrganizationsByMSPId(mspId)
+  
+  let total = 0
+  mspOrgs.forEach((mspo) => {
+    const org = state.organizations[mspo.organizationId]
+    if (org && org.estimatedAnnualSpend) {
+      total += org.estimatedAnnualSpend
+    }
+  })
+  
+  return total
+}
+
+// Calculate expected MSP revenue for an organization
+export function calculateExpectedMSPRevenue(mspOrg: MSPOrganization): number {
+  const state = readAdminLocalDb()
+  const org = state.organizations[mspOrg.organizationId]
+  if (!org || !org.estimatedAnnualSpend || !mspOrg.mspFeePercentage) {
+    return 0
+  }
+  return (org.estimatedAnnualSpend * mspOrg.mspFeePercentage) / 100
+}
+
+// Calculate expected SAS revenue for an organization
+export function calculateExpectedSASRevenue(mspOrg: MSPOrganization): number {
+  const state = readAdminLocalDb()
+  const org = state.organizations[mspOrg.organizationId]
+  if (!org || !org.estimatedAnnualSpend || !mspOrg.sasFeePercentage) {
+    return 0
+  }
+  return (org.estimatedAnnualSpend * mspOrg.sasFeePercentage) / 100
+}

@@ -271,3 +271,4 @@ export default function CreateRequisitionTemplatePage() {
     </div>
   )
 }
+

@@ -38,7 +38,7 @@ export function Header({ title, subtitle, breadcrumbs, actions = [], className, 
     <>
       <header
         className={cn(
-          "fixed top-0 z-[99999] border-b-2 border-border/80 bg-card/98 backdrop-blur-xl shadow-[0_4px_16px_rgba(16,24,40,0.1)] transition-all duration-300 header-fixed left-0 right-0 md:left-[260px] overflow-x-hidden",
+          "fixed top-0 z-50 border-b-2 border-border/80 bg-card/98 backdrop-blur-xl shadow-[0_4px_16px_rgba(16,24,40,0.1)] transition-all duration-300 header-fixed left-0 right-0 md:left-[260px] overflow-x-hidden",
           className,
         )}
       >

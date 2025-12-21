@@ -1,8 +1,8 @@
 "use client"
 
-import { Header, Card } from "@/components/system"
-import { MapPin } from "lucide-react"
+import { Header } from "@/components/system"
 import { useParams } from "next/navigation"
+import LocationsTab from "../locations-tab"
 
 export default function OrganizationLocationsPage() {
   const params = useParams()
@@ -21,21 +21,12 @@ export default function OrganizationLocationsPage() {
       />
 
       <section className="space-y-6">
-        <Card>
-          <div className="py-12 text-center">
-            <MapPin className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-semibold text-foreground mb-2">
-              In the next phase
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Location management functionality will be available in a future release.
-            </p>
-          </div>
-        </Card>
+        <LocationsTab organizationId={organizationId} />
       </section>
     </>
   )
 }
+
 
 
 
