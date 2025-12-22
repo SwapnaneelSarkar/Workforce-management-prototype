@@ -315,7 +315,7 @@ export default function DepartmentsTab({ organizationId }: DepartmentsTabProps) 
                 <SelectTrigger className="w-[250px] bg-background">
                   <SelectValue placeholder="Filter by location" />
                 </SelectTrigger>
-                <SelectContent className="bg-popover">
+                <SelectContent className="bg-background border shadow-lg">
                   <SelectItem value="all">All Locations</SelectItem>
                   {locations.map((loc) => (
                     <SelectItem key={loc.id} value={loc.id}>
@@ -432,7 +432,7 @@ export default function DepartmentsTab({ organizationId }: DepartmentsTabProps) 
                   <SelectTrigger id="dept-location" className="bg-background">
                     <SelectValue placeholder="Select a location" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectContent className="bg-background border shadow-lg">
                     {locations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name}

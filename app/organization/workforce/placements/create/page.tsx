@@ -315,7 +315,7 @@ export default function CreateAssignmentPage() {
           <SelectTrigger id="job" className="w-full bg-background">
             <SelectValue placeholder="Select a job or requisition" />
           </SelectTrigger>
-          <SelectContent className="bg-popover">
+          <SelectContent className="bg-background border shadow-lg">
             {orgJobs.map((job) => (
               <SelectItem key={job.id} value={job.id}>
                 {job.title} - {job.location}
@@ -629,4 +629,5 @@ export default function CreateAssignmentPage() {
     </>
   )
 }
+
 

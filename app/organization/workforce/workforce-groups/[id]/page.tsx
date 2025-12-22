@@ -433,8 +433,8 @@ export default function WorkforceGroupDetailPage() {
                   <SelectTrigger id="complianceTemplate" className="w-full bg-background">
                     <SelectValue placeholder="Select a compliance template (optional)" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    <SelectItem value="">None</SelectItem>
+                  <SelectContent className="bg-background border shadow-lg">
+                    <SelectItem value="none">None</SelectItem>
                     {complianceTemplates.map((template) => (
                       <SelectItem key={template.id} value={template.id}>
                         {template.name}
@@ -464,4 +464,5 @@ export default function WorkforceGroupDetailPage() {
     </>
   )
 }
+
 

@@ -6,8 +6,8 @@ import { useToast } from "@/components/system"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Plus, Edit, Trash2 } from "lucide-react"
 import {
   getWorkforceGroupsByOrganization,
@@ -41,16 +41,15 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
 
   // Form state
   const [groupFormData, setGroupFormData] = useState({
+    modality: "",
     name: "",
-    description: "",
-    occupationCodes: [] as string[],
-    specialtyCodes: [] as string[],
-    complianceTemplateId: "",
+    limitShiftVisibility: false,
+    shiftVisibilityHours: undefined as number | undefined,
+    routingPosition: 1,
+    isActive: true,
   })
 
-  const allOccupations = getAllOccupations()
-  const allSpecialties = getAllSpecialties()
-  const complianceTemplates = getWalletTemplatesByOrganization(organizationId)
+  const MODALITY_OPTIONS = ["Clinical", "Support Services", "Administrative", "Technical"]
 
   useEffect(() => {
     loadGroups()
@@ -78,55 +77,84 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
       {
         id: `wf-group-${Date.now()}-1`,
         organizationId: orgId,
-        name: "Nursing Staff",
-        description: "All nursing positions including RN, LPN, and CNA",
-        occupationCodes: ["RN", "LPN", "CNA"],
-        specialtyCodes: ["ICU", "Emergency", "Pediatrics", "Surgery"],
-        complianceTemplateId: undefined,
+        modality: "Clinical",
+        name: "Permanent - Full Time",
+        limitShiftVisibility: false,
+        shiftVisibilityHours: undefined,
+        routingPosition: 1,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: `wf-group-${Date.now()}-2`,
         organizationId: orgId,
-        name: "Rehabilitation Team",
-        description: "Physical and occupational therapy staff",
-        occupationCodes: ["PT", "OT", "PTA"],
-        specialtyCodes: [],
-        complianceTemplateId: undefined,
+        modality: "Clinical",
+        name: "Permanent - Part Time",
+        limitShiftVisibility: true,
+        shiftVisibilityHours: 24,
+        routingPosition: 2,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: `wf-group-${Date.now()}-3`,
         organizationId: orgId,
-        name: "Medical Support",
-        description: "Medical assistants and administrative support",
-        occupationCodes: ["MA", "MS"],
-        specialtyCodes: [],
-        complianceTemplateId: undefined,
+        modality: "Clinical",
+        name: "Contract - Internal Float Pool",
+        limitShiftVisibility: true,
+        shiftVisibilityHours: 48,
+        routingPosition: 3,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: `wf-group-${Date.now()}-4`,
         organizationId: orgId,
-        name: "Emergency Services",
-        description: "Emergency department and critical care staff",
-        occupationCodes: ["RN", "MD", "PA"],
-        specialtyCodes: ["Emergency", "ICU", "Trauma"],
-        complianceTemplateId: undefined,
+        modality: "Clinical",
+        name: "External - EOR",
+        limitShiftVisibility: true,
+        shiftVisibilityHours: 72,
+        routingPosition: 4,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: `wf-group-${Date.now()}-5`,
         organizationId: orgId,
-        name: "Surgical Team",
-        description: "Operating room and perioperative staff",
-        occupationCodes: ["RN", "ST", "CRNA"],
-        specialtyCodes: ["Surgery", "Anesthesia"],
-        complianceTemplateId: undefined,
+        modality: "Clinical",
+        name: "External - Per Diem Vendors",
+        limitShiftVisibility: true,
+        shiftVisibilityHours: 96,
+        routingPosition: 5,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: `wf-group-${Date.now()}-6`,
+        organizationId: orgId,
+        modality: "Clinical",
+        name: "External - LTO Vendor",
+        limitShiftVisibility: true,
+        shiftVisibilityHours: 120,
+        routingPosition: 6,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: `wf-group-${Date.now()}-7`,
+        organizationId: orgId,
+        modality: "Support Services",
+        name: "Permanent - Full Time",
+        limitShiftVisibility: false,
+        shiftVisibilityHours: undefined,
+        routingPosition: 1,
+        isActive: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -149,48 +177,16 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
     return mockGroups
   }
 
-  // Calculate group statistics
-  const groupStats = useMemo(() => {
-    return groups.reduce((acc, group) => {
-      const occupationCount = group.occupationCodes.length
-      const specialtyCount = group.specialtyCodes?.length || 0
-      const compliancePercentage = Math.floor(75 + Math.random() * 20)
-
-      acc[group.id] = {
-        occupationCount,
-        specialtyCount,
-        compliancePercentage,
-      }
-      return acc
-    }, {} as Record<string, { occupationCount: number; specialtyCount: number; compliancePercentage: number }>)
-  }, [groups])
-
-  const toggleOccupation = (code: string) => {
-    setGroupFormData((prev) => ({
-      ...prev,
-      occupationCodes: prev.occupationCodes.includes(code)
-        ? prev.occupationCodes.filter((c) => c !== code)
-        : [...prev.occupationCodes, code],
-    }))
-  }
-
-  const toggleSpecialty = (code: string) => {
-    setGroupFormData((prev) => ({
-      ...prev,
-      specialtyCodes: prev.specialtyCodes.includes(code)
-        ? prev.specialtyCodes.filter((c) => c !== code)
-        : [...prev.specialtyCodes, code],
-    }))
-  }
 
   const handleAddGroup = () => {
     setEditingGroup(null)
     setGroupFormData({
+      modality: "",
       name: "",
-      description: "",
-      occupationCodes: [],
-      specialtyCodes: [],
-      complianceTemplateId: "none",
+      limitShiftVisibility: false,
+      shiftVisibilityHours: undefined,
+      routingPosition: 1,
+      isActive: true,
     })
     setIsGroupModalOpen(true)
   }
@@ -198,29 +194,39 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
   const handleEditGroup = (group: OrganizationWorkforceGroup) => {
     setEditingGroup(group)
     setGroupFormData({
+      modality: group.modality,
       name: group.name,
-      description: group.description || "",
-      occupationCodes: group.occupationCodes || [],
-      specialtyCodes: group.specialtyCodes || [],
-      complianceTemplateId: group.complianceTemplateId || "none",
+      limitShiftVisibility: group.limitShiftVisibility,
+      shiftVisibilityHours: group.shiftVisibilityHours,
+      routingPosition: group.routingPosition,
+      isActive: group.isActive,
     })
     setIsGroupModalOpen(true)
   }
 
   const handleSaveGroup = () => {
-    if (!groupFormData.name.trim()) {
+    if (!groupFormData.modality) {
       pushToast({
         title: "Validation Error",
-        description: "Group name is required.",
+        description: "Modality is required.",
         type: "error",
       })
       return
     }
 
-    if (groupFormData.occupationCodes.length === 0) {
+    if (!groupFormData.name.trim()) {
       pushToast({
         title: "Validation Error",
-        description: "Please select at least one occupation.",
+        description: "Workforce group name is required.",
+        type: "error",
+      })
+      return
+    }
+
+    if (groupFormData.limitShiftVisibility && (!groupFormData.shiftVisibilityHours || groupFormData.shiftVisibilityHours <= 0)) {
+      pushToast({
+        title: "Validation Error",
+        description: "Please enter shift visibility hours when limit shift visibility is enabled.",
         type: "error",
       })
       return
@@ -230,11 +236,12 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
       if (editingGroup) {
         // Update existing group
         const updated = updateWorkforceGroup(editingGroup.id, {
+          modality: groupFormData.modality,
           name: groupFormData.name.trim(),
-          description: groupFormData.description.trim(),
-          occupationCodes: groupFormData.occupationCodes,
-          specialtyCodes: groupFormData.specialtyCodes.length > 0 ? groupFormData.specialtyCodes : undefined,
-          complianceTemplateId: groupFormData.complianceTemplateId && groupFormData.complianceTemplateId !== "none" ? groupFormData.complianceTemplateId : undefined,
+          limitShiftVisibility: groupFormData.limitShiftVisibility,
+          shiftVisibilityHours: groupFormData.limitShiftVisibility ? groupFormData.shiftVisibilityHours : undefined,
+          routingPosition: groupFormData.routingPosition,
+          isActive: groupFormData.isActive,
         })
 
         if (updated) {
@@ -254,11 +261,12 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
       } else {
         // Add new group
         const newGroup = addWorkforceGroup(organizationId, {
+          modality: groupFormData.modality,
           name: groupFormData.name.trim(),
-          description: groupFormData.description.trim(),
-          occupationCodes: groupFormData.occupationCodes,
-          specialtyCodes: groupFormData.specialtyCodes.length > 0 ? groupFormData.specialtyCodes : undefined,
-          complianceTemplateId: groupFormData.complianceTemplateId && groupFormData.complianceTemplateId !== "none" ? groupFormData.complianceTemplateId : undefined,
+          limitShiftVisibility: groupFormData.limitShiftVisibility,
+          shiftVisibilityHours: groupFormData.limitShiftVisibility ? groupFormData.shiftVisibilityHours : undefined,
+          routingPosition: groupFormData.routingPosition,
+          isActive: groupFormData.isActive,
         })
 
         pushToast({
@@ -354,100 +362,62 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Modality</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Name</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Description</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Occupations</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Specialties</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Limit Shift Visibility</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Routing Position</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Status</th>
                     <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {groups.map((group) => {
-                    const stats = groupStats[group.id] || { occupationCount: 0, specialtyCount: 0, compliancePercentage: 0 }
-                    const occupationNames = group.occupationCodes
-                      .map((code) => {
-                        const occ = allOccupations.find((o) => o.code === code)
-                        return occ?.name || code
-                      })
-                      .filter(Boolean)
-                    const specialtyNames = (group.specialtyCodes || [])
-                      .map((code) => {
-                        const spec = allSpecialties.find((s) => s.code === code)
-                        return spec?.name || code
-                      })
-                      .filter(Boolean)
-
-                    return (
-                      <tr key={group.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                        <td className="py-3 px-4">
-                          <span className="text-sm font-medium text-foreground">{group.name}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="text-sm text-foreground">{group.description || "—"}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex flex-wrap gap-1">
-                            {occupationNames.length > 0 ? (
-                              <>
-                                {occupationNames.slice(0, 2).map((name, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 bg-muted rounded text-xs text-foreground">
-                                    {name}
-                                  </span>
-                                ))}
-                                {occupationNames.length > 2 && (
-                                  <span className="px-2 py-0.5 text-xs text-muted-foreground">
-                                    +{occupationNames.length - 2}
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex flex-wrap gap-1">
-                            {specialtyNames.length > 0 ? (
-                              <>
-                                {specialtyNames.slice(0, 2).map((name, idx) => (
-                                  <span key={idx} className="px-2 py-0.5 bg-muted rounded text-xs text-foreground">
-                                    {name}
-                                  </span>
-                                ))}
-                                {specialtyNames.length > 2 && (
-                                  <span className="px-2 py-0.5 text-xs text-muted-foreground">
-                                    +{specialtyNames.length - 2}
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">—</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              className="p-2 rounded-md hover:bg-muted transition-colors"
-                              onClick={() => handleEditGroup(group)}
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4 text-muted-foreground" />
-                            </button>
-                            <button
-                              type="button"
-                              className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
-                              onClick={() => handleDeleteGroup(group.id)}
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {groups.map((group) => (
+                    <tr key={group.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-foreground">{group.modality}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-medium text-foreground">{group.name}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-foreground">{group.limitShiftVisibility ? "Yes" : "No"}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-foreground">{group.routingPosition}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                            group.isActive
+                              ? "bg-success/10 text-success"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {group.isActive ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            className="p-2 rounded-md hover:bg-muted transition-colors"
+                            onClick={() => handleEditGroup(group)}
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
+                            onClick={() => handleDeleteGroup(group.id)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -457,106 +427,141 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
 
       {/* Workforce Group Modal */}
       <Dialog open={isGroupModalOpen} onOpenChange={setIsGroupModalOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingGroup ? "Edit Workforce Group" : "Add Workforce Group"}</DialogTitle>
             <DialogDescription>
-              {editingGroup ? "Update workforce group details below." : "Create a new workforce group to organize workers by role and specialty."}
+              {editingGroup ? "Update workforce group details below." : "Groups or Workers and routing rules."}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="group-name">Group Name *</Label>
-              <Input
-                id="group-name"
-                value={groupFormData.name}
-                onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
-                placeholder="Enter group name"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="group-description">Description</Label>
-              <Textarea
-                id="group-description"
-                value={groupFormData.description}
-                onChange={(e) => setGroupFormData({ ...groupFormData, description: e.target.value })}
-                placeholder="Enter group description"
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Occupations *</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4 border border-border rounded-lg max-h-[200px] overflow-y-auto">
-                {allOccupations.map((occ) => (
-                  <button
-                    key={occ.id}
-                    type="button"
-                    onClick={() => toggleOccupation(occ.code)}
-                    className={cn(
-                      "p-2 text-left rounded-md border transition-colors text-sm",
-                      groupFormData.occupationCodes.includes(occ.code)
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border hover:bg-muted/50 text-foreground"
-                    )}
-                  >
-                    {occ.name}
-                  </button>
-                ))}
+          <div className="space-y-6 py-4">
+            <div className="flex items-center justify-between pb-4 border-b">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-foreground">Workforce Group</h3>
+                <Edit className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="status-switch" className="text-sm font-medium">Status:</Label>
+                <span className={`text-sm font-semibold ${groupFormData.isActive ? "text-success" : "text-muted-foreground"}`}>
+                  {groupFormData.isActive ? "Active" : "Inactive"}
+                </span>
+                <Switch
+                  id="status-switch"
+                  checked={groupFormData.isActive}
+                  onCheckedChange={(checked) => setGroupFormData({ ...groupFormData, isActive: checked })}
+                />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Specialties (Optional)</Label>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-4 border border-border rounded-lg max-h-[200px] overflow-y-auto">
-                {allSpecialties.map((spec) => (
-                  <button
-                    key={spec.id}
-                    type="button"
-                    onClick={() => toggleSpecialty(spec.code)}
-                    className={cn(
-                      "p-2 text-left rounded-md border transition-colors text-sm",
-                      groupFormData.specialtyCodes.includes(spec.code)
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "border-border hover:bg-muted/50 text-foreground"
-                    )}
+            <div>
+              <h4 className="text-sm font-semibold text-foreground mb-4">Manage Routing for this organization.</h4>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="modality">Modality</Label>
+                  <Select
+                    value={groupFormData.modality}
+                    onValueChange={(value) => setGroupFormData({ ...groupFormData, modality: value })}
                   >
-                    {spec.name}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    <SelectTrigger id="modality" className="bg-background">
+                      <SelectValue placeholder="Select modality" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border shadow-lg">
+                      {MODALITY_OPTIONS.map((modality) => (
+                        <SelectItem key={modality} value={modality}>
+                          {modality}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="complianceTemplate">Compliance Template</Label>
-              <Select
-                value={groupFormData.complianceTemplateId}
-                onValueChange={(value) => setGroupFormData({ ...groupFormData, complianceTemplateId: value })}
-              >
-                <SelectTrigger id="complianceTemplate" className="w-full bg-background">
-                  <SelectValue placeholder="Select a compliance template (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {complianceTemplates.map((template) => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="group-name">Workforce Group Name</Label>
+                  <Input
+                    id="group-name"
+                    value={groupFormData.name}
+                    onChange={(e) => setGroupFormData({ ...groupFormData, name: e.target.value })}
+                    placeholder="Enter workforce group name"
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
+                    <div className="flex-1">
+                      <Label htmlFor="limit-visibility" className="text-sm font-semibold text-foreground cursor-pointer">
+                        Limit Shift Visibility
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Restrict when shifts become visible to this group
+                      </p>
+                    </div>
+                    <Switch
+                      id="limit-visibility"
+                      checked={groupFormData.limitShiftVisibility}
+                      onCheckedChange={(checked) => setGroupFormData({ ...groupFormData, limitShiftVisibility: checked })}
+                      className="ml-4"
+                    />
+                  </div>
+
+                  {groupFormData.limitShiftVisibility && (
+                    <div className="space-y-2 pl-4 border-l-2 border-primary/20">
+                      <Label htmlFor="shift-visibility-hours" className="text-sm font-medium">
+                        Shift Visibility (hours to shift start)
+                      </Label>
+                      <Input
+                        id="shift-visibility-hours"
+                        type="number"
+                        min="1"
+                        value={groupFormData.shiftVisibilityHours || ""}
+                        onChange={(e) => setGroupFormData({ 
+                          ...groupFormData, 
+                          shiftVisibilityHours: e.target.value ? parseInt(e.target.value) : undefined 
+                        })}
+                        placeholder="Enter hours"
+                        className="max-w-xs"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Shifts will become visible this many hours before they start
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="routing-position">Routing Position</Label>
+                  <Input
+                    id="routing-position"
+                    type="number"
+                    min="1"
+                    value={groupFormData.routingPosition}
+                    onChange={(e) => setGroupFormData({ 
+                      ...groupFormData, 
+                      routingPosition: parseInt(e.target.value) || 1 
+                    })}
+                    placeholder="Enter routing position"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setIsGroupModalOpen(false)
               setEditingGroup(null)
+              setGroupFormData({
+                modality: "",
+                name: "",
+                limitShiftVisibility: false,
+                shiftVisibilityHours: undefined,
+                routingPosition: 1,
+                isActive: true,
+              })
             }}>
               Cancel
             </Button>
             <Button onClick={handleSaveGroup} className="ph5-button-primary">
-              {editingGroup ? "Update" : "Create"} Group
+              {editingGroup ? "Update" : "Add"} Workforce Group
             </Button>
           </DialogFooter>
         </DialogContent>

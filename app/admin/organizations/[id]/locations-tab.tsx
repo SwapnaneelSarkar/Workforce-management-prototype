@@ -390,7 +390,7 @@ export default function LocationsTab({ organizationId }: LocationsTabProps) {
                   <SelectTrigger id="loc-type" className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-background border shadow-lg">
                     <SelectItem value="Outpatient">Outpatient</SelectItem>
                     <SelectItem value="Inpatient">Inpatient</SelectItem>
                     <SelectItem value="Emergency">Emergency</SelectItem>

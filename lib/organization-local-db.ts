@@ -80,11 +80,12 @@ export type OrganizationPlacement = {
 export type OrganizationWorkforceGroup = {
   id: string
   organizationId: string
+  modality: string
   name: string
-  description: string
-  occupationCodes: string[] // Array of occupation codes (e.g., ["RN", "LPN", "CNA"])
-  specialtyCodes?: string[] // Array of specialty codes (e.g., ["ICU", "Emergency"])
-  complianceTemplateId?: string // Reference to a compliance template
+  limitShiftVisibility: boolean
+  shiftVisibilityHours?: number // Hours to shift start
+  routingPosition: number
+  isActive: boolean
   createdAt: string
   updatedAt: string
 }

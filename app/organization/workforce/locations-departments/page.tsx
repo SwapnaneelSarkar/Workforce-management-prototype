@@ -774,7 +774,7 @@ export default function LocationsDepartmentsPage() {
                   <SelectTrigger className="w-[250px] bg-background">
                     <SelectValue placeholder="Select location first" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectContent className="bg-background border shadow-lg">
                     {locations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name}
@@ -924,7 +924,7 @@ export default function LocationsDepartmentsPage() {
                   <SelectTrigger id="loc-type" className="bg-background">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectContent className="bg-background border shadow-lg">
                     <SelectItem value="Outpatient">Outpatient</SelectItem>
                     <SelectItem value="Inpatient">Inpatient</SelectItem>
                     <SelectItem value="Emergency">Emergency</SelectItem>
@@ -965,7 +965,7 @@ export default function LocationsDepartmentsPage() {
                   <SelectTrigger id="dept-location" className="bg-background">
                     <SelectValue placeholder="Select a location" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectContent className="bg-background border shadow-lg">
                     {locations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name}
@@ -1022,4 +1022,5 @@ export default function LocationsDepartmentsPage() {
     </>
   )
 }
+
 
