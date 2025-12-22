@@ -221,71 +221,98 @@ export default function LocationsTab({ organizationId }: LocationsTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button onClick={handleAddLocation} className="ph5-button-primary">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Location
-        </Button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {locations.map((location) => (
-          <Card key={location.id} className="p-6">
-            <div className="space-y-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-foreground mb-1">{location.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                    <span className="px-2 py-0.5 bg-muted rounded text-xs">{location.locationType || "Outpatient"}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleEditLocation(location)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteLocation(location.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-1 text-sm">
-                <div className="flex items-start gap-2">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <span className="text-foreground">
-                    {location.address}, {location.city}, {location.state} {location.zipCode}
-                  </span>
-                </div>
-                {location.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-foreground">{location.phone}</span>
-                  </div>
-                )}
-              </div>
+      <Card>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Locations</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {loading ? "Loading..." : `${locations.length} ${locations.length === 1 ? "location" : "locations"}`}
+              </p>
             </div>
-          </Card>
-        ))}
-
-        {locations.length === 0 && (
-          <div className="col-span-full py-12 text-center">
-            <p className="text-muted-foreground mb-4">No locations found.</p>
             <Button onClick={handleAddLocation} className="ph5-button-primary">
               <Plus className="h-4 w-4 mr-2" />
               Add Location
             </Button>
           </div>
-        )}
-      </div>
+
+          {loading ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          ) : locations.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground mb-4">No locations found.</p>
+              <Button onClick={handleAddLocation} className="ph5-button-primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Location
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Address</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Location Type</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Phone</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Departments</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {locations.map((location) => (
+                    <tr key={location.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                      <td className="py-3 px-4">
+                        <span className="text-sm font-medium text-foreground">{location.name}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-foreground">
+                          {location.address}, {location.city}, {location.state} {location.zipCode}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-foreground">{location.locationType || "Outpatient"}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        {location.phone ? (
+                          <span className="text-sm text-foreground">{location.phone}</span>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="text-sm text-foreground">{location.departments.length}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            className="p-2 rounded-md hover:bg-muted transition-colors"
+                            onClick={() => handleEditLocation(location)}
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                          <button
+                            type="button"
+                            className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
+                            onClick={() => handleDeleteLocation(location.id)}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Location Modal */}
       <Dialog open={isLocationModalOpen} onOpenChange={setIsLocationModalOpen}>

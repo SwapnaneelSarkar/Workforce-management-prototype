@@ -322,92 +322,138 @@ export default function WorkforceGroupsTab({ organizationId }: WorkforceGroupsTa
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <Button onClick={handleAddGroup} className="ph5-button-primary">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Group
-        </Button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {groups.map((group) => {
-          const stats = groupStats[group.id] || { occupationCount: 0, specialtyCount: 0, compliancePercentage: 0 }
-          const occupationNames = group.occupationCodes
-            .map((code) => {
-              const occ = allOccupations.find((o) => o.code === code)
-              return occ?.name || code
-            })
-            .filter(Boolean)
-
-          return (
-            <Card key={group.id} className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-foreground mb-1">{group.name}</h3>
-                    <p className="text-sm text-muted-foreground">{group.description}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditGroup(group)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteGroup(group.id)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <span className="font-medium text-foreground">{stats.occupationCount}</span>
-                    <span>occupations</span>
-                    {stats.specialtyCount > 0 && (
-                      <>
-                        <span>•</span>
-                        <span className="font-medium text-foreground">{stats.specialtyCount}</span>
-                        <span>specialties</span>
-                      </>
-                    )}
-                  </div>
-                  {occupationNames.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {occupationNames.slice(0, 3).map((name, idx) => (
-                        <span key={idx} className="px-2 py-0.5 bg-muted rounded text-xs text-foreground">
-                          {name}
-                        </span>
-                      ))}
-                      {occupationNames.length > 3 && (
-                        <span className="px-2 py-0.5 text-xs text-muted-foreground">
-                          +{occupationNames.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Card>
-          )
-        })}
-
-        {groups.length === 0 && (
-          <div className="col-span-full py-12 text-center">
-            <p className="text-muted-foreground mb-4">No workforce groups yet.</p>
+      <Card>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Workforce Groups</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {loading ? "Loading..." : `${groups.length} ${groups.length === 1 ? "group" : "groups"}`}
+              </p>
+            </div>
             <Button onClick={handleAddGroup} className="ph5-button-primary">
               <Plus className="h-4 w-4 mr-2" />
-              Add Group
+              Add Workforce Group
             </Button>
           </div>
-        )}
-      </div>
+
+          {loading ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="text-muted-foreground mb-4">No workforce groups yet. Create one to get started.</p>
+              <Button onClick={handleAddGroup} className="ph5-button-primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Workforce Group
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Name</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Description</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Occupations</th>
+                    <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Specialties</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-foreground">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groups.map((group) => {
+                    const stats = groupStats[group.id] || { occupationCount: 0, specialtyCount: 0, compliancePercentage: 0 }
+                    const occupationNames = group.occupationCodes
+                      .map((code) => {
+                        const occ = allOccupations.find((o) => o.code === code)
+                        return occ?.name || code
+                      })
+                      .filter(Boolean)
+                    const specialtyNames = (group.specialtyCodes || [])
+                      .map((code) => {
+                        const spec = allSpecialties.find((s) => s.code === code)
+                        return spec?.name || code
+                      })
+                      .filter(Boolean)
+
+                    return (
+                      <tr key={group.id} className="border-b border-border hover:bg-muted/50 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="text-sm font-medium text-foreground">{group.name}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-sm text-foreground">{group.description || "—"}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {occupationNames.length > 0 ? (
+                              <>
+                                {occupationNames.slice(0, 2).map((name, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-muted rounded text-xs text-foreground">
+                                    {name}
+                                  </span>
+                                ))}
+                                {occupationNames.length > 2 && (
+                                  <span className="px-2 py-0.5 text-xs text-muted-foreground">
+                                    +{occupationNames.length - 2}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {specialtyNames.length > 0 ? (
+                              <>
+                                {specialtyNames.slice(0, 2).map((name, idx) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-muted rounded text-xs text-foreground">
+                                    {name}
+                                  </span>
+                                ))}
+                                {specialtyNames.length > 2 && (
+                                  <span className="px-2 py-0.5 text-xs text-muted-foreground">
+                                    +{specialtyNames.length - 2}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">—</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              className="p-2 rounded-md hover:bg-muted transition-colors"
+                              onClick={() => handleEditGroup(group)}
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4 text-muted-foreground" />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
+                              onClick={() => handleDeleteGroup(group.id)}
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Workforce Group Modal */}
       <Dialog open={isGroupModalOpen} onOpenChange={setIsGroupModalOpen}>

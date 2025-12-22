@@ -12,7 +12,7 @@ export default function OrganizationDepartmentsPage() {
     <>
       <Header
         title="Departments"
-        subtitle="Manage organization departments"
+        subtitle="Manage organization departments and their assignments"
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
           { label: "Organizations", href: "/admin/organizations" },
