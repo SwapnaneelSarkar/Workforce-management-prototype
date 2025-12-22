@@ -76,6 +76,19 @@ export default function OrganizationUsersPage() {
   // Portal users state
   const [programUsers, setProgramUsers] = useState<PortalUser[]>([])
   const [organizationUsers, setOrganizationUsers] = useState<PortalUser[]>([])
+  
+  // Organization user add state
+  const [isAddOrganizationUserOpen, setIsAddOrganizationUserOpen] = useState(false)
+  const [newOrgUserForm, setNewOrgUserForm] = useState({
+    firstName: "",
+    lastName: "",
+    title: "",
+    email: "",
+    officePhone: "",
+    mobilePhone: "",
+    role: "",
+    status: "Active" as "Active" | "Inactive",
+  })
 
   useEffect(() => {
     loadData()
@@ -172,12 +185,46 @@ export default function OrganizationUsersPage() {
     })
   }
 
-  const handleAddVendorUser = () => {
-    setSelectedVendorId("")
-    setSelectedVendorUserId("")
-    setSelectedRole("")
-    setEditingAffiliation(null)
-    setIsVendorUserModalOpen(true)
+  const handleAddOrganizationUser = () => {
+    if (!newOrgUserForm.firstName || !newOrgUserForm.lastName || !newOrgUserForm.email || !newOrgUserForm.title) {
+      pushToast({ title: "Error", description: "Please fill in all required fields." })
+      return
+    }
+
+    try {
+      const orgName = organization?.name || ""
+      const newUser = addPortalUser({
+        userType: "Organization",
+        groupName: orgName,
+        firstName: newOrgUserForm.firstName,
+        lastName: newOrgUserForm.lastName,
+        title: newOrgUserForm.title,
+        email: newOrgUserForm.email,
+        officePhone: newOrgUserForm.officePhone,
+        mobilePhone: newOrgUserForm.mobilePhone,
+        role: newOrgUserForm.role,
+        status: newOrgUserForm.status,
+      })
+
+      pushToast({ title: "Success", description: "Organization user added successfully." })
+      setIsAddOrganizationUserOpen(false)
+      setNewOrgUserForm({
+        firstName: "",
+        lastName: "",
+        title: "",
+        email: "",
+        officePhone: "",
+        mobilePhone: "",
+        role: "",
+        status: "Active",
+      })
+      loadData()
+    } catch (error: any) {
+      pushToast({ 
+        title: "Error", 
+        description: error.message || "Failed to add organization user." 
+      })
+    }
   }
 
   const handleEditRole = (affiliation: PortalUserAffiliation) => {
@@ -367,10 +414,10 @@ export default function OrganizationUsersPage() {
                   {activeTab === "Organization" && "Organization users"}
                 </p>
               </div>
-              {activeTab === "Vendor" && (
-                <Button onClick={handleAddVendorUser} className="ph5-button-primary">
+              {activeTab === "Organization" && (
+                <Button onClick={() => setIsAddOrganizationUserOpen(true)} className="ph5-button-primary">
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Vendor User
+                  Add User
                 </Button>
               )}
             </div>
@@ -673,6 +720,134 @@ export default function OrganizationUsersPage() {
               disabled={!selectedRole || (!editingAffiliation && (!selectedVendorId || !selectedVendorUserId))}
             >
               {editingAffiliation ? "Update" : "Add"} User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Organization User Modal */}
+      <Dialog open={isAddOrganizationUserOpen} onOpenChange={setIsAddOrganizationUserOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Organization User</DialogTitle>
+            <DialogDescription>
+              Add a new user for this organization. All fields marked with * are required.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="org-first-name">First Name *</Label>
+                <Input
+                  id="org-first-name"
+                  value={newOrgUserForm.firstName}
+                  onChange={(e) => setNewOrgUserForm({ ...newOrgUserForm, firstName: e.target.value })}
+                  placeholder="First Name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-last-name">Last Name *</Label>
+                <Input
+                  id="org-last-name"
+                  value={newOrgUserForm.lastName}
+                  onChange={(e) => setNewOrgUserForm({ ...newOrgUserForm, lastName: e.target.value })}
+                  placeholder="Last Name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-title">Title *</Label>
+                <Input
+                  id="org-title"
+                  value={newOrgUserForm.title}
+                  onChange={(e) => setNewOrgUserForm({ ...newOrgUserForm, title: e.target.value })}
+                  placeholder="Job Title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-email">Email *</Label>
+                <Input
+                  id="org-email"
+                  type="email"
+                  value={newOrgUserForm.email}
+                  onChange={(e) => setNewOrgUserForm({ ...newOrgUserForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-role">Role</Label>
+                <Select
+                  value={newOrgUserForm.role}
+                  onValueChange={(value) => setNewOrgUserForm({ ...newOrgUserForm, role: value })}
+                >
+                  <SelectTrigger id="org-role" className="bg-background">
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ORGANIZATION_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-status">Status</Label>
+                <Select
+                  value={newOrgUserForm.status}
+                  onValueChange={(value) => setNewOrgUserForm({ ...newOrgUserForm, status: value as "Active" | "Inactive" })}
+                >
+                  <SelectTrigger id="org-status" className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Active">Active</SelectItem>
+                    <SelectItem value="Inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-office-phone">Office Phone</Label>
+                <Input
+                  id="org-office-phone"
+                  value={newOrgUserForm.officePhone}
+                  onChange={(e) => setNewOrgUserForm({ ...newOrgUserForm, officePhone: e.target.value })}
+                  placeholder="555-123-4567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="org-mobile-phone">Mobile Phone</Label>
+                <Input
+                  id="org-mobile-phone"
+                  value={newOrgUserForm.mobilePhone}
+                  onChange={(e) => setNewOrgUserForm({ ...newOrgUserForm, mobilePhone: e.target.value })}
+                  placeholder="555-987-6543"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsAddOrganizationUserOpen(false)
+              setNewOrgUserForm({
+                firstName: "",
+                lastName: "",
+                title: "",
+                email: "",
+                officePhone: "",
+                mobilePhone: "",
+                role: "",
+                status: "Active",
+              })
+            }}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddOrganizationUser} 
+              className="ph5-button-primary"
+              disabled={!newOrgUserForm.firstName || !newOrgUserForm.lastName || !newOrgUserForm.email || !newOrgUserForm.title}
+            >
+              Add User
             </Button>
           </DialogFooter>
         </DialogContent>

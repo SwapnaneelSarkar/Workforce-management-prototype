@@ -46,6 +46,25 @@ export type Job = {
   complianceTemplateId?: string // Legacy field for backward compatibility
   startDate?: string
   occupation?: string // Occupation code (e.g., "RN", "LPN", "CNA")
+  specialty?: string // Specialty (e.g., "ICU", "Emergency")
+  duration?: string // Contract duration (e.g., "13 weeks")
+  contractType?: string // Contract type (e.g., "Long-term", "Short-term", "Per diem")
+  numberOfOpenPositions?: number // Number of open positions
+  expectedWeeklyHours?: string // Expected weekly hours (e.g., "36 hours")
+  shiftPattern?: string // Shift pattern (e.g., "3×12 hours")
+  startDateFlexibility?: string // Start date flexibility (e.g., "Flexible")
+  whoCanApply?: string // Who can apply (e.g., "External candidates", "Internal candidates")
+  interviewRequired?: boolean // Whether interview is required
+  jobOverview?: string // Job overview text
+  responsibilities?: string[] // Job responsibilities
+  jobRequirements?: string[] // Job requirements (different from compliance requirements)
+}
+
+export type ApplicationTimelineEvent = {
+  id: string
+  status: "Submitted" | "Qualified" | "Interview" | "Offer" | "Accepted" | "Rejected"
+  date: string
+  note?: string
 }
 
 export type Application = {
@@ -55,11 +74,17 @@ export type Application = {
   candidateName: string
   status: "Submitted" | "Qualified" | "Interview" | "Offer" | "Accepted" | "Rejected"
   submittedAt: string
+  lastUpdated?: string
   documentStatus: "Complete" | "Missing" | "Pending"
   vendorName?: string
   matchScore?: number
   submittedRelative?: string
   missingDocuments?: string[]
+  timeline?: ApplicationTimelineEvent[]
+  interviewDate?: string
+  interviewTime?: string
+  interviewNotes?: string
+  nextSteps?: string
 }
 
 export type Vendor = {
@@ -348,36 +373,84 @@ export const candidates: CandidateProfile[] = [
 export const jobs: Job[] = [
   {
     id: "job-001",
-    title: "ICU RN - Main Campus",
-    location: "Memorial - Main Campus",
-    department: "Intensive Care",
+    title: "Registered Nurse (RN) - ICU",
+    location: "Nova Health – Main Campus",
+    department: "Emergency Department",
     unit: "ICU",
-    shift: "Night",
+    shift: "Night Shift (7PM - 7AM)",
     hours: "36 hrs/week",
-    billRate: "$88/hr",
+    billRate: "$87/hr",
     status: "Open",
     description:
-      "Registered Nurse needed for ICU unit at Memorial Main Campus. Full-time night shift role focused on high-acuity patient care.",
-    requirements: ["Active RN License", "Background Check", "Drug Screening", "ACLS Certification"],
-    tags: ["Night Shift", "13 Weeks", "$88/hr"],
+      "Registered Nurse needed for ICU unit at Nova Health Main Campus. Full-time night shift role focused on high-acuity patient care.",
+    requirements: ["RN License", "BLS Certification", "Background Check", "Drug Screening", "TB Test"],
+    tags: ["Night Shift", "13 Weeks", "$87/hr"],
     complianceTemplateId: "tmpl-icu-core",
-    startDate: "2025-12-02",
+    startDate: "2025-01-15",
+    occupation: "RN",
+    specialty: "ICU",
+    duration: "13 weeks",
+    contractType: "Long-term",
+    numberOfOpenPositions: 2,
+    expectedWeeklyHours: "36 hours",
+    shiftPattern: "3×12 hours",
+    startDateFlexibility: "Flexible",
+    whoCanApply: "This job is open to external candidates",
+    interviewRequired: true,
+    jobOverview: "We are seeking an experienced Registered Nurse (RN) - ICU to join our Emergency Department team. This is a long-term position starting 2025-01-15.\n\nThe ideal candidate will have strong clinical skills, excellent communication abilities, and a commitment to providing high-quality patient care in a fast-paced environment.",
+    responsibilities: [
+      "Provide direct patient care according to established standards and protocols",
+      "Monitor patient conditions and report significant changes to physicians",
+      "Administer medications and treatments as prescribed",
+      "Collaborate with healthcare team members to ensure optimal patient outcomes",
+      "Maintain accurate and complete patient records",
+    ],
+    jobRequirements: [
+      "Active RN license in good standing",
+      "BLS certification required",
+      "Minimum 2 years of ICU experience",
+      "Strong communication and interpersonal skills",
+    ],
   },
   {
     id: "job-002",
-    title: "PCU RN - Main Campus",
-    location: "Memorial - Main Campus",
-    department: "Progressive Care",
-    unit: "PCU",
-    shift: "Day",
-    hours: "40 hrs/week",
-    billRate: "$76/hr",
+    title: "Registered Nurse (RN) - Pediatrics",
+    location: "Children's Hospital - Boston",
+    department: "Pediatrics",
+    unit: "Pediatric ICU",
+    shift: "Day Shift (7AM - 7PM)",
+    hours: "36 hrs/week",
+    billRate: "$78/hr",
     status: "Open",
     description: "Progressive Care Unit nurse to support step-down patients transitioning from ICU.",
-    requirements: ["Active RN License", "Background Check", "CPR Certification"],
-    tags: ["Day Shift", "Ongoing", "$76/hr"],
+    requirements: ["RN License", "BLS Certification", "PALS Certification", "Background Check", "Drug Screening"],
+    tags: ["Day Shift", "13 Weeks", "$78/hr"],
     complianceTemplateId: "tmpl-med-surg",
-    startDate: "2025-12-09",
+    startDate: "2025-01-15",
+    occupation: "RN",
+    specialty: "Pediatrics",
+    duration: "13 weeks",
+    contractType: "Long-term",
+    numberOfOpenPositions: 1,
+    expectedWeeklyHours: "36 hours",
+    shiftPattern: "3×12 hours",
+    startDateFlexibility: "Flexible",
+    whoCanApply: "This job is open to external candidates",
+    interviewRequired: true,
+    jobOverview: "We are seeking a compassionate Registered Nurse (RN) - Pediatrics to join our Pediatric ICU team. This is a long-term position starting 2025-01-15.\n\nThe ideal candidate will have experience with pediatric patients, excellent communication skills, and a passion for working with children and their families.",
+    responsibilities: [
+      "Provide direct patient care to pediatric patients according to established standards",
+      "Monitor patient conditions and report significant changes to physicians",
+      "Administer medications and treatments as prescribed",
+      "Collaborate with healthcare team members and families",
+      "Maintain accurate and complete patient records",
+    ],
+    jobRequirements: [
+      "Active RN license in good standing",
+      "BLS and PALS certification required",
+      "Minimum 1 year of pediatric experience",
+      "Strong communication and interpersonal skills",
+    ],
   },
   {
     id: "job-003",
@@ -579,47 +652,106 @@ export const applications: Application[] = [
     jobId: "job-001",
     candidateId: "cand-001",
     candidateName: "Joanne Rose",
-    status: "Submitted",
-    submittedAt: "2025-11-18",
-    documentStatus: "Pending",
+    status: "Qualified",
+    submittedAt: "2024-12-10",
+    lastUpdated: "2024-12-15",
+    documentStatus: "Complete",
     vendorName: "QuickCheck Solutions",
-    matchScore: 82,
+    matchScore: 95,
     submittedRelative: "2d ago",
-    missingDocuments: ["Drug Screening", "Background Check"],
+    missingDocuments: [],
+    timeline: [
+      { id: "1", status: "Submitted", date: "2024-12-10" },
+      { id: "2", status: "Under Review", date: "2024-12-12" },
+      { id: "3", status: "Qualified", date: "2024-12-15" },
+    ],
   },
   {
     id: "app-002",
-    jobId: "job-002",
-    candidateId: "cand-002",
-    candidateName: "Sarah Johnson",
+    jobId: "job-003",
+    candidateId: "cand-001",
+    candidateName: "Joanne Rose",
     status: "Interview",
-    submittedAt: "2025-11-15",
+    submittedAt: "2024-12-05",
+    lastUpdated: "2024-12-14",
     documentStatus: "Complete",
     vendorName: "HealthVerify Pro",
-    matchScore: 74,
+    matchScore: 88,
     submittedRelative: "5d ago",
     missingDocuments: [],
+    interviewDate: "2024-12-20",
+    interviewTime: "2:00 PM",
+    interviewNotes: "Interview scheduled for Dec 20, 2024 at 2:00 PM",
+    timeline: [
+      { id: "1", status: "Submitted", date: "2024-12-05" },
+      { id: "2", status: "Under Review", date: "2024-12-07" },
+      { id: "3", status: "Interview Scheduled", date: "2024-12-14", note: "Interview scheduled for Dec 20, 2024 at 2:00 PM" },
+    ],
+    nextSteps: "Your interview is scheduled. Please review the job description and prepare questions for the hiring manager.",
   },
   {
     id: "app-003",
-    jobId: "job-003",
-    candidateId: "cand-003",
-    candidateName: "Michael Chen",
-    status: "Qualified",
-    submittedAt: "2025-11-16",
+    jobId: "job-002",
+    candidateId: "cand-001",
+    candidateName: "Joanne Rose",
+    status: "Accepted",
+    submittedAt: "2024-11-20",
+    lastUpdated: "2024-12-05",
     documentStatus: "Complete",
     vendorName: "LicenseCheck Pro",
-    matchScore: 69,
+    matchScore: 92,
     submittedRelative: "4d ago",
-    missingDocuments: ["Drug Screening"],
+    missingDocuments: [],
+    timeline: [
+      { id: "1", status: "Submitted", date: "2024-11-20" },
+      { id: "2", status: "Under Review", date: "2024-11-22" },
+      { id: "3", status: "Interview Scheduled", date: "2024-11-28" },
+      { id: "4", status: "Accepted", date: "2024-12-05" },
+    ],
   },
   {
     id: "app-004",
     jobId: "job-004",
-    candidateId: "cand-004",
-    candidateName: "Emily Watson",
+    candidateId: "cand-001",
+    candidateName: "Joanne Rose",
+    status: "Rejected",
+    submittedAt: "2024-12-01",
+    lastUpdated: "2024-12-08",
+    documentStatus: "Complete",
+    vendorName: "QuickCheck Solutions",
+    matchScore: 75,
+    submittedRelative: "1w ago",
+    missingDocuments: [],
+    timeline: [
+      { id: "1", status: "Submitted", date: "2024-12-01" },
+      { id: "2", status: "Under Review", date: "2024-12-03" },
+      { id: "3", status: "Rejected", date: "2024-12-08" },
+    ],
+  },
+  {
+    id: "app-005",
+    jobId: "job-004",
+    candidateId: "cand-001",
+    candidateName: "Joanne Rose",
+    status: "Submitted",
+    submittedAt: "2024-12-16",
+    lastUpdated: "2024-12-16",
+    documentStatus: "Complete",
+    vendorName: "QuickCheck Solutions",
+    matchScore: 68,
+    submittedRelative: "Just now",
+    missingDocuments: [],
+    timeline: [
+      { id: "1", status: "Submitted", date: "2024-12-16" },
+    ],
+  },
+  {
+    id: "app-006",
+    jobId: "job-005",
+    candidateId: "cand-001",
+    candidateName: "Joanne Rose",
     status: "Offer",
-    submittedAt: "2025-11-12",
+    submittedAt: "2024-11-12",
     documentStatus: "Complete",
     vendorName: "QuickCheck Solutions",
     matchScore: 91,

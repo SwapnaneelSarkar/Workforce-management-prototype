@@ -10,6 +10,10 @@ export type LocalDbDocumentEntry = {
 
 export type LocalDbJobApplicationEntry = {
   appliedAt: string
+  lastUpdated?: string
+  status?: "Submitted" | "Qualified" | "Interview" | "Offer" | "Accepted" | "Rejected"
+  withdrawn?: boolean
+  withdrawnAt?: string
 }
 
 export type LocalDbTimecardStatus = "submitted" | "approved" | "rejected"
@@ -25,7 +29,9 @@ export type LocalDbTimecardDay = {
   startTime?: string
   /** 24-hour time for shift end, if any (e.g. 07:00) */
   endTime?: string
-  /** Total hours worked for the day */
+  /** Break time in minutes */
+  breakMinutes?: number
+  /** Total hours worked for the day (calculated from start/end time and break) */
   hours: number
   /** Optional note (e.g. "Day Off") */
   note?: string
@@ -51,6 +57,7 @@ export type LocalDbTimecard = {
   submittedOn?: string // ISO datetime when candidate submitted
   lastUpdated?: string // ISO datetime when org last updated
   days: LocalDbTimecardDay[]
+  notes?: string // Optional notes for the timecard
 }
 
 export type LocalDbInvoice = {
@@ -68,6 +75,40 @@ export type LocalDbInvoice = {
   status: LocalDbInvoiceStatus
 }
 
+export type PlacementOnboardingTask = {
+  id: string
+  label: string
+  completed: boolean
+  completedAt?: string
+}
+
+export type LocalDbPlacementOnboarding = {
+  placementId: string
+  tasks: PlacementOnboardingTask[]
+  progress: number // 0-100
+  lastUpdated: string
+}
+
+export type NewsFeedPostType = "announcement" | "recommended" | "article" | "celebration" | "program"
+
+export type NewsFeedPost = {
+  id: string
+  organizationId: string
+  organizationName: string
+  organizationInitials: string
+  type: NewsFeedPostType
+  title: string
+  content: string
+  fullContent?: string // Full content for articles
+  jobId?: string // For recommended shifts
+  postedAt: string
+  likes: number
+  views: number
+  isLiked?: boolean // User's like status
+  linkUrl?: string // For "Learn More", "Read Article", etc.
+  linkLabel?: string
+}
+
 export type LocalDbState = {
   onboardingDetails: LocalDbOnboardingDetails
   uploadedDocuments: Record<string, LocalDbDocumentEntry>
@@ -76,6 +117,12 @@ export type LocalDbState = {
   timecards: Record<string, LocalDbTimecard>
   /** Invoices generated from approved timecards */
   invoices: Record<string, LocalDbInvoice>
+  /** Placement onboarding status by placement ID */
+  placementOnboarding: Record<string, LocalDbPlacementOnboarding>
+  /** News feed posts */
+  newsFeedPosts: Record<string, NewsFeedPost>
+  /** User's liked posts (array of post IDs) */
+  likedPosts: string[]
   lastUpdated?: string
 }
 
@@ -83,6 +130,9 @@ export const defaultLocalDbState: LocalDbState = {
   onboardingDetails: {},
   uploadedDocuments: {},
   jobApplications: {},
+  placementOnboarding: {},
+  newsFeedPosts: {},
+  likedPosts: [],
   timecards: {
     // Jan 15 - 21, 2025
     "tc_sarah_2025-01-15": {
@@ -493,6 +543,101 @@ export const defaultLocalDbState: LocalDbState = {
 
 export const LOCAL_DB_SAFE_DEFAULTS = Object.freeze(defaultLocalDbState)
 
+function getDefaultNewsFeedPosts(): Record<string, NewsFeedPost> {
+  const now = new Date()
+  const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+  const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000)
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
+  const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+  const fourDaysAgo = new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000)
+
+  return {
+    "post-001": {
+      id: "post-001",
+      organizationId: "org_healthstaff",
+      organizationName: "HealthStaff Solutions",
+      organizationInitials: "HE",
+      type: "announcement",
+      title: "New Year 2025 - Holiday Pay Policy Update",
+      content: "We're excited to announce enhanced holiday pay rates for all staff working over the New Year period. All shifts worked between December 24th and January 1st will receive premium holiday rates.",
+      fullContent: "We're excited to announce enhanced holiday pay rates for all staff working over the New Year period. All shifts worked between December 24th and January 1st will receive premium holiday rates.\n\nThis includes:\n- 1.5x base rate for regular shifts\n- 2x base rate for night shifts\n- Additional $500 holiday bonus for full-time staff\n\nPlease review the updated policy in your employee portal for complete details.",
+      postedAt: twoHoursAgo.toISOString(),
+      likes: 142,
+      views: 856,
+    },
+    "post-002": {
+      id: "post-002",
+      organizationId: "org_healthstaff",
+      organizationName: "HealthStaff Solutions",
+      organizationInitials: "HE",
+      type: "recommended",
+      title: "Recommended Shift - ICU Night Position",
+      content: "Based on your experience and preferences, we think you'd be a great fit for this ICU night shift position at Baylor Dallas.",
+      jobId: "job-001",
+      postedAt: fourHoursAgo.toISOString(),
+      likes: 28,
+      views: 234,
+    },
+    "post-003": {
+      id: "post-003",
+      organizationId: "org_healthstaff",
+      organizationName: "HealthStaff Solutions",
+      organizationInitials: "HE",
+      type: "article",
+      title: "Best Practices for ICU Ventilator Management",
+      content: "Essential guidelines and protocols for managing critically ill patients on mechanical ventilation. This comprehensive guide covers troubleshooting, weaning strategies, and patient safety considerations.",
+      fullContent: "Essential guidelines and protocols for managing critically ill patients on mechanical ventilation. This comprehensive guide covers troubleshooting, weaning strategies, and patient safety considerations.\n\nKey topics include:\n- Ventilator settings and modes\n- Troubleshooting common issues\n- Weaning protocols\n- Patient monitoring\n- Safety best practices\n\nA comprehensive resource for ICU nurses managing ventilated patients.",
+      linkUrl: "#",
+      linkLabel: "Read Full Article",
+      postedAt: oneDayAgo.toISOString(),
+      likes: 89,
+      views: 542,
+    },
+    "post-004": {
+      id: "post-004",
+      organizationId: "org_healthstaff",
+      organizationName: "HealthStaff Solutions",
+      organizationInitials: "HE",
+      type: "celebration",
+      title: "Celebrating Our ICU Team - Patient Safety Week",
+      content: "This week we recognize the incredible dedication of our critical care staff. Thank you for maintaining the highest standards of patient safety and care excellence.",
+      fullContent: "This week we recognize the incredible dedication of our critical care staff. Thank you for maintaining the highest standards of patient safety and care excellence.\n\nYour commitment to:\n- Evidence-based practice\n- Continuous learning\n- Team collaboration\n- Patient advocacy\n\nMakes a real difference every day. We appreciate all that you do!",
+      postedAt: twoDaysAgo.toISOString(),
+      likes: 203,
+      views: 1247,
+    },
+    "post-005": {
+      id: "post-005",
+      organizationId: "org_healthstaff",
+      organizationName: "HealthStaff Solutions",
+      organizationInitials: "HE",
+      type: "program",
+      title: "New ACLS Certification Reimbursement Program",
+      content: "We're pleased to announce that we now offer full reimbursement for ACLS certification and renewal courses. This benefit is available to all active RNs in our network.",
+      fullContent: "We're pleased to announce that we now offer full reimbursement for ACLS certification and renewal courses. This benefit is available to all active RNs in our network.\n\nBenefits include:\n- 100% course fee reimbursement\n- Exam fee coverage\n- Study materials provided\n- Flexible scheduling options\n\nContact your recruiter to learn more and get started.",
+      linkUrl: "#",
+      linkLabel: "Learn More",
+      postedAt: threeDaysAgo.toISOString(),
+      likes: 167,
+      views: 923,
+    },
+    "post-006": {
+      id: "post-006",
+      organizationId: "org_healthstaff",
+      organizationName: "HealthStaff Solutions",
+      organizationInitials: "HE",
+      type: "recommended",
+      title: "Urgent Need - Emergency Department RN",
+      content: "Critical staffing need for experienced ED nurses. Multiple shifts available starting next week with competitive rates and sign-on bonus.",
+      jobId: "job-003",
+      postedAt: fourDaysAgo.toISOString(),
+      likes: 45,
+      views: 389,
+    },
+  }
+}
+
 export function readLocalDb(): LocalDbState {
   if (typeof window === "undefined") {
     return defaultLocalDbState
@@ -500,17 +645,32 @@ export function readLocalDb(): LocalDbState {
   try {
     const raw = window.localStorage.getItem(LOCAL_DB_KEY)
     if (!raw) {
-      return defaultLocalDbState
+      // Initialize with default news feed posts
+      const stateWithPosts = {
+        ...defaultLocalDbState,
+        newsFeedPosts: getDefaultNewsFeedPosts(),
+      }
+      persistLocalDb(stateWithPosts)
+      return stateWithPosts
     }
     const parsed = JSON.parse(raw) as Partial<LocalDbState>
-    return {
+    const state = {
       onboardingDetails: parsed.onboardingDetails ?? {},
       uploadedDocuments: parsed.uploadedDocuments ?? {},
       jobApplications: parsed.jobApplications ?? {},
       timecards: parsed.timecards ?? defaultLocalDbState.timecards,
       invoices: parsed.invoices ?? defaultLocalDbState.invoices,
+      placementOnboarding: parsed.placementOnboarding ?? {},
+      newsFeedPosts: parsed.newsFeedPosts ?? (Object.keys(parsed).length === 0 ? getDefaultNewsFeedPosts() : {}),
+      likedPosts: parsed.likedPosts ?? [],
       lastUpdated: parsed.lastUpdated,
     }
+    // Initialize news feed posts if they don't exist
+    if (Object.keys(state.newsFeedPosts).length === 0) {
+      state.newsFeedPosts = getDefaultNewsFeedPosts()
+      persistLocalDb(state)
+    }
+    return state
   } catch (error) {
     console.warn("Unable to parse local DB state", error)
     return defaultLocalDbState

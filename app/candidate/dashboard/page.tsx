@@ -1,359 +1,401 @@
 "use client"
 
 import Link from "next/link"
-import { Header, Card, StatusChip } from "@/components/system"
+import { useMemo } from "react"
+import { Header, Card } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
-import { checkJobReadiness } from "@/lib/readiness-engine"
 import { getQuestionnaireByOccupationId, getOccupationByCode } from "@/lib/admin-local-db"
-import { useMemo } from "react"
+import { Button } from "@/components/ui/button"
+import { Clock, DollarSign, ArrowRight, Upload, FileText, Briefcase, Calendar } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function CandidateDashboardPage() {
-  const { candidate, organization, allJobs } = useDemoData()
+  const { candidate, allJobs } = useDemoData()
   const { data: localDb } = useLocalDb()
 
-  const onboardingData = {
-    personal: candidate.onboarding.personal || {},
-    skills: candidate.onboarding.skills || {},
-    availability: candidate.onboarding.availability || {},
-  }
+  // Calculate stats
+  const openJobsCount = useMemo(() => {
+    return allJobs.filter((job) => job.status === "Open").length
+  }, [allJobs])
 
-  // Profile information has been removed - only questionnaires and documents are tracked now
+  const applicationsCount = useMemo(() => {
+    return Object.keys(localDb.jobApplications).length + candidate.applications.length
+  }, [localDb.jobApplications, candidate.applications])
+
+  const activePlacementsCount = useMemo(() => {
+    // Count timecards with active status (submitted or approved)
+    return Object.values(localDb.timecards).filter(
+      (tc) => tc.status === "submitted" || tc.status === "approved"
+    ).length
+  }, [localDb.timecards])
+
+  const documentsPendingCount = useMemo(() => {
+    return candidate.documents.filter(
+      (doc) => doc.status === "Pending Upload" || doc.status === "Pending Verification"
+    ).length
+  }, [candidate.documents])
+
+  // Calculate compliance snapshot
+  const complianceSnapshot = useMemo(() => {
+    const approved = candidate.documents.filter((doc) => doc.status === "Completed").length
+    const pending = candidate.documents.filter(
+      (doc) => doc.status === "Pending Verification" || doc.status === "Pending Upload"
+    ).length
+    const missing = candidate.documents.filter((doc) => doc.status === "Pending Upload").length
+    const expired = candidate.documents.filter((doc) => doc.status === "Expired").length
+
+    return { approved, pending, missing, expired }
+  }, [candidate.documents])
+
+  // Calculate profile completion based on profile setup steps
   const onboardingAnswers = localDb.onboardingDetails
-
-  // Calculate document completion
-  const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
-  const requiredDocs =
-    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
-  const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
-  const completedDocs = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
-  const totalDocs = requiredDocs.length
-
-  // Calculate questionnaire completion (only occupation questionnaires count, general are skippable)
-  const questionnaireCompletion = useMemo(() => {
+  
+  // Check if basic profile setup is complete
+  const hasBasicInfo = Boolean(onboardingAnswers.phoneNumber)
+  const hasProfessionalInfo = Boolean(onboardingAnswers.occupation)
+  
+  // Get required documents based on selected occupation
+  const requiredDocs = useMemo(() => {
     const occupationCode = onboardingAnswers.occupation as string | undefined
     if (!occupationCode) {
-      return { completed: 0, total: 0 }
+      return []
     }
 
-    const occupation = getOccupationByCode(occupationCode)
-    const occupationQuestionnaire = occupation ? getQuestionnaireByOccupationId(occupation.id) : null
-
-    // Only count occupation questionnaire questions (general questionnaires are skippable)
-    const occupationQuestions = occupationQuestionnaire?.questions || []
-
-    if (occupationQuestions.length === 0) {
-      return { completed: 0, total: 0 }
-    }
-
-    const questionnaireAnswers = (localDb.onboardingDetails?.questionnaireAnswers || {}) as Record<string, string | string[]>
-    const requiredQuestions = occupationQuestions.filter((q) => q.required)
-    const totalRequired = requiredQuestions.length
-
-    if (totalRequired === 0) {
-      // If no required questions, check if all occupation questions are answered
-      const allAnswered = occupationQuestions.every((q) => {
-        const answer = questionnaireAnswers[q.id]
-        return answer !== undefined && answer !== null && answer !== "" && 
-               (!Array.isArray(answer) || answer.length > 0)
+    try {
+      const {
+        getAdminWalletTemplatesByOccupation,
+        getComplianceListItemById,
+      } = require("@/lib/admin-local-db")
+      
+      const templates = getAdminWalletTemplatesByOccupation(occupationCode)
+      const itemSet = new Set<string>()
+      
+      templates.forEach((template: any) => {
+        template.listItemIds.forEach((listItemId: string) => {
+          const listItem = getComplianceListItemById(listItemId)
+          if (listItem && listItem.isActive) {
+            itemSet.add(listItem.name)
+          }
+        })
       })
-      return { completed: allAnswered ? occupationQuestions.length : 0, total: occupationQuestions.length }
+      
+      return Array.from(itemSet)
+    } catch (error) {
+      console.warn("Failed to load required documents for occupation", error)
+      return []
     }
+  }, [onboardingAnswers.occupation])
 
-    const completedRequired = requiredQuestions.filter((q) => {
-      const answer = questionnaireAnswers[q.id]
-      return answer !== undefined && answer !== null && answer !== "" && 
-             (!Array.isArray(answer) || answer.length > 0)
-    }).length
+  // Check document completion - check both localDB uploaded documents and candidate.documents
+  const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
+  // Also check candidate.documents for completed/pending verification status
+  const candidateDocSet = new Set(
+    candidate.documents
+      .filter((doc) => doc.status === "Completed" || doc.status === "Pending Verification")
+      .map((doc) => doc.type)
+  )
+  
+  // A document is considered uploaded if it's in either localDB or candidate.documents
+  const completedDocs = requiredDocs.filter((doc) => 
+    uploadedDocSet.has(doc) || candidateDocSet.has(doc)
+  ).length
+  const totalDocs = requiredDocs.length
 
-    return { completed: completedRequired, total: totalRequired }
-  }, [onboardingAnswers.occupation, localDb.onboardingDetails?.questionnaireAnswers])
+  // Profile is complete if:
+  // 1. Basic info is filled (phone number)
+  // 2. Professional info is filled (occupation)
+  // 3. All required documents are uploaded (if occupation is selected and has required docs)
+  const isProfileComplete = hasBasicInfo && 
+                           hasProfessionalInfo && 
+                           (totalDocs === 0 || (totalDocs > 0 && completedDocs === totalDocs))
 
-  // Calculate combined progress (questionnaires + documents only)
-  const totalCompleted = completedDocs + questionnaireCompletion.completed
-  const totalRequirements = totalDocs + questionnaireCompletion.total || 1
-  const progressPercent = Math.round((totalCompleted / totalRequirements) * 100)
+  // Get recommended jobs with match scores
+  const recommendedJobs = useMemo(() => {
+    const openJobs = allJobs.filter((job) => job.status === "Open").slice(0, 3)
+    
+    return openJobs.map((job) => {
+      // Calculate match score based on job requirements and candidate profile
+      let matchScore = 85 + Math.floor(Math.random() * 15) // 85-100% for demo
+      
+      // Check if candidate has required documents
+      const hasRequiredDocs = job.requirements?.every((req) => 
+        candidate.documents.some((doc) => 
+          doc.type === req && (doc.status === "Completed" || doc.status === "Pending Verification")
+        )
+      ) ?? true
 
-  const isComplianceComplete = () => totalDocs > 0 && completedDocs === totalDocs
+      if (!hasRequiredDocs) {
+        matchScore = Math.max(75, matchScore - 10)
+      }
 
-  // Check readiness using a sample job
-  const sampleJob = allJobs[0]
-  const readiness = sampleJob
-    ? checkJobReadiness(candidate.profile, sampleJob, onboardingData)
-    : null
+      // Check if applied
+      const hasApplied = Boolean(localDb.jobApplications[job.id]) || 
+                        candidate.applications.some((app) => app.jobId === job.id)
 
-  const isJobReady = readiness?.status === "Ready" && isComplianceComplete() && questionnaireCompletion.completed === questionnaireCompletion.total
+      return {
+        ...job,
+        matchScore,
+        hasApplied,
+        missingDocs: job.requirements?.filter((req) => 
+          !candidate.documents.some((doc) => 
+            doc.type === req && (doc.status === "Completed" || doc.status === "Pending Verification")
+          )
+        ) ?? [],
+      }
+    })
+  }, [allJobs, candidate.documents, candidate.applications, localDb.jobApplications])
 
-  const quickActions = [
-    { label: "Browse Jobs", description: "Review matches and new postings", href: "/candidate/jobs", cta: "See roles" },
+  // Mock announcements
+  const announcements = [
     {
-      label: "Manage Preferences",
-      description: "Tune job preferences, saved searches, and AutoApply criteria",
-      href: "/candidate/onboarding",
-      cta: "Update settings",
+      id: "1",
+      title: "New Benefits Program Available",
+      description: "Check out our enhanced benefits package for active candidates.",
+      date: "2 days ago",
     },
     {
-      label: "Manage Compliance",
-      description: "Handle credentials, verifications, and all compliance tasks",
-      href: "/candidate/documents",
-      cta: "Open wallet",
+      id: "2",
+      title: "Document Upload Reminder",
+      description: "Please ensure all your certifications are up to date before applying.",
+      date: "5 days ago",
+    },
+    {
+      id: "3",
+      title: "Holiday Schedule Updates",
+      description: "Review the holiday pay rates for upcoming assignments.",
+      date: "1 week ago",
     },
   ]
 
   return (
     <>
       <Header
-        title="Candidate Command Center"
-        subtitle="Track onboarding, credentials, and upcoming activity in one view."
+        title="Dashboard"
         breadcrumbs={[
           { label: "Candidate", href: "/candidate/dashboard" },
-          { label: "Overview" },
+          { label: "Dashboard" },
         ]}
       />
 
-      {/* Readiness Status Banner - Hide if questionnaire is 100% complete */}
-      {!isJobReady && questionnaireCompletion.completed < questionnaireCompletion.total && (
-        <div className="rounded-2xl border-2 border-warning/50 bg-gradient-to-r from-warning/15 via-warning/10 to-warning/5 px-6 py-5 shadow-xl backdrop-blur-sm animate-slide-up">
-          <div className="flex items-center justify-between">
+      {/* Profile Completion Banner */}
+      {!isProfileComplete && (
+        <Card className="mb-6 border-2 border-primary/20 bg-gradient-to-r from-blue-50/50 to-blue-50/30">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="font-semibold text-warning">Complete your profile to access job marketplace</p>
-              <p className="text-sm text-warning/80 mt-1">
-                {!isComplianceComplete()
-                  ? "Upload all required documents to become job ready."
-                  : questionnaireCompletion.completed < questionnaireCompletion.total
-                    ? "Complete questionnaires to unlock job applications."
-                    : "Complete all onboarding steps to unlock job applications."}
+              <h3 className="text-lg font-semibold text-foreground mb-1">Complete your profile to unlock more job matches</h3>
+              <p className="text-sm text-muted-foreground">
+                {!hasProfessionalInfo 
+                  ? "Add your professional information and upload required documents to increase your visibility to employers."
+                  : !hasBasicInfo
+                    ? "Complete your basic information and upload required documents to increase your visibility to employers."
+                    : totalDocs > 0 && completedDocs < totalDocs
+                      ? `Upload ${totalDocs - completedDocs} more required document${totalDocs - completedDocs > 1 ? "s" : ""} to increase your visibility to employers.`
+                      : "Add your professional information and upload required documents to increase your visibility to employers."}
               </p>
             </div>
-            <Link href={!isComplianceComplete() ? "/candidate/documents" : "/candidate/onboarding"} className="ph5-button-primary">
-              {!isComplianceComplete() ? "Upload Documents" : "Complete Questionnaires"}
-            </Link>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              {!hasProfessionalInfo || !hasBasicInfo ? (
+                <Button asChild variant="outline" className="w-full sm:w-auto">
+                  <Link href="/candidate/profile-setup">
+                    Complete Profile <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              ) : null}
+              {hasProfessionalInfo && totalDocs > 0 && (
+                <Button asChild className="w-full sm:w-auto">
+                  <Link href="/candidate/documents">
+                    Upload Documents <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
+        </Card>
       )}
 
-      {isJobReady && (
-        <div className="rounded-2xl border-2 border-success/50 bg-gradient-to-r from-success/15 via-success/10 to-success/5 px-6 py-5 shadow-xl backdrop-blur-sm animate-slide-up">
+      {/* Stats Cards */}
+      <div className="grid gap-4 mb-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-semibold text-success">You're job ready!</p>
-              <p className="text-sm text-success/80 mt-1">All requirements are complete. Start applying to jobs now.</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Open Jobs</p>
+              <p className="text-3xl font-bold text-foreground">{openJobsCount}</p>
             </div>
-            <Link href="/candidate/jobs" className="ph5-button-primary">
-              Browse Jobs
-            </Link>
+            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <Briefcase className="h-6 w-6 text-blue-600" />
+            </div>
           </div>
-        </div>
-      )}
+        </Card>
 
-      <section className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          {quickActions.map((action) => (
-            <Card key={action.label} className="shadow-[0_2px_8px_rgba(16,24,40,0.08)] hover:shadow-[0_8px_24px_rgba(16,24,40,0.12)]">
-              <div className="ph5-label">{action.label}</div>
-              <p className="text-sm text-muted-foreground">{action.description}</p>
-              <Link href={action.href} className="text-sm font-semibold text-[#3182CE] underline-offset-4 hover:underline">
-                {action.cta}
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Applications Submitted</p>
+              <p className="text-3xl font-bold text-foreground">{applicationsCount}</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+              <FileText className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Active Placements</p>
+              <p className="text-3xl font-bold text-foreground">{activePlacementsCount}</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+              <Calendar className="h-6 w-6 text-purple-600" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Documents Pending</p>
+              <p className="text-3xl font-bold text-foreground">{documentsPendingCount}</p>
+            </div>
+            <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+              <Upload className="h-6 w-6 text-orange-600" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[2fr,1fr] mb-6">
+        {/* Compliance Snapshot */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Compliance Snapshot</h3>
+              <p className="text-sm text-muted-foreground">Keep your documents up to date</p>
+            </div>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/candidate/documents">Go to Document Wallet</Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4 rounded-lg bg-green-50 border border-green-200">
+              <p className="text-2xl font-bold text-green-700">{complianceSnapshot.approved}</p>
+              <p className="text-sm font-medium text-green-600 mt-1">Approved</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-yellow-50 border border-yellow-200">
+              <p className="text-2xl font-bold text-yellow-700">{complianceSnapshot.pending}</p>
+              <p className="text-sm font-medium text-yellow-600 mt-1">Pending</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-red-50 border border-red-200">
+              <p className="text-2xl font-bold text-red-700">{complianceSnapshot.missing}</p>
+              <p className="text-sm font-medium text-red-600 mt-1">Missing</p>
+            </div>
+            <div className="text-center p-4 rounded-lg bg-orange-50 border border-orange-200">
+              <p className="text-2xl font-bold text-orange-700">{complianceSnapshot.expired}</p>
+              <p className="text-sm font-medium text-orange-600 mt-1">Expired</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
+          <div className="space-y-3">
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link href="/candidate/jobs">
+                <Briefcase className="mr-2 h-4 w-4" />
+                Browse Open Jobs
               </Link>
-            </Card>
-          ))}
-        </div>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link href="/candidate/applications">
+                <FileText className="mr-2 h-4 w-4" />
+                View Applications
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start">
+              <Link href="/candidate/documents">
+                <Upload className="mr-2 h-4 w-4" />
+                Upload Documents
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full justify-start" disabled>
+              <Link href="#">
+                <Calendar className="mr-2 h-4 w-4" />
+                Submit Timecard
+              </Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.8fr,1fr]">
-          <Card title="Profile Progress" subtitle={`${totalCompleted} of ${totalRequirements} requirements complete`}>
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
-              <CircularProgress value={progressPercent} />
-              <div className="flex-1 space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  {progressPercent === 100
-                    ? "Congratulations! Your onboarding is complete. You're ready to apply for jobs."
-                    : `Answer questionnaires (${questionnaireCompletion.completed}/${questionnaireCompletion.total}) and upload required documents (${completedDocs}/${totalDocs}) to unlock job applications.`}
-                </p>
-                <div className="ph5-progress">
-                  <div className="ph5-progress-bar" style={{ width: `${progressPercent}%` }} />
-                </div>
-                <div className="space-y-2">
-                  {questionnaireCompletion.total > 0 && (
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Questionnaires: {questionnaireCompletion.completed}/{questionnaireCompletion.total}</span>
-                      <span className={questionnaireCompletion.completed === questionnaireCompletion.total ? "text-success" : ""}>
-                        {questionnaireCompletion.completed === questionnaireCompletion.total ? "✓ Complete" : "Incomplete"}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Documents: {completedDocs}/{totalDocs}</span>
-                    <span className={completedDocs === totalDocs ? "text-success" : ""}>
-                      {completedDocs === totalDocs ? "✓ Complete" : "Incomplete"}
+      {/* Recommended Jobs */}
+      <Card className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-foreground">Recommended Jobs</h3>
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/candidate/jobs">View All</Link>
+          </Button>
+        </div>
+        <div className="space-y-4">
+          {recommendedJobs.map((job) => (
+            <Link
+              key={job.id}
+              href={`/candidate/jobs/${job.id}`}
+              className="block rounded-lg border border-border p-4 hover:border-primary/50 hover:shadow-md transition-all"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-base font-semibold text-foreground">{job.title}</h4>
+                    <span className={cn(
+                      "text-xs font-semibold px-2 py-0.5 rounded-full",
+                      job.matchScore >= 90 ? "bg-green-100 text-green-700" :
+                      job.matchScore >= 80 ? "bg-blue-100 text-blue-700" :
+                      "bg-yellow-100 text-yellow-700"
+                    )}>
+                      {job.matchScore}% Match
                     </span>
                   </div>
-                </div>
-                <div className="flex gap-3">
-                  <Link href="/candidate/onboarding" className="ph5-button-primary">
-                    Review checklist
-                  </Link>
-                  <Link href="/candidate/documents" className="ph5-button-secondary">
-                    Upload document
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card title="Profile snapshot" subtitle="Your key identifiers">
-            <dl className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="ph5-label mb-1">Name</dt>
-                <dd className="font-semibold text-foreground">{candidate.profile.name}</dd>
-              </div>
-              <div>
-                <dt className="ph5-label mb-1">Role</dt>
-                <dd className="font-semibold text-foreground">{candidate.profile.role}</dd>
-              </div>
-              <div>
-                <dt className="ph5-label mb-1">Home facility</dt>
-                <dd className="text-muted-foreground">{candidate.profile.location}</dd>
-              </div>
-              <div>
-                <dt className="ph5-label mb-1">Shift preference</dt>
-                <dd className="text-muted-foreground">{candidate.profile.shiftPreference}</dd>
-              </div>
-              <div className="col-span-2">
-                <dt className="ph5-label mb-1">Contact</dt>
-                <dd className="text-muted-foreground">{candidate.profile.email}</dd>
-              </div>
-            </dl>
-          </Card>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[2fr,1.2fr]">
-          <Card title="Recent jobs for you" subtitle="High-signal roles based on your profile.">
-            <div className="space-y-3">
-              {allJobs.slice(0, 3).map((job) => (
-                <Link
-                  key={job.id}
-                  href={`/candidate/jobs/${job.id}`}
-                  className="flex items-start justify-between rounded-xl border border-border px-4 py-3 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{job.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {job.location} • {job.shift} • {job.hours}
+                  <p className="text-sm text-muted-foreground mb-2">{job.location}</p>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-4 w-4" />
+                      {job.shift}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <DollarSign className="h-4 w-4" />
+                      {job.billRate}
+                    </span>
+                  </div>
+                  {job.missingDocs.length > 0 && (
+                    <p className="text-xs text-red-600 mt-2 font-medium">
+                      {job.missingDocs.length} required document{job.missingDocs.length > 1 ? "s" : ""} missing. Upload now
                     </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{job.department}</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-1 text-right">
-                    <span className="text-sm font-semibold text-foreground">{job.billRate}</span>
-                    <StatusChip label={job.status} tone={job.status === "Open" ? "success" : "neutral"} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="Next best actions" subtitle="Quick jumps based on your recent activity.">
-            <ul className="space-y-3 text-sm text-muted-foreground">
-              <li>Review your onboarding checklist and keep your profile fresh.</li>
-              <li>Upload any missing compliance docs in your wallet.</li>
-              <li>Browse open roles and save a few favorites for later.</li>
-            </ul>
-          </Card>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-[1.5fr,1fr]">
-          <Card title="Recent activity" subtitle="Last 5 updates">
-            <div className="divide-y divide-border">
-              {candidate.notifications.slice(0, 5).map((notif) => (
-                <div key={notif.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{notif.title}</p>
-                    <p className="text-xs text-muted-foreground">{notif.subtitle}</p>
-                  </div>
-                  <span className="text-xs font-semibold text-muted-foreground">{notif.time}</span>
+                  )}
                 </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card title="Document wallet" subtitle="Expiring soon">
-            <div className="space-y-3">
-              {candidate.documents.slice(0, 3).map((doc) => (
-                <DocumentCard key={doc.id} doc={doc} />
-              ))}
-              <Link href="/candidate/documents" className="text-sm font-semibold text-[#3182CE] underline-offset-4 hover:underline">
-                View full wallet
-              </Link>
-            </div>
-          </Card>
+                <Button variant="outline" size="sm" asChild>
+                  <span>View Job</span>
+                </Button>
+              </div>
+            </Link>
+          ))}
         </div>
-      </section>
+      </Card>
+
+      {/* Announcements */}
+      <Card>
+        <h3 className="text-lg font-semibold text-foreground mb-4">Announcements</h3>
+        <div className="space-y-4">
+          {announcements.map((announcement) => (
+            <div key={announcement.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+              <h4 className="text-sm font-semibold text-foreground mb-1">{announcement.title}</h4>
+              <p className="text-sm text-muted-foreground mb-2">{announcement.description}</p>
+              <p className="text-xs text-muted-foreground">{announcement.date}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
     </>
-  )
-}
-
-function CircularProgress({ value }: { value: number }) {
-  const radius = 52
-  const circumference = 2 * Math.PI * radius
-  const clamped = Math.min(Math.max(value, 0), 100)
-  const offset = circumference - (clamped / 100) * circumference
-
-  return (
-    <div className="relative h-36 w-36">
-      <svg className="h-full w-full -rotate-90 transition-all duration-500" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={radius} stroke="#E2E8F0" strokeWidth="12" fill="transparent" className="opacity-30" />
-        <circle
-          cx="70"
-          cy="70"
-          r={radius}
-          stroke="url(#progressGradient)"
-          strokeWidth="14"
-          strokeLinecap="round"
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          className="transition-all duration-500 ease-out"
-        />
-        <defs>
-          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#3182CE" />
-            <stop offset="50%" stopColor="#4A9EFF" />
-            <stop offset="100%" stopColor="#2D3748" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-bold text-foreground bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text">{clamped}%</span>
-        <span className="text-xs font-medium text-muted-foreground mt-1">Complete</span>
-      </div>
-    </div>
-  )
-}
-
-function DocumentCard({
-  doc,
-}: {
-  doc: {
-    name: string
-    type: string
-    status: "Completed" | "Pending" | "Expired"
-    expiresOn: string
-  }
-}) {
-  const chipTone =
-    doc.status === "Completed"
-      ? "success"
-      : doc.status === "Pending Verification" || doc.status === "Pending Upload"
-        ? "warning"
-        : "danger"
-
-  return (
-    <div className="rounded-xl border-2 border-border px-5 py-4 hover:shadow-md hover:border-primary/20 transition-all duration-200 bg-card/50 backdrop-blur-sm">
-      <div className="flex items-center justify-between text-xs">
-        <span className="inline-flex rounded-full bg-[#EDF2F7] px-2 py-0.5 font-semibold uppercase text-muted-foreground">{doc.type}</span>
-        <StatusChip label={doc.status} tone={chipTone} className="min-w-[96px] justify-center" />
-      </div>
-      <p className="mt-2 text-sm font-semibold text-foreground">{doc.name}</p>
-      <p className="text-xs text-muted-foreground">Expires {doc.expiresOn}</p>
-    </div>
   )
 }

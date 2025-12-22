@@ -1,43 +1,54 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Card, Header, Avatar } from "@/components/system"
+import { useRouter } from "next/navigation"
+import { Card, Header, Avatar, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/system"
-import { Edit2, CheckCircle2, AlertTriangle, ChevronRight, ChevronDown } from "lucide-react"
+import { Edit2, CheckCircle2, ChevronRight, MapPin, FileText, Bell, Shield, HelpCircle, LogOut, Trash2 } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
-import { getQuestionnaireByOccupationId, getOccupationByCode, getActiveOccupations } from "@/lib/admin-local-db"
+import { getOccupationByCode, getActiveOccupations } from "@/lib/admin-local-db"
+import { getAllPlacements, type OrganizationPlacement } from "@/lib/organization-local-db"
+import { getAllTimecards, type LocalDbTimecard } from "@/lib/local-db"
 
 export default function CandidateProfilePage() {
-  const { candidate, actions } = useDemoData()
+  const router = useRouter()
+  const { candidate, actions, allJobs } = useDemoData()
   const { data: localDb, saveOnboardingDetails } = useLocalDb()
   const { pushToast } = useToast()
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false)
+  const [isEditingProfessional, setIsEditingProfessional] = useState(false)
   const [saving, setSaving] = useState(false)
   const onboardingAnswers = localDb.onboardingDetails
   const currentOccupationCode = (onboardingAnswers.occupation as string | undefined) || ""
   
-  const [formData, setFormData] = useState({
+  const [personalFormData, setPersonalFormData] = useState({
     name: candidate.profile.name,
     email: candidate.profile.email,
-    phone: candidate.profile.phone,
+    phone: candidate.profile.phone || (onboardingAnswers.phoneNumber as string) || "",
     location: candidate.profile.location,
-    role: candidate.profile.role,
+  })
+
+  const [professionalFormData, setProfessionalFormData] = useState({
     occupation: currentOccupationCode,
-    shiftPreference: candidate.profile.shiftPreference,
-    summary: candidate.profile.summary || "",
     specialties: candidate.profile.specialties.join(", "),
     skills: candidate.profile.skills.join(", "),
+    certifications: candidate.profile.skills.filter(s => s.includes("Certification") || s.includes("License")).join(", ") || "BLS, ACLS, CCRN",
+    experience: onboardingAnswers.yearsOfExperience as string || "5 years",
+    preferredShifts: candidate.profile.shiftPreference || (onboardingAnswers.preferredShift as string) || "Night Shift, Day Shift",
+    preferredLocations: (onboardingAnswers.city as string) && (onboardingAnswers.state as string) 
+      ? `${onboardingAnswers.city}, ${onboardingAnswers.state}` 
+      : candidate.profile.location || "Boston, MA",
   })
+  
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>(candidate.profile.specialties)
   
   // Get occupation options
@@ -50,47 +61,138 @@ export default function CandidateProfilePage() {
     }
   }, [])
 
-  // Update formData when candidate profile changes
+  // Get candidate's placements
+  const candidatePlacements = useMemo(() => {
+    try {
+      const allPlacements = getAllPlacements()
+      return allPlacements.filter((p) => p.candidateId === candidate.profile.id)
+    } catch (error) {
+      return []
+    }
+  }, [candidate.profile.id])
+
+  const currentAssignment = useMemo(() => {
+    return candidatePlacements.find((p) => p.status === "Active" || p.status === "Ending Soon")
+  }, [candidatePlacements])
+
+  const pastAssignments = useMemo(() => {
+    return candidatePlacements.filter((p) => p.status === "Completed")
+  }, [candidatePlacements])
+
+  // Get candidate's timecards
+  const candidateTimecards = useMemo(() => {
+    try {
+      const allTimecards = getAllTimecards()
+      return allTimecards.filter((tc) => tc.candidateId === candidate.profile.id)
+    } catch (error) {
+      return []
+    }
+  }, [candidate.profile.id])
+
+  // Get applied jobs
+  const appliedJobs = useMemo(() => {
+    const appliedJobIds = new Set([
+      ...Object.keys(localDb.jobApplications),
+      ...candidate.applications.map((app) => app.jobId),
+    ])
+    return allJobs.filter((job) => appliedJobIds.has(job.id))
+  }, [localDb.jobApplications, candidate.applications, allJobs])
+
+  // Get first 3 documents
+  const firstThreeDocuments = useMemo(() => {
+    return candidate.documents.slice(0, 3)
+  }, [candidate.documents])
+
+  // Calculate profile completion
+  const hasBasicInfo = Boolean(onboardingAnswers.phoneNumber)
+  const hasProfessionalInfo = Boolean(onboardingAnswers.occupation)
+  
+  const requiredDocs = useMemo(() => {
+    const occupationCode = onboardingAnswers.occupation as string | undefined
+    if (!occupationCode) {
+      return []
+    }
+    try {
+      const {
+        getAdminWalletTemplatesByOccupation,
+        getComplianceListItemById,
+      } = require("@/lib/admin-local-db")
+      const templates = getAdminWalletTemplatesByOccupation(occupationCode)
+      const itemSet = new Set<string>()
+      templates.forEach((template: any) => {
+        template.listItemIds.forEach((listItemId: string) => {
+          const listItem = getComplianceListItemById(listItemId)
+          if (listItem && listItem.isActive) {
+            itemSet.add(listItem.name)
+          }
+        })
+      })
+      return Array.from(itemSet)
+    } catch (error) {
+      return []
+    }
+  }, [onboardingAnswers.occupation])
+
+  const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
+  const candidateDocSet = new Set(
+    candidate.documents
+      .filter((doc) => doc.status === "Completed" || doc.status === "Pending Verification")
+      .map((doc) => doc.type)
+  )
+  
+  const completedDocs = requiredDocs.filter((doc) => 
+    uploadedDocSet.has(doc) || candidateDocSet.has(doc)
+  ).length
+  const totalDocs = requiredDocs.length
+
+  const isProfileComplete = hasBasicInfo && 
+                           hasProfessionalInfo && 
+                           (totalDocs === 0 || (totalDocs > 0 && completedDocs === totalDocs))
+
+  // Update form data when candidate profile changes
   useEffect(() => {
-    if (!isEditing) {
-      const currentOcc = (localDb.onboardingDetails.occupation as string | undefined) || ""
-      setFormData({
+    if (!isEditingPersonal) {
+      setPersonalFormData({
         name: candidate.profile.name,
         email: candidate.profile.email,
-        phone: candidate.profile.phone,
+        phone: candidate.profile.phone || (onboardingAnswers.phoneNumber as string) || "",
         location: candidate.profile.location,
-        role: candidate.profile.role,
+      })
+    }
+  }, [candidate.profile, isEditingPersonal, onboardingAnswers.phoneNumber])
+
+  useEffect(() => {
+    if (!isEditingProfessional) {
+      const currentOcc = (localDb.onboardingDetails.occupation as string | undefined) || ""
+      setProfessionalFormData({
         occupation: currentOcc,
-        shiftPreference: candidate.profile.shiftPreference,
-        summary: candidate.profile.summary || "",
         specialties: candidate.profile.specialties.join(", "),
         skills: candidate.profile.skills.join(", "),
+        certifications: candidate.profile.skills.filter(s => s.includes("Certification") || s.includes("License")).join(", ") || "BLS, ACLS, CCRN",
+        experience: onboardingAnswers.yearsOfExperience as string || "5 years",
+        preferredShifts: candidate.profile.shiftPreference || (onboardingAnswers.preferredShift as string) || "Night Shift, Day Shift",
+        preferredLocations: (onboardingAnswers.city as string) && (onboardingAnswers.state as string) 
+          ? `${onboardingAnswers.city}, ${onboardingAnswers.state}` 
+          : candidate.profile.location || "Boston, MA",
       })
       setSelectedSpecialties(candidate.profile.specialties)
     }
-  }, [candidate.profile, isEditing])
+  }, [candidate.profile, isEditingProfessional, localDb.onboardingDetails, onboardingAnswers])
 
-  const handleSave = async () => {
+  const handleSavePersonal = async () => {
     setSaving(true)
     try {
-      // Update profile with all form data
       await actions.updateProfile({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        location: formData.location,
-        role: formData.role,
-        shiftPreference: formData.shiftPreference,
-        summary: formData.summary,
-        specialties: selectedSpecialties,
-        skills: formData.skills.split(",").map(s => s.trim()).filter(s => s.length > 0),
+        name: personalFormData.name,
+        email: personalFormData.email,
+        phone: personalFormData.phone,
+        location: personalFormData.location,
       })
-      // Save occupation to onboarding details
-      if (formData.occupation) {
-        saveOnboardingDetails({ occupation: formData.occupation })
+      if (personalFormData.phone) {
+        saveOnboardingDetails({ phoneNumber: personalFormData.phone })
       }
-      pushToast({ title: "Profile updated", description: "Your changes have been saved.", type: "success" })
-      setIsEditing(false)
+      pushToast({ title: "Profile updated", description: "Your personal information has been saved.", type: "success" })
+      setIsEditingPersonal(false)
     } catch (error) {
       pushToast({ title: "Update failed", description: "Please try again.", type: "error" })
     } finally {
@@ -98,213 +200,261 @@ export default function CandidateProfilePage() {
     }
   }
 
-  // Calculate document completion
-  const fallbackRequiredDocs = ["Resume", "Date of birth proof", "Certifications", "References", "License"]
-  const requiredDocs =
-    candidate.onboarding.requiredDocuments.length > 0 ? candidate.onboarding.requiredDocuments : fallbackRequiredDocs
-  const uploadedDocSet = new Set(Object.keys(localDb.uploadedDocuments))
-  const docsCompleted = requiredDocs.filter((doc) => uploadedDocSet.has(doc)).length
-  const docTotal = requiredDocs.length
-
-  // Calculate questionnaire completion (only occupation questionnaires count, general are skippable)
-  const questionnaireCompletion = useMemo(() => {
-    const occupationCode = onboardingAnswers.occupation as string | undefined
-    if (!occupationCode) {
-      return { completed: 0, total: 0 }
-    }
-
-    const occupation = getOccupationByCode(occupationCode)
-    const occupationQuestionnaire = occupation ? getQuestionnaireByOccupationId(occupation.id) : null
-
-    // Only count occupation questionnaire questions (general questionnaires are skippable)
-    const occupationQuestions = occupationQuestionnaire?.questions || []
-
-    if (occupationQuestions.length === 0) {
-      return { completed: 0, total: 0 }
-    }
-
-    const questionnaireAnswers = (localDb.onboardingDetails?.questionnaireAnswers || {}) as Record<string, string | string[]>
-    const requiredQuestions = occupationQuestions.filter((q) => q.required)
-    const totalRequired = requiredQuestions.length
-
-    if (totalRequired === 0) {
-      // If no required questions, check if all occupation questions are answered
-      const allAnswered = occupationQuestions.every((q) => {
-        const answer = questionnaireAnswers[q.id]
-        return answer !== undefined && answer !== null && answer !== "" && 
-               (!Array.isArray(answer) || answer.length > 0)
+  const handleSaveProfessional = async () => {
+    setSaving(true)
+    try {
+      await actions.updateProfile({
+        specialties: selectedSpecialties,
+        skills: professionalFormData.skills.split(",").map(s => s.trim()).filter(s => s.length > 0),
+        shiftPreference: professionalFormData.preferredShifts.split(",")[0].trim(),
       })
-      return { completed: allAnswered ? occupationQuestions.length : 0, total: occupationQuestions.length }
+      if (professionalFormData.occupation) {
+        saveOnboardingDetails({ occupation: professionalFormData.occupation })
+      }
+      pushToast({ title: "Profile updated", description: "Your professional information has been saved.", type: "success" })
+      setIsEditingProfessional(false)
+    } catch (error) {
+      pushToast({ title: "Update failed", description: "Please try again.", type: "error" })
+    } finally {
+      setSaving(false)
     }
+  }
 
-    const completedRequired = requiredQuestions.filter((q) => {
-      const answer = questionnaireAnswers[q.id]
-      return answer !== undefined && answer !== null && answer !== "" && 
-             (!Array.isArray(answer) || answer.length > 0)
-    }).length
+  const getStatusTone = (status: string) => {
+    switch (status) {
+      case "Completed":
+      case "Approved":
+        return "success"
+      case "Pending Verification":
+        return "warning"
+      case "Expired":
+        return "danger"
+      case "Pending Upload":
+        return "info"
+      default:
+        return "neutral"
+    }
+  }
 
-    return { completed: completedRequired, total: totalRequired }
-  }, [onboardingAnswers.occupation, localDb.onboardingDetails?.questionnaireAnswers])
+  const occupation = currentOccupationCode ? getOccupationByCode(currentOccupationCode) : null
+  const occupationName = occupation ? occupation.name : candidate.profile.role
+  const specialtyDisplay = candidate.profile.specialties.length > 0 
+    ? candidate.profile.specialties.join(" / ") 
+    : "Not specified"
+  
+  const locationDisplay = (onboardingAnswers.city as string) && (onboardingAnswers.state as string)
+    ? `${onboardingAnswers.city}, ${onboardingAnswers.state}`
+    : candidate.profile.location || "Not specified"
+  
+  const additionalLocations = locationDisplay !== "Not specified" ? ["Cambridge, MA", "Brookline, MA"] : []
 
-  // Calculate combined progress (questionnaires + documents only)
-  const totalCompleted = docsCompleted + questionnaireCompletion.completed
-  const totalRequirements = docTotal + questionnaireCompletion.total || 1
-  const onboardingPercent = Math.round((totalCompleted / totalRequirements) * 100)
-
-  // Profile categories with completion status
-  const profileCategories = [
-    {
-      name: "Questionnaires",
-      completed: questionnaireCompletion.completed,
-      total: questionnaireCompletion.total,
-    },
-    ...requiredDocs.map((doc) => ({
-      name: doc,
-      completed: uploadedDocSet.has(doc) ? 1 : 0,
-      total: 1,
-    })),
-  ]
-
-  // Update profile action items
-  const outstandingItems = [
-    ...(questionnaireCompletion.completed < questionnaireCompletion.total ? ["Complete questionnaires"] : []),
-    ...requiredDocs.filter((doc) => !uploadedDocSet.has(doc)),
-  ]
-  const updateProfileItems = outstandingItems.slice(0, 3)
-
-  // Format birthday from email or use default
-  const birthday = "Jul 2, 1990"
-
-  // Options for dropdowns
-  const SHIFT_OPTIONS = ["Day Shift", "Night Shift", "Rotational Shift", "Weekend Shift", "Evening Shift", "Variable Shift"]
   const SPECIALTY_OPTIONS = [
-    "ICU",
-    "Critical Care",
-    "ER",
-    "Emergency",
-    "Med-Surg",
-    "Medical-Surgical",
-    "Pediatrics",
-    "OB/GYN",
-    "Oncology",
-    "Cardiac",
-    "Telemetry",
-    "Progressive Care",
-    "PCU",
-    "Long-term Care",
-    "Rehabilitation",
-    "Home Health",
-    "Surgery",
-    "Operating Room",
-    "Orthopedics",
-    "Neurological",
-    "Geriatric",
-    "Mental Health",
-    "Hand Therapy",
-    "Sports Medicine",
-    "Cardiopulmonary",
-    "Family Practice",
-    "Urgent Care",
+    "ICU", "Critical Care", "ER", "Emergency", "Med-Surg", "Medical-Surgical",
+    "Pediatrics", "OB/GYN", "Oncology", "Cardiac", "Telemetry", "Progressive Care",
+    "PCU", "Long-term Care", "Rehabilitation", "Home Health", "Surgery",
+    "Operating Room", "Orthopedics", "Neurological", "Geriatric", "Mental Health",
+    "Hand Therapy", "Sports Medicine", "Cardiopulmonary", "Family Practice", "Urgent Care",
   ]
 
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="My Profile"
-        subtitle="Manage your personal information and professional details."
+        title="Profile"
         breadcrumbs={[
           { label: "Candidate Portal", href: "/candidate/dashboard" },
           { label: "Profile" },
         ]}
-        actions={[
-          {
-            id: "edit",
-            label: isEditing ? "Cancel" : "Edit",
-            variant: "secondary",
-            onClick: () => {
-              if (isEditing) {
-                const currentOcc = (localDb.onboardingDetails.occupation as string | undefined) || ""
-                setFormData({
-                  name: candidate.profile.name,
-                  email: candidate.profile.email,
-                  phone: candidate.profile.phone,
-                  location: candidate.profile.location,
-                  role: candidate.profile.role,
-                  occupation: currentOcc,
-                  shiftPreference: candidate.profile.shiftPreference,
-                  summary: candidate.profile.summary || "",
-                  specialties: candidate.profile.specialties.join(", "),
-                  skills: candidate.profile.skills.join(", "),
-                })
-                setSelectedSpecialties(candidate.profile.specialties)
-              }
-              setIsEditing(!isEditing)
-            },
-          },
-        ]}
       />
 
-      {/* Profile Progress Section */}
-      {questionnaireCompletion.completed < questionnaireCompletion.total ? (
-        <Card>
+      {/* Profile Completion Banner */}
+      {!isProfileComplete && (
+        <Card className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-primary/20">
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-1">Your Profile Progress</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {totalRequirements > 0
-                  ? `You're ${onboardingPercent}% complete (${totalCompleted}/${totalRequirements}). Keep going to unlock applications.`
-                  : "Start your profile checklist to unlock job submissions."}
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">
+                Complete your profile to unlock more job matches
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Add your professional information and upload required documents to increase your visibility to employers.
               </p>
+            </div>
+            <div className="flex gap-3">
               <Button
                 variant="outline"
-                className="bg-gray-800 text-white hover:bg-gray-700"
-                onClick={() => {
-                  window.location.href = "/candidate/onboarding"
-                }}
+                onClick={() => router.push("/candidate/profile-setup")}
               >
-                Review checklist
+                Complete Profile →
+              </Button>
+              <Button
+                onClick={() => router.push("/candidate/documents")}
+              >
+                Upload Documents →
               </Button>
             </div>
-            <CircularProgress value={totalCompleted} total={totalRequirements} />
-          </div>
-        </Card>
-      ) : (
-        <Card>
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-1">Your Profile Progress</h3>
-              <p className="text-sm text-success mb-4">
-                🎉 Congratulations! Your profile is 100% complete ({totalCompleted}/{totalRequirements}). You're ready to apply for jobs.
-              </p>
-            </div>
-            <CircularProgress value={totalCompleted} total={totalRequirements} />
           </div>
         </Card>
       )}
 
+      {/* Profile Card */}
+        <Card>
+        <div className="flex items-start gap-4">
+          <Avatar
+            initials={candidate.profile.avatar}
+            alt={candidate.profile.name}
+            size="lg"
+            className="bg-yellow-100 text-yellow-800"
+          />
+            <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-xl font-semibold text-foreground">{candidate.profile.name}</h2>
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            </div>
+            <p className="text-sm font-medium text-foreground mb-1">{occupationName}</p>
+            <p className="text-sm text-muted-foreground mb-2">{specialtyDisplay}</p>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{locationDisplay}</span>
+              {additionalLocations.length > 0 && (
+                <>
+                  {additionalLocations.map((loc, idx) => (
+                    <span key={idx}>, {loc}</span>
+                  ))}
+                  <span className="ml-1">+{additionalLocations.length} more</span>
+                </>
+              )}
+            </div>
+          </div>
+          </div>
+        </Card>
+
       <div className="grid gap-6 lg:grid-cols-[1fr,1fr]">
-        {/* Left Column - Profile Details */}
+        {/* Left Column */}
         <div className="space-y-6">
+          {/* Personal Information */}
           <Card>
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <Avatar
-                  initials={candidate.profile.avatar}
-                  alt={isEditing ? formData.name : candidate.profile.name}
-                  size="lg"
-                  className="bg-yellow-100 text-yellow-800"
-                />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Personal Information</h3>
+              {!isEditingPersonal && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingPersonal(true)}
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Name</label>
+                {isEditingPersonal ? (
+                  <Input
+                    value={personalFormData.name}
+                    onChange={(e) => setPersonalFormData((prev) => ({ ...prev, name: e.target.value }))}
+                    className="mt-1"
+                  />
+                ) : (
+                  <p className="text-sm text-foreground mt-1">{candidate.profile.name}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Email</label>
+                {isEditingPersonal ? (
+                  <div className="mt-1">
+                    <p className="text-sm text-foreground">{candidate.profile.email}</p>
+                    <p className="text-xs text-muted-foreground mt-1">(Email cannot be edited)</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-foreground mt-1">{candidate.profile.email}</p>
+                )}
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                {isEditingPersonal ? (
+                  <Input
+                    value={personalFormData.phone}
+                    onChange={(e) => setPersonalFormData((prev) => ({ ...prev, phone: e.target.value }))}
+                    className="mt-1"
+                    placeholder="(555) 123-4567"
+                  />
+                ) : (
+                  <p className="text-sm text-foreground mt-1">{personalFormData.phone || "Not provided"}</p>
+                )}
+              </div>
                 <div>
-                  {isEditing ? (
-                    <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Location</label>
+                {isEditingPersonal ? (
                       <Input
-                        value={formData.name}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                        placeholder="Full name"
-                        className="text-lg font-semibold"
-                      />
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground">Specialties</label>
+                    value={personalFormData.location}
+                    onChange={(e) => setPersonalFormData((prev) => ({ ...prev, location: e.target.value }))}
+                    className="mt-1"
+                    placeholder="Boston, MA 02101"
+                  />
+                ) : (
+                  <p className="text-sm text-foreground mt-1">{locationDisplay}</p>
+                )}
+              </div>
+              {isEditingPersonal && (
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingPersonal(false)
+                      setPersonalFormData({
+                        name: candidate.profile.name,
+                        email: candidate.profile.email,
+                        phone: candidate.profile.phone || (onboardingAnswers.phoneNumber as string) || "",
+                        location: candidate.profile.location,
+                      })
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSavePersonal}
+                    disabled={saving}
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Professional Information */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Professional Information</h3>
+              {!isEditingProfessional && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditingProfessional(true)}
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Occupation & Specialty</label>
+                {isEditingProfessional ? (
+                  <div className="mt-1 space-y-2">
+                    <select
+                      value={professionalFormData.occupation}
+                      onChange={(e) => setProfessionalFormData((prev) => ({ ...prev, occupation: e.target.value }))}
+                      className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
+                    >
+                      <option value="">Select occupation</option>
+                      {occupationOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -316,10 +466,9 @@ export default function CandidateProfilePage() {
                                   ? `${selectedSpecialties.length} selected`
                                   : "Select specialties"}
                               </span>
-                              <ChevronDown className="h-4 w-4 opacity-50" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[300px] overflow-y-auto !bg-background !opacity-100 border border-border shadow-lg">
+                      <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] max-h-[300px] overflow-y-auto">
                             {SPECIALTY_OPTIONS.map((specialty) => {
                               const isSelected = selectedSpecialties.includes(specialty)
                               return (
@@ -328,13 +477,9 @@ export default function CandidateProfilePage() {
                                   checked={isSelected}
                                   onCheckedChange={(checked) => {
                                     if (checked) {
-                                      const updated = [...selectedSpecialties, specialty]
-                                      setSelectedSpecialties(updated)
-                                      setFormData((prev) => ({ ...prev, specialties: updated.join(", ") }))
+                                  setSelectedSpecialties([...selectedSpecialties, specialty])
                                     } else {
-                                      const updated = selectedSpecialties.filter(s => s !== specialty)
-                                      setSelectedSpecialties(updated)
-                                      setFormData((prev) => ({ ...prev, specialties: updated.join(", ") }))
+                                  setSelectedSpecialties(selectedSpecialties.filter(s => s !== specialty))
                                     }
                                   }}
                                 >
@@ -344,157 +489,109 @@ export default function CandidateProfilePage() {
                             })}
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        {selectedSpecialties.length > 0 && (
-                          <div className="flex flex-wrap gap-2 pt-2">
-                            {selectedSpecialties.map((specialty) => (
-                              <span key={specialty} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
-                                {specialty}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = selectedSpecialties.filter(s => s !== specialty)
-                                    setSelectedSpecialties(updated)
-                                    setFormData((prev) => ({ ...prev, specialties: updated.join(", ") }))
-                                  }}
-                                  className="hover:text-destructive"
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-muted-foreground">Occupation</label>
-                        <select
-                          value={formData.occupation}
-                          onChange={(e) => setFormData((prev) => ({ ...prev, occupation: e.target.value }))}
-                          className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-                        >
-                          <option value="">Select occupation</option>
-                          {occupationOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-semibold text-foreground">{candidate.profile.name}</h3>
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-1">{candidate.profile.specialties.join(", ")}</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {(() => {
-                          const occCode = (onboardingAnswers.occupation as string | undefined) || ""
-                          const occupation = occCode ? getOccupationByCode(occCode) : null
-                          return occupation ? occupation.name : candidate.profile.role
-                        })()}
-                      </p>
-                    </>
-                  )}
-                </div>
+                  <p className="text-sm text-foreground mt-1">
+                    {occupationName} • {specialtyDisplay}
+                  </p>
+                )}
               </div>
-              {!isEditing && (
-                <Edit2 
-                  className="h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground" 
-                  onClick={() => setIsEditing(true)}
-                />
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Skills</label>
+                {isEditingProfessional ? (
+                  <Input
+                    value={professionalFormData.skills}
+                    onChange={(e) => setProfessionalFormData((prev) => ({ ...prev, skills: e.target.value }))}
+                    className="mt-1"
+                    placeholder="IV Therapy, Ventilator Management, ECMO"
+                  />
+                ) : (
+                  <p className="text-sm text-foreground mt-1">
+                    {candidate.profile.skills.join(", ") || "Not specified"}
+                  </p>
               )}
             </div>
-            <div className="space-y-3 pt-4 border-t border-border">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Birthday:</span>
-                {isEditing ? (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Certifications</label>
+                {isEditingProfessional ? (
                   <Input
-                    type="date"
-                    value={birthday ? new Date(birthday).toISOString().split('T')[0] : ""}
-                    onChange={(e) => {
-                      // Birthday is read-only for now, could be made editable if needed
-                    }}
-                    className="w-48"
-                    disabled
+                    value={professionalFormData.certifications}
+                    onChange={(e) => setProfessionalFormData((prev) => ({ ...prev, certifications: e.target.value }))}
+                    className="mt-1"
+                    placeholder="BLS, ACLS, CCRN"
                   />
                 ) : (
-                  <span className="text-foreground font-medium">{birthday}</span>
+                  <p className="text-sm text-foreground mt-1">
+                    {professionalFormData.certifications}
+                  </p>
                 )}
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Email:</span>
-                {isEditing ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-foreground font-medium">{candidate.profile.email}</span>
-                    <span className="text-xs text-muted-foreground">(Email cannot be edited)</span>
-                  </div>
-                ) : (
-                  <span className="text-foreground font-medium">{candidate.profile.email}</span>
-                )}
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Phone number:</span>
-                {isEditing ? (
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Experience</label>
+                {isEditingProfessional ? (
                   <Input
-                    value={formData.phone}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                    type="tel"
-                    className="w-64"
+                    value={professionalFormData.experience}
+                    onChange={(e) => setProfessionalFormData((prev) => ({ ...prev, experience: e.target.value }))}
+                    className="mt-1"
+                    placeholder="5 years"
                   />
                 ) : (
-                  <span className="text-foreground font-medium">{candidate.profile.phone}</span>
+                  <p className="text-sm text-foreground mt-1">{professionalFormData.experience}</p>
                 )}
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Shift Preference:</span>
-                {isEditing ? (
-                  <select
-                    value={formData.shiftPreference}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, shiftPreference: e.target.value }))}
-                    className="w-64 rounded-md border border-border bg-input px-3 py-2 text-sm"
-                  >
-                    <option value="">Select shift preference</option>
-                    {SHIFT_OPTIONS.map((shift) => (
-                      <option key={shift} value={shift}>
-                        {shift}
-                      </option>
-                    ))}
-                  </select>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Preferred Shift Types</label>
+                {isEditingProfessional ? (
+                  <Input
+                    value={professionalFormData.preferredShifts}
+                    onChange={(e) => setProfessionalFormData((prev) => ({ ...prev, preferredShifts: e.target.value }))}
+                    className="mt-1"
+                    placeholder="Night Shift, Day Shift"
+                  />
                 ) : (
-                  <span className="text-foreground font-medium">{candidate.profile.shiftPreference || "Not set"}</span>
+                  <p className="text-sm text-foreground mt-1">{professionalFormData.preferredShifts}</p>
                 )}
               </div>
-              {isEditing && (
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Preferred Locations</label>
+                {isEditingProfessional ? (
+                  <Input
+                    value={professionalFormData.preferredLocations}
+                    onChange={(e) => setProfessionalFormData((prev) => ({ ...prev, preferredLocations: e.target.value }))}
+                    className="mt-1"
+                    placeholder="Boston, MA, Cambridge, MA"
+                  />
+                ) : (
+                  <p className="text-sm text-foreground mt-1">{professionalFormData.preferredLocations}</p>
+                )}
+              </div>
+              {isEditingProfessional && (
+                <div className="flex items-center gap-3 pt-2">
                   <Button
                     variant="outline"
                     onClick={() => {
+                      setIsEditingProfessional(false)
                       const currentOcc = (localDb.onboardingDetails.occupation as string | undefined) || ""
-                      setFormData({
-                        name: candidate.profile.name,
-                        email: candidate.profile.email,
-                        phone: candidate.profile.phone,
-                        location: candidate.profile.location,
-                        role: candidate.profile.role,
+                      setProfessionalFormData({
                         occupation: currentOcc,
-                        shiftPreference: candidate.profile.shiftPreference,
-                        summary: candidate.profile.summary || "",
                         specialties: candidate.profile.specialties.join(", "),
                         skills: candidate.profile.skills.join(", "),
+                        certifications: candidate.profile.skills.filter(s => s.includes("Certification") || s.includes("License")).join(", ") || "BLS, ACLS, CCRN",
+                        experience: onboardingAnswers.yearsOfExperience as string || "5 years",
+                        preferredShifts: candidate.profile.shiftPreference || (onboardingAnswers.preferredShift as string) || "Night Shift, Day Shift",
+                        preferredLocations: (onboardingAnswers.city as string) && (onboardingAnswers.state as string) 
+                          ? `${onboardingAnswers.city}, ${onboardingAnswers.state}` 
+                          : candidate.profile.location || "Boston, MA",
                       })
                       setSelectedSpecialties(candidate.profile.specialties)
-                      setIsEditing(false)
                     }}
                     disabled={saving}
                   >
                     Cancel
                   </Button>
                   <Button
-                    onClick={handleSave}
+                    onClick={handleSaveProfessional}
                     disabled={saving}
-                    className="ph5-button-primary"
                   >
                     {saving ? "Saving..." : "Save Changes"}
                   </Button>
@@ -503,94 +600,196 @@ export default function CandidateProfilePage() {
             </div>
           </Card>
 
-          {/* Update Profile Section */}
+          {/* Document Wallet */}
           <Card>
-            <h3 className="text-lg font-semibold text-foreground mb-1">Update your profile</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              {updateProfileItems.length > 0
-                ? "Your profile needs your attention, update the sections below."
-                : questionnaireCompletion.completed === questionnaireCompletion.total && docsCompleted === docTotal
-                  ? "All onboarding tasks are complete. Great work!"
-                  : "Questionnaires are complete. Upload remaining documents to finish your profile."}
-            </p>
-            <div className="space-y-2">
-              {updateProfileItems.length > 0 ? (
-                updateProfileItems.map((item) => (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Document Wallet</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/candidate/documents")}
+              >
+                View All
+              </Button>
+            </div>
+            {firstThreeDocuments.length > 0 ? (
+              <div className="space-y-3">
+                {firstThreeDocuments.map((doc) => (
                   <div
-                    key={item}
-                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 hover:bg-muted/50 cursor-pointer"
+                    key={doc.id}
+                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                      <span className="text-sm text-foreground">{item}</span>
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm text-foreground">{doc.type}</span>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <StatusChip label={doc.status} tone={getStatusTone(doc.status)} />
                   </div>
-                ))
+                ))}
+              </div>
               ) : (
-                <div className="rounded-lg border border-border px-4 py-3 text-sm text-muted-foreground bg-muted/30">
-                  Nothing pending right now.
-                </div>
+              <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
               )}
-            </div>
           </Card>
         </div>
 
-        {/* Right Column - Profile Categories */}
+        {/* Right Column */}
         <div className="space-y-6">
+          {/* Saved Jobs */}
           <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Saved Jobs</h3>
+            </div>
+            <div className="text-center py-8">
+              <p className="text-sm font-medium text-foreground mb-1">0 Saved</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                No saved jobs yet
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Save jobs you're interested in to review them later
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => router.push("/candidate/jobs")}
+              >
+                Browse Jobs
+              </Button>
+            </div>
+          </Card>
+
+          {/* Assignments & Job Activity */}
+          <Card>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Assignments & Job Activity</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium text-foreground mb-2">Applied Jobs</h4>
+                {appliedJobs.length > 0 ? (
             <div className="space-y-2">
-              {profileCategories.map((category) => {
-                const isComplete = category.completed === category.total
-                return (
-                  <div
-                    key={category.name}
-                    className="flex items-center justify-between rounded-lg border border-border px-4 py-3 hover:bg-muted/50 cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      {!isComplete && <AlertTriangle className="h-4 w-4 text-yellow-500 flex-shrink-0" />}
-                      <span className="text-sm text-foreground">{category.name}</span>
-                      <span className="text-xs text-muted-foreground">({category.completed}/{category.total})</span>
+                    {appliedJobs.slice(0, 3).map((job) => (
+                      <div
+                        key={job.id}
+                        className="flex items-center justify-between rounded-lg border border-border px-3 py-2 hover:bg-muted/50 cursor-pointer"
+                        onClick={() => router.push(`/candidate/jobs/${job.id}`)}
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{job.title}</p>
+                          <p className="text-xs text-muted-foreground">{job.location}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Edit2 className="h-4 w-4 text-muted-foreground" />
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </div>
+                    ))}
+                    {appliedJobs.length > 3 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => router.push("/candidate/applications")}
+                      >
+                        View All ({appliedJobs.length})
+                      </Button>
+                    )}
                   </div>
-                )
-              })}
+                ) : (
+                  <p className="text-sm text-muted-foreground">No applications yet.</p>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Current Assignment</h4>
+                {currentAssignment ? (
+                  <div className="rounded-lg border border-border px-3 py-2">
+                    <p className="text-sm font-medium text-foreground">{currentAssignment.jobTitle}</p>
+                    <p className="text-xs text-muted-foreground">{currentAssignment.location}</p>
+                    <StatusChip label={currentAssignment.status} tone="success" className="mt-2" />
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No active assignment.</p>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Past Assignments</h4>
+                {pastAssignments.length > 0 ? (
+                  <div className="space-y-2">
+                    {pastAssignments.slice(0, 3).map((assignment) => (
+                      <div
+                        key={assignment.id}
+                        className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{assignment.jobTitle}</p>
+                          <p className="text-xs text-muted-foreground">{assignment.location}</p>
+                        </div>
+                        <StatusChip label={assignment.status} tone="neutral" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No past assignments.</p>
+                )}
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-medium text-foreground mb-2">Timecard History</h4>
+                {candidateTimecards.length > 0 ? (
+                  <div className="space-y-2">
+                    {candidateTimecards.slice(0, 3).map((timecard) => (
+                      <div
+                        key={timecard.id}
+                        className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{timecard.assignmentName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(timecard.payPeriodStart).toLocaleDateString()} - {new Date(timecard.payPeriodEnd).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <StatusChip label={timecard.status} tone={timecard.status === "approved" ? "success" : "warning"} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No timecard history.</p>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {/* Settings */}
+          <Card>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Settings</h3>
+            <div className="space-y-2">
+              <button className="flex items-center gap-3 w-full text-left rounded-lg border border-border px-4 py-3 hover:bg-muted/50 transition-colors">
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">Notification Preferences</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+              </button>
+              <button className="flex items-center gap-3 w-full text-left rounded-lg border border-border px-4 py-3 hover:bg-muted/50 transition-colors">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">Account Security</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+              </button>
+              <button className="flex items-center gap-3 w-full text-left rounded-lg border border-border px-4 py-3 hover:bg-muted/50 transition-colors">
+                <HelpCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">Help & Support</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+              </button>
+              <button className="flex items-center gap-3 w-full text-left rounded-lg border border-border px-4 py-3 hover:bg-muted/50 transition-colors">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-foreground">Privacy & Terms</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+              </button>
+              <button className="flex items-center gap-3 w-full text-left rounded-lg border border-border px-4 py-3 hover:bg-muted/50 transition-colors text-muted-foreground">
+                <LogOut className="h-4 w-4" />
+                <span className="text-sm">Logout</span>
+              </button>
+              <button className="flex items-center gap-3 w-full text-left rounded-lg border border-destructive/50 px-4 py-3 hover:bg-destructive/10 transition-colors text-destructive">
+                <Trash2 className="h-4 w-4" />
+                <span className="text-sm">Delete Account</span>
+              </button>
             </div>
           </Card>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function CircularProgress({ value, total }: { value: number; total: number }) {
-  const percent = Math.round((value / total) * 100)
-  const radius = 52
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percent / 100) * circumference
-
-  return (
-    <div className="relative h-36 w-36 flex-shrink-0">
-      <svg className="h-full w-full -rotate-90" viewBox="0 0 140 140">
-        <circle cx="70" cy="70" r={radius} stroke="#E2E8F0" strokeWidth="12" fill="transparent" />
-        <circle
-          cx="70"
-          cy="70"
-          r={radius}
-          stroke="#3182CE"
-          strokeWidth="12"
-          strokeLinecap="round"
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-        <span className="text-3xl font-semibold text-foreground">{value}/{total}</span>
       </div>
     </div>
   )

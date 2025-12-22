@@ -8,7 +8,9 @@ import { Sidebar } from "@/components/system"
 
 export default function CandidateLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
-  const isFullScreenFlow = pathname === "/candidate/login" || pathname.startsWith("/candidate/onboarding")
+  const isFullScreenFlow = pathname === "/candidate/login" || 
+                          pathname.startsWith("/candidate/onboarding") ||
+                          pathname.startsWith("/candidate/profile-setup")
 
   if (isFullScreenFlow) {
     return <div className="min-h-screen bg-white">{children}</div>

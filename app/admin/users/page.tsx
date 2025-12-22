@@ -191,17 +191,19 @@ export default function UsersPage() {
               </button>
             ))}
           </div>
-          <button
-            onClick={() => {
-              resetForm()
-              setFormData((prev) => ({ ...prev, userType: activeTab }))
-              setIsFormOpen(true)
-            }}
-            className="ph5-button-primary"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </button>
+          {activeTab === "Program" && (
+            <button
+              onClick={() => {
+                resetForm()
+                setFormData((prev) => ({ ...prev, userType: "Program" }))
+                setIsFormOpen(true)
+              }}
+              className="ph5-button-primary"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add User
+            </button>
+          )}
         </div>
 
         <Card>
@@ -229,11 +231,13 @@ export default function UsersPage() {
                         value={formData.userType}
                         onChange={handleInputChange("userType")}
                         className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                        disabled
                       >
                         <option value="Program">Program</option>
-                        <option value="Vendor">Vendor</option>
-                        <option value="Organization">Organization</option>
                       </select>
+                      <p className="text-xs text-muted-foreground">
+                        Only Program users can be added from Admin. Vendor users must be added from vendor profile, and Organization users from organization view.
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-foreground">Group Name</label>
@@ -367,22 +371,49 @@ export default function UsersPage() {
                                       <Eye className="h-4 w-4 text-muted-foreground" />
                                     </Link>
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEdit(user)}
-                                    className="p-2 rounded-md hover:bg-muted transition-colors"
-                                    title="Edit"
-                                  >
-                                    <Edit className="h-4 w-4 text-muted-foreground" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDelete(user.id, `${user.firstName} ${user.lastName}`)}
-                                    className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </button>
+                                  {activeTab === "Program" ? (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleEdit(user)}
+                                        className="p-2 rounded-md hover:bg-muted transition-colors"
+                                        title="Edit"
+                                      >
+                                        <Edit className="h-4 w-4 text-muted-foreground" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDelete(user.id, `${user.firstName} ${user.lastName}`)}
+                                        className="p-2 rounded-md hover:bg-destructive/10 transition-colors"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (user.status === "Active") {
+                                          updatePortalUser(user.id, { ...user, status: "Inactive" })
+                                          pushToast({ title: "Success", description: "User deactivated successfully." })
+                                          loadUsers()
+                                        } else {
+                                          updatePortalUser(user.id, { ...user, status: "Active" })
+                                          pushToast({ title: "Success", description: "User activated successfully." })
+                                          loadUsers()
+                                        }
+                                      }}
+                                      className="p-2 rounded-md hover:bg-muted transition-colors"
+                                      title={user.status === "Active" ? "Deactivate" : "Activate"}
+                                    >
+                                      {user.status === "Active" ? (
+                                        <span className="text-xs text-destructive font-medium">Deactivate</span>
+                                      ) : (
+                                        <span className="text-xs text-success font-medium">Activate</span>
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>

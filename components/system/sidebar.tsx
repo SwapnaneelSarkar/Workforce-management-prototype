@@ -18,6 +18,7 @@ export type SidebarItem = {
   badge?: string
   subtitle?: string
   children?: SidebarItem[]
+  disabled?: boolean
 }
 
 function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem; collapsed: boolean; pathname: string }) {
@@ -232,6 +233,39 @@ function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem
     )
   }
   
+  const isComingSoon = item.subtitle?.toLowerCase().includes("next phase") || item.disabled
+  
+  if (isComingSoon) {
+    return (
+      <li>
+        <div
+          className={cn(
+            "group relative flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-semibold transition-all duration-200 cursor-not-allowed opacity-60",
+            collapsed ? "justify-center" : "justify-between",
+          )}
+        >
+          <div className={cn("flex items-center gap-3", collapsed && "w-full justify-center")}>
+            <span
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-full bg-[#eef0f4] text-muted-foreground transition-all duration-200",
+              )}
+            >
+              {iconContent}
+            </span>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <span className="truncate block leading-tight">{item.label}</span>
+                {item.subtitle && (
+                  <span className="text-xs text-muted-foreground/70 truncate block leading-tight mt-0.5">{item.subtitle}</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </li>
+    )
+  }
+  
   return (
     <li>
       <Link
@@ -255,7 +289,16 @@ function SidebarItemComponent({ item, collapsed, pathname }: { item: SidebarItem
           >
             {iconContent}
           </span>
-          <span className={cn("truncate", collapsed && "hidden lg:hidden")}>{item.label}</span>
+          {!collapsed ? (
+            <div className="flex-1 min-w-0">
+              <span className="truncate block leading-tight">{item.label}</span>
+              {item.subtitle && (
+                <span className="text-xs text-muted-foreground/70 truncate block leading-tight mt-0.5">{item.subtitle}</span>
+              )}
+            </div>
+          ) : (
+            <span className="truncate">{item.label}</span>
+          )}
         </div>
         {!collapsed && item.badge ? (
           <span className="ml-auto inline-flex min-w-[32px] justify-center rounded-full bg-[#f1f2f6] px-2 py-0.5 text-xs font-semibold text-muted-foreground">

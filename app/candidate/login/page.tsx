@@ -8,8 +8,6 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
-import { Dropdown, type DropdownOption } from "@/components/system/dropdown"
-import { getActiveOccupations } from "@/lib/admin-local-db"
 
 type SupportedSsoProvider = "google" | "apple" | "microsoft"
 
@@ -57,55 +55,15 @@ const SSO_PROVIDERS: Array<{
   },
 ]
 
-// Occupations are now managed in admin and loaded dynamically
-function getOccupationOptions() {
-  if (typeof window === "undefined") {
-    return [{ label: "Select occupation", value: "" }]
-  }
-  try {
-    const occupations = getActiveOccupations()
-    const options = [{ label: "Select occupation", value: "" }]
-    const seenCodes = new Set<string>()
-    occupations.forEach((occ) => {
-      const uniqueCode = occ.code || occ.id || occ.name
-      if (!uniqueCode || seenCodes.has(uniqueCode)) return
-      seenCodes.add(uniqueCode)
-      options.push({
-        label: occ.code ? `${occ.name} (${occ.code})` : occ.name,
-        value: occ.id ?? uniqueCode,
-      })
-    })
-    return options
-  } catch (error) {
-    // Fallback to default options if admin-local-db is not available
-    return [
-      { label: "Select occupation", value: "" },
-      { label: "RN", value: "RN" },
-      { label: "LPN/LVN", value: "LPN/LVN" },
-      { label: "CNA", value: "CNA" },
-      { label: "Medical Assistant", value: "Medical Assistant" },
-      { label: "Surgical Tech", value: "Surgical Tech" },
-      { label: "Physical Therapist", value: "Physical Therapist" },
-      { label: "Occupational Therapist", value: "Occupational Therapist" },
-      { label: "Respiratory Therapist", value: "Respiratory Therapist" },
-      { label: "Nurse Practitioner", value: "Nurse Practitioner" },
-      { label: "Physician Assistant", value: "Physician Assistant" },
-    ]
-  }
-}
-
 export default function CandidateLoginPage() {
   const router = useRouter()
   const { actions } = useDemoData()
   const { saveOnboardingDetails } = useLocalDb()
   const redirectTimeout = useRef<NodeJS.Timeout | null>(null)
   const [isSignUp, setIsSignUp] = useState(false)
-  const [occupationOptions, setOccupationOptions] = useState(getOccupationOptions())
   const [formState, setFormState] = useState({
     firstName: "",
     lastName: "",
-    occupation: "",
-    specialty: "",
     email: "joanne.rose@email.com",
     password: "password",
     confirmPassword: "",
@@ -115,13 +73,6 @@ export default function CandidateLoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
   const [showRetry, setShowRetry] = useState(false)
-
-  // Update occupation options when component mounts (client-side)
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setOccupationOptions(getOccupationOptions())
-    }
-  }, [])
 
   useEffect(() => {
     return () => {
@@ -133,7 +84,7 @@ export default function CandidateLoginPage() {
 
   const handleChange =
   (
-    field: "firstName" | "lastName" | "occupation" | "specialty" | "email" | "password" | "confirmPassword" | "remember",
+    field: "firstName" | "lastName" | "email" | "password" | "confirmPassword" | "remember",
   ) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       const value = field === "remember" ? event.target.checked : event.target.value
@@ -141,12 +92,6 @@ export default function CandidateLoginPage() {
       setError(null)
       setShowRetry(false)
     }
-
-  const handleOccupationChange = (value: string) => {
-    setFormState((prev) => ({ ...prev, occupation: value }))
-    setError(null)
-    setShowRetry(false)
-  }
 
   const simulateAuth = async () => {
     setError(null)
@@ -170,19 +115,13 @@ export default function CandidateLoginPage() {
       return
     }
 
-    // On signup, save all form data and initialize wallet with occupation
+    // On signup, save basic form data
     if (isSignUp) {
-      const occupations = getActiveOccupations()
-      const selectedOcc = occupations.find((occ) => occ.id === formState.occupation)
-      const occupationName = selectedOcc?.name || formState.occupation
-
-      // Save all signup form data to local DB
+      // Save basic signup form data to local DB
       saveOnboardingDetails({
         firstName: formState.firstName,
         lastName: formState.lastName,
         email: formState.email,
-        occupation: occupationName,
-        specialty: formState.specialty,
       })
 
       // Update candidate profile email with signup data
@@ -192,29 +131,12 @@ export default function CandidateLoginPage() {
         console.error("Failed to update profile email:", error)
         // Continue with signup even if profile update fails
       }
-
-      // Initialize wallet with occupation
-      if (occupationName) {
-        try {
-          await actions.initializeCandidateWalletWithOccupation(occupationName)
-        } catch (error) {
-          console.error("Failed to initialize wallet:", error)
-          // Continue with signup even if wallet initialization fails
-        }
-      }
     }
 
     // Success - redirect based on auth flow
     redirectTimeout.current = setTimeout(() => {
       if (isSignUp) {
-        // Store occupation in sessionStorage for questionnaire page
-        if (formState.occupation) {
-          const occupations = getActiveOccupations()
-          const selectedOcc = occupations.find((occ) => occ.id === formState.occupation)
-          const occupationName = selectedOcc?.name || formState.occupation
-          sessionStorage.setItem("candidate_signup_occupation", occupationName)
-        }
-        router.push("/candidate/questionnaire")
+        router.push("/candidate/profile-setup")
       } else {
         router.push("/candidate/dashboard")
       }
@@ -230,8 +152,8 @@ export default function CandidateLoginPage() {
     }
 
     if (isSignUp) {
-      if (!formState.firstName || !formState.lastName || !formState.occupation || !formState.specialty) {
-        setError("Please complete your name, occupation, and specialty to create your account.")
+      if (!formState.firstName || !formState.lastName) {
+        setError("Please provide your first and last name to create your account.")
         return
       }
       if (formState.password !== formState.confirmPassword) {
@@ -439,33 +361,6 @@ export default function CandidateLoginPage() {
                 />
               </label>
 
-              {isSignUp && (
-                <>
-                  <div className="[&_label]:!text-sm [&_label]:!font-medium [&_label]:!text-slate-700 [&_label]:!normal-case [&_label]:!tracking-normal [&_label]:!mb-2 [&_select]:!rounded-2xl [&_select]:!border-slate-200 [&_select]:!px-4 [&_select]:!py-3 [&_select]:!text-base [&_select]:!text-slate-900 [&_select]:!bg-white [&_select]:!focus:border-slate-400">
-                    <Dropdown
-                      label="Occupation"
-                      value={formState.occupation}
-                      onChange={handleOccupationChange}
-                      options={occupationOptions as DropdownOption[]}
-                      required
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  <label className="block text-sm font-medium text-slate-700">
-                    Specialty
-                    <input
-                      type="text"
-                      autoComplete="off"
-                      value={formState.specialty}
-                      onChange={handleChange("specialty")}
-                      disabled={isSubmitting}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-slate-400 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="ICU"
-                    />
-                  </label>
-                </>
-              )}
 
               <label className="block text-sm font-medium text-slate-700">
                 Password

@@ -319,26 +319,45 @@ export default function DocumentWalletPage() {
             <div>
               <h3 className="text-lg font-semibold text-foreground mb-1">Select Your Occupation</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Please select your occupation to load the appropriate compliance wallet template.
+                Please select your occupation to load the appropriate compliance wallet template. You can set this in your profile setup.
               </p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">
-                Occupation <span className="text-destructive">*</span>
-              </label>
-              <select
-                value=""
-                onChange={(e) => handleOccupationChange(e.target.value)}
-                className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-              >
-                <option value="">Select your occupation</option>
-                {occupationOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+            <div className="flex gap-3">
+              <Button asChild>
+                <Link href="/candidate/profile-setup">Complete Profile Setup</Link>
+              </Button>
+              <div className="space-y-2 flex-1">
+                <label className="text-sm font-semibold text-foreground">
+                  Or select occupation now:
+                </label>
+                <select
+                  value=""
+                  onChange={(e) => handleOccupationChange(e.target.value)}
+                  className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
+                >
+                  <option value="">Select your occupation</option>
+                  {occupationOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Show message when occupation is selected but no documents found */}
+      {currentOccupationCode && complianceWalletItems.length === 0 && (
+        <Card>
+          <div className="text-center py-8">
+            <p className="text-sm text-muted-foreground mb-4">
+              No compliance documents found for your selected occupation. Please contact support or check back later.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Occupation: {getOccupationByCode(currentOccupationCode)?.name || currentOccupationCode}
+            </p>
           </div>
         </Card>
       )}

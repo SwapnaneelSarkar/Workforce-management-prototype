@@ -45,6 +45,14 @@ import {
   Calendar,
   FileQuestion,
   UserCheck,
+  CalendarDays,
+  Search,
+  Send,
+  BookOpen,
+  MessageCircle,
+  Share2,
+  MessageSquareText,
+  AlertCircle,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -52,9 +60,17 @@ export type NavLink = SidebarItem
 export const candidateNavLinks: NavLink[] = [
   { href: "/candidate/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/candidate/profile", label: "Profile", icon: User },
-  { href: "/candidate/jobs", label: "Jobs", icon: Briefcase },
-  { href: "/candidate/applications", label: "Applications", icon: FileText },
-  { href: "/candidate/documents", label: "Documents", icon: FolderOpen },
+  { href: "/candidate/placements", label: "Placements", icon: UserCheck },
+  { href: "/candidate/jobs", label: "Matches & Job Search", icon: Search },
+  { href: "#", label: "Shifts", icon: CalendarDays, subtitle: "Will be in the next phase", disabled: true },
+  { href: "/candidate/applications", label: "Submissions", icon: FileText },
+  { href: "/candidate/documents", label: "Document Wallet", icon: FolderOpen },
+  { href: "#", label: "Resources", icon: BookOpen, subtitle: "Will be in the next phase", disabled: true },
+  { href: "/candidate/news-feed", label: "News Feed", icon: Rss },
+  { href: "#", label: "Notifications & Messaging", icon: MessageCircle, subtitle: "Will be in the next phase", disabled: true },
+  { href: "#", label: "Refer a friend", icon: Share2, subtitle: "Will be in the next phase", disabled: true },
+  { href: "#", label: "Share Feedback", icon: MessageSquareText, subtitle: "Will be in the next phase", disabled: true },
+  { href: "#", label: "Log an Issue", icon: AlertCircle, subtitle: "Will be in the next phase", disabled: true },
 ]
 
 export const organizationNavLinks: NavLink[] = [

@@ -1,8 +1,10 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
-import { CalendarDays, Clock3, DollarSign, MapPin, Upload } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ArrowLeft, Calendar, Clock, DollarSign, MapPin, CheckCircle2, XCircle, Heart, HeartOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, Header, Modal, StatusChip } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
@@ -22,20 +24,32 @@ type RequirementStatus = {
 }
 
 export default function JobDetailsPage({ params }: PageProps) {
+  const router = useRouter()
   const { id } = React.use(params)
-  const { allJobs, candidate, actions, organization } = useDemoData()
+  const { allJobs, candidate, actions } = useDemoData()
   const { data: localDb, markJobApplied } = useLocalDb()
   const { pushToast } = useToast()
 
-  const [requirementsModalOpen, setRequirementsModalOpen] = useState(false)
-  const [uploadTarget, setUploadTarget] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false)
+  const [coverLetter, setCoverLetter] = useState("")
   const [applying, setApplying] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set())
 
   // Handle client-side mounting to avoid hydration mismatch
   React.useEffect(() => {
     setMounted(true)
+    // Load saved jobs from localStorage
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("candidate_saved_jobs")
+      if (saved) {
+        try {
+          setSavedJobs(new Set(JSON.parse(saved)))
+        } catch (error) {
+          console.warn("Failed to load saved jobs", error)
+        }
+      }
+    }
   }, [])
 
   // First try to find in allJobs (Open jobs), then try to get from DB (in case job was closed but user has direct link)
@@ -62,6 +76,18 @@ export default function JobDetailsPage({ params }: PageProps) {
             complianceTemplateId: dbJob.complianceTemplateId,
             startDate: dbJob.startDate,
             occupation: dbJob.occupation,
+            specialty: (dbJob as any).specialty,
+            duration: (dbJob as any).duration,
+            contractType: (dbJob as any).contractType,
+            numberOfOpenPositions: (dbJob as any).numberOfOpenPositions,
+            expectedWeeklyHours: (dbJob as any).expectedWeeklyHours,
+            shiftPattern: (dbJob as any).shiftPattern,
+            startDateFlexibility: (dbJob as any).startDateFlexibility,
+            whoCanApply: (dbJob as any).whoCanApply,
+            interviewRequired: (dbJob as any).interviewRequired,
+            jobOverview: (dbJob as any).jobOverview,
+            responsibilities: (dbJob as any).responsibilities,
+            jobRequirements: (dbJob as any).jobRequirements,
           }
         }
       } catch (error) {
@@ -79,10 +105,32 @@ export default function JobDetailsPage({ params }: PageProps) {
     )
   }
 
+  // Calculate match score
+  const matchScore = useMemo(() => {
+    let score = 85 + Math.floor(Math.random() * 15) // 85-100% base
+    
+    // Check if candidate has required documents
+    const jobReq = job.complianceItems?.map((item) => item.name) || job.requirements || []
+    const hasRequiredDocs = jobReq.every((req) => 
+      candidate.documents.some((doc) => 
+        doc.type === req && (doc.status === "Completed" || doc.status === "Pending Verification")
+      )
+    )
+    
+    if (!hasRequiredDocs) {
+      score = Math.max(75, score - 10)
+    }
+    
+    // Check occupation match
+    const candidateOccupation = (localDb.onboardingDetails.occupation as string | undefined) || ""
+    if (job.occupation && candidateOccupation === job.occupation) {
+      score = Math.min(100, score + 5)
+    }
+    
+    return score
+  }, [job, candidate.documents, localDb.onboardingDetails.occupation])
+
   // Get job-specific compliance requirements
-  // Priority 1: Use job.complianceItems (job-specific requirements)
-  // Priority 2: Use compliance template if complianceTemplateId exists
-  // Priority 3: Fall back to job requirements array
   const complianceTemplate = useMemo(() => {
     if (!job.complianceTemplateId || !mounted) {
       return null
@@ -99,7 +147,6 @@ export default function JobDetailsPage({ params }: PageProps) {
   }, [job.complianceTemplateId, mounted])
 
   const jobRequirements = useMemo(() => {
-    // Priority 1: Use job-specific compliance items (new flow)
     if (job.complianceItems && job.complianceItems.length > 0) {
       return job.complianceItems.map((item) => ({
         id: item.id,
@@ -108,7 +155,6 @@ export default function JobDetailsPage({ params }: PageProps) {
         requiredAtSubmission: item.requiredAtSubmission ?? true,
       }))
     }
-    // Priority 2: Use compliance template
     if (complianceTemplate) {
       return complianceTemplate.items.map((item) => ({
         id: item.id,
@@ -117,7 +163,6 @@ export default function JobDetailsPage({ params }: PageProps) {
         requiredAtSubmission: item.requiredAtSubmission ?? true,
       }))
     }
-    // Priority 3: Fall back to job requirements array
     return (job.requirements ?? []).map((requirement, index) => ({
       id: `${job.id}-${index}`,
       name: requirement,
@@ -126,101 +171,65 @@ export default function JobDetailsPage({ params }: PageProps) {
     }))
   }, [job.id, job.requirements, job.complianceItems, complianceTemplate])
 
-  // Get candidate's wallet items (from admin wallet templates)
-  const walletItems = useMemo(() => {
-    const occupationCode = (localDb.onboardingDetails.occupation as string | undefined) || ""
-    if (!occupationCode || !mounted) {
-      return []
-    }
-    
-    const itemSet = new Set<string>()
-    
-    // Get admin wallet templates for this occupation
-    try {
-      const {
-        getAdminWalletTemplatesByOccupation,
-        getComplianceListItemById,
-      } = require("@/lib/admin-local-db")
-      
-      const templates = getAdminWalletTemplatesByOccupation(occupationCode)
-      templates.forEach((template) => {
-        template.listItemIds.forEach((listItemId) => {
-          const listItem = getComplianceListItemById(listItemId)
-          if (listItem && listItem.isActive) {
-            itemSet.add(listItem.name)
-          }
-        })
-      })
-    } catch (error) {
-      console.warn("Failed to load admin wallet templates", error)
-    }
-
-    return Array.from(itemSet)
-  }, [localDb.onboardingDetails.occupation, mounted])
-
-  // Compare job requirements with wallet items
-  // Items in job requirements that are NOT in wallet need to be uploaded
-  const checklist = useMemo(() => {
-    return jobRequirements.map((req) => {
-      const inWallet = walletItems.includes(req.name)
-      return {
-        ...req,
-        inWallet, // Whether this item is already in the candidate's wallet
-      }
-    })
-  }, [jobRequirements, walletItems])
-
   const requirementStatuses: RequirementStatus[] = useMemo(() => {
-    return checklist.map((item) => {
-      // Check if candidate has this document uploaded (in wallet or job-specific)
-      // Accept both "Completed" and "Pending Verification" as valid uploaded documents
+    return jobRequirements.map((item) => {
       const hasDocument = candidate.documents.some(
         (doc) => doc.type === item.name && (doc.status === "Completed" || doc.status === "Pending Verification")
       )
       return { 
         ...item, 
         status: hasDocument ? "completed" : "missing",
-        inWallet: item.inWallet || false,
       }
     })
-  }, [candidate.documents, checklist])
+  }, [candidate.documents, jobRequirements])
 
-  // Check ALL items from compliance template - all documents must be uploaded before applying
-  // The requiredAtSubmission flag is used for display purposes only (showing "Required at submission" vs "Required before start")
   const missingRequiredDocuments = requirementStatuses.filter((item) => item.status === "missing").map((item) => item.name)
   const allRequirementsMet = missingRequiredDocuments.length === 0
   
-  // Separate required items for display purposes (to show count of required at submission vs all)
-  const requiredItems = requirementStatuses.filter((item) => item.requiredAtSubmission !== false)
   const hasApplied = Boolean(localDb.jobApplications[job.id]) || candidate.applications.some((app) => app.jobId === job.id)
+  const isSaved = savedJobs.has(job.id)
 
-  const infoRows = [
-    { label: "Department", value: job.department },
-    { label: "Unit", value: job.unit },
-    { label: "Shift", value: job.shift },
-    { label: "Hours", value: job.hours },
-    { label: "Bill rate", value: job.billRate },
-    { label: "Location", value: job.location },
-    { label: "Start date", value: job.startDate ?? "To be announced" },
-  ]
+  const handleSaveJob = () => {
+    const newSavedJobs = new Set(savedJobs)
+    if (isSaved) {
+      newSavedJobs.delete(job.id)
+      pushToast({ title: "Job unsaved", description: "Job removed from saved jobs.", type: "success" })
+    } else {
+      newSavedJobs.add(job.id)
+      pushToast({ title: "Job saved", description: "Job added to saved jobs.", type: "success" })
+    }
+    setSavedJobs(newSavedJobs)
+    if (typeof window !== "undefined") {
+      localStorage.setItem("candidate_saved_jobs", JSON.stringify(Array.from(newSavedJobs)))
+    }
+  }
 
-  const handleApply = async () => {
+  const handleApplyClick = () => {
     if (hasApplied) {
       return
     }
-    // Only allow applying to Open jobs
     if (job.status !== "Open") {
       pushToast({ title: "Job not available", description: "This job is no longer accepting applications.", type: "error" })
       return
     }
     if (!allRequirementsMet) {
-      setRequirementsModalOpen(true)
+      pushToast({ 
+        title: "Documents Required", 
+        description: "Please upload all required documents before applying.", 
+        type: "error" 
+      })
       return
     }
+    setConfirmModalOpen(true)
+  }
+
+  const handleSubmitApplication = async () => {
     setApplying(true)
     try {
       await actions.submitJobApplication(job.id)
       markJobApplied(job.id)
+      setConfirmModalOpen(false)
+      setCoverLetter("")
       pushToast({ title: "Application submitted", description: `${job.title} • ${job.location}`, type: "success" })
     } catch (error) {
       pushToast({ title: "Unable to apply", description: "Please try again.", type: "error" })
@@ -229,25 +238,39 @@ export default function JobDetailsPage({ params }: PageProps) {
     }
   }
 
-  const handleUpload = async () => {
-    if (!uploadTarget) return
-    setUploading(true)
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "To be announced"
     try {
-      await actions.uploadDocument({ name: `${uploadTarget}.pdf`, type: uploadTarget })
-      pushToast({ title: `${uploadTarget} uploaded`, type: "success" })
-      setUploadTarget(null)
-    } catch {
-      pushToast({ title: "Upload failed", description: "Try again in a moment.", type: "error" })
-    } finally {
-      setUploading(false)
+      return new Date(dateString).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      })
+    } catch (error) {
+      return dateString
     }
+  }
+
+  const formatShift = (shift?: string) => {
+    if (!shift) return "Not specified"
+    // If already formatted with times, return as is
+    if (shift.includes("PM") || shift.includes("AM") || shift.includes("-") || shift.includes("Shift")) {
+      return shift
+    }
+    // Map common shift types
+    const shiftMap: Record<string, string> = {
+      "Night": "Night Shift (7PM - 7AM)",
+      "Day": "Day Shift (7AM - 7PM)",
+      "Evening": "Evening Shift (3PM - 11PM)",
+      "Variable": "Variable Shift",
+    }
+    return shiftMap[shift] || shift
   }
 
   return (
     <div className="space-y-6 p-8">
       <Header
-        title={job.title}
-        subtitle={`${job.department} • ${job.location}`}
+        title="Jobs"
         breadcrumbs={[
           { label: "Candidate Portal", href: "/candidate/dashboard" },
           { label: "Jobs", href: "/candidate/jobs" },
@@ -255,93 +278,305 @@ export default function JobDetailsPage({ params }: PageProps) {
         ]}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
-        <Card>
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="text-sm uppercase tracking-wide text-muted-foreground">Job information</p>
-              <h1 className="mt-1 text-2xl font-semibold text-foreground">{job.title}</h1>
-              <p className="text-sm text-muted-foreground">{job.description}</p>
+      {/* Back Button */}
+      <Button
+        variant="ghost"
+        onClick={() => router.push("/candidate/jobs")}
+        className="mb-4"
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Jobs
+      </Button>
+
+      {/* Job Header */}
+      <Card>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h1 className="text-2xl font-semibold text-foreground mb-2">{job.title}</h1>
+            <p className="text-lg text-muted-foreground mb-2">{job.location}</p>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                <span>{formatShift(job.shift)}</span>
+              </div>
+              {job.duration && (
+                <span>{job.duration}</span>
+              )}
+              <StatusChip label={`${matchScore}% Match`} tone="success" />
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {infoRows.map((row) => (
-                <div key={row.label} className="rounded-xl border border-border px-4 py-3">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">{row.label}</p>
-                  <p className="mt-0.5 text-sm font-medium text-foreground">{row.value}</p>
-                </div>
-              ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSaveJob}
+            >
+              {isSaved ? (
+                <>
+                  <Heart className="h-4 w-4 mr-2 fill-current" />
+                  Saved
+                </>
+              ) : (
+                <>
+                  <HeartOff className="h-4 w-4 mr-2" />
+                  Save Job
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleApplyClick}
+              disabled={hasApplied || job.status !== "Open" || !allRequirementsMet}
+              className="min-w-[120px]"
+            >
+              {hasApplied ? "Applied" : "Apply Now"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Key Information Grid */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6 pt-6 border-t border-border">
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Unit</label>
+            <p className="text-sm text-foreground mt-1">{job.unit || job.department}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Specialty</label>
+            <p className="text-sm text-foreground mt-1">{job.specialty || job.unit || "Not specified"}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Start Date</label>
+            <p className="text-sm text-foreground mt-1">{formatDate(job.startDate)}</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Pay Rate</label>
+            <p className="text-sm text-foreground mt-1 font-semibold">{job.billRate}</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+        {/* Left Column */}
+        <div className="space-y-6">
+          {/* Facility Information */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Facility Information</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Location</label>
+                <p className="text-sm text-foreground mt-1">{job.location}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Department</label>
+                <p className="text-sm text-foreground mt-1">{job.department}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Occupation</label>
+                <p className="text-sm text-foreground mt-1">{job.occupation || "Not specified"}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Specialty</label>
+                <p className="text-sm text-foreground mt-1">{job.specialty || job.unit || "Not specified"}</p>
+              </div>
             </div>
-            {job.tags?.length ? (
-              <div className="flex flex-wrap gap-2">
-                {job.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
-                    {tag}
-                  </span>
-                ))}
+          </Card>
+
+          {/* Job Overview */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Job Overview</h2>
+            <p className="text-sm text-foreground whitespace-pre-wrap">
+              {job.jobOverview || job.description || "No overview available."}
+            </p>
+          </Card>
+
+          {/* Job Description */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Job Description</h2>
+            {job.responsibilities && job.responsibilities.length > 0 ? (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Responsibilities</h3>
+                <ul className="space-y-2">
+                  {job.responsibilities.map((resp, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm text-foreground">
+                      <span className="text-primary mt-1">•</span>
+                      <span>{resp}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
-          </div>
-        </Card>
-
-        <Card>
-          <div className="space-y-4">
-            <div className="flex items-start justify-between gap-3">
+            {job.jobRequirements && job.jobRequirements.length > 0 ? (
               <div>
-                <p className="text-sm font-semibold text-foreground">Submission readiness</p>
-                <p className="text-sm text-muted-foreground">
-                  Complete every checklist item below before applying.
-                </p>
+                <h3 className="text-sm font-semibold text-foreground mb-3">Requirements</h3>
+                <ul className="space-y-2">
+                  {job.jobRequirements.map((req, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm text-foreground">
+                      <span className="text-primary mt-1">•</span>
+                      <span>{req}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <StatusChip label={allRequirementsMet ? "Ready" : "Missing docs"} tone={allRequirementsMet ? "success" : "warning"} />
-            </div>
-            <Button
-              size="lg"
-              className="w-full"
-              variant={allRequirementsMet && !hasApplied && job.status === "Open" ? "default" : "outline"}
-              onClick={allRequirementsMet ? handleApply : () => setRequirementsModalOpen(true)}
-              disabled={hasApplied || applying || job.status !== "Open" || !allRequirementsMet}
-            >
-              {hasApplied 
-                ? "Applied" 
-                : job.status !== "Open" 
-                  ? "Job Not Available" 
-                  : !allRequirementsMet 
-                    ? "Upload Required Documents" 
-                    : applying 
-                      ? "Submitting..." 
-                      : "Apply Now"}
-            </Button>
-            <div className="rounded-2xl border border-dashed border-border bg-muted/50 p-4">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" aria-hidden />
-                {job.location}
+            ) : null}
+            {(!job.responsibilities || job.responsibilities.length === 0) && 
+             (!job.jobRequirements || job.jobRequirements.length === 0) && (
+              <p className="text-sm text-muted-foreground">{job.description || "No description available."}</p>
+            )}
+          </Card>
+
+          {/* Schedule & Pay */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Schedule & Pay</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Shift</label>
+                <p className="text-sm text-foreground mt-1">{formatShift(job.shift)}</p>
               </div>
-              <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-                <CalendarDays className="h-4 w-4" aria-hidden />
-                Start {job.startDate ?? "TBD"}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Duration</label>
+                <p className="text-sm text-foreground mt-1">{job.duration || job.tags?.find(t => t.includes("weeks")) || "Not specified"}</p>
               </div>
-              <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-                <Clock3 className="h-4 w-4" aria-hidden />
-                {job.shift} • {job.hours}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Bill Rate</label>
+                <p className="text-sm text-foreground mt-1 font-semibold">{job.billRate}</p>
               </div>
-              <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground">
-                <DollarSign className="h-4 w-4" aria-hidden />
-                {job.billRate}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Contract Type</label>
+                <p className="text-sm text-foreground mt-1">{job.contractType || "Not specified"}</p>
               </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Assignment Details */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Assignment Details</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Contract Type</label>
+                <p className="text-sm text-foreground mt-1">{job.contractType || "Not specified"}</p>
+              </div>
+              {job.numberOfOpenPositions && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Number of Open Positions</label>
+                  <p className="text-sm text-foreground mt-1">{job.numberOfOpenPositions} positions</p>
+                </div>
+              )}
+              {job.expectedWeeklyHours && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Expected Weekly Hours</label>
+                  <p className="text-sm text-foreground mt-1">{job.expectedWeeklyHours}</p>
+                </div>
+              )}
+              {job.shiftPattern && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Shift Pattern</label>
+                  <p className="text-sm text-foreground mt-1">{job.shiftPattern}</p>
+                </div>
+              )}
+              {job.startDateFlexibility && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">Start Date Flexibility</label>
+                  <p className="text-sm text-foreground mt-1">{job.startDateFlexibility}</p>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Who Can Apply */}
+          {job.whoCanApply && (
+            <Card>
+              <h2 className="text-lg font-semibold text-foreground mb-4">Who Can Apply</h2>
+              <p className="text-sm text-foreground">{job.whoCanApply}</p>
+            </Card>
+          )}
+        </div>
+
+        {/* Right Column */}
+        <div className="space-y-6">
+          {/* Required Documents */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Required Documents</h2>
+            {requirementStatuses.length > 0 ? (
+              <div className="space-y-3">
+                {requirementStatuses.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border"
+                  >
+                    <span className="text-sm text-foreground">{item.name}</span>
+                    {item.status === "completed" ? (
+                      <CheckCircle2 className="h-5 w-5 text-success" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-destructive" />
+                    )}
+                  </div>
+                ))}
+                {allRequirementsMet && (
+                  <p className="text-sm text-success mt-3 font-medium">
+                    You meet all required compliance for this job
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No specific requirements listed.</p>
+            )}
+          </Card>
+
+          {/* What Happens Next */}
+          <Card>
+            <h2 className="text-lg font-semibold text-foreground mb-4">What Happens Next</h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground flex-shrink-0">
+                  1
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Application submitted</p>
+                  <p className="text-xs text-muted-foreground">Your application is reviewed by our team</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground flex-shrink-0">
+                  2
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Profile review</p>
+                  <p className="text-xs text-muted-foreground">2–3 business days</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground flex-shrink-0">
+                  3
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Interview (if required)</p>
+                  <p className="text-xs text-muted-foreground">Video or phone interview with hiring manager</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground flex-shrink-0">
+                  4
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Offer decision</p>
+                  <p className="text-xs text-muted-foreground">You'll receive notification of the decision</p>
+                </div>
+              </div>
+            </div>
+            {job.interviewRequired && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="text-sm font-medium text-foreground">Interview Required: Yes</p>
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
 
+      {/* Job Compliance Requirements */}
       <Card>
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 mb-4">
           <div>
-            <p className="text-lg font-semibold text-foreground">Job Compliance Requirements</p>
-            <p className="text-sm text-muted-foreground">
-              Documents required specifically for this job. Items already in your wallet are marked.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Upload any missing documents before you can apply for this job.
+            <h2 className="text-lg font-semibold text-foreground">Job Compliance Requirements</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Documents required specifically for this job. Upload any missing documents before you can apply.
             </p>
           </div>
           <StatusChip 
@@ -349,101 +584,80 @@ export default function JobDetailsPage({ params }: PageProps) {
             tone={allRequirementsMet ? "success" : "warning"} 
           />
         </div>
-        <div className="mt-4 space-y-3">
-          {requirementStatuses.map((item) => {
-            const isInWallet = (item as any).inWallet
-            return (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-border p-4 transition hover:border-primary/60"
-              >
-                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-foreground">{item.name}</p>
-                      {isInWallet && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-success/10 text-success">
-                          In Wallet
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {item.requiredAtSubmission ? "Required at submission" : "Required before start"}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <StatusChip 
-                      label={item.status === "completed" ? "Completed" : "Missing"} 
-                      tone={item.status === "completed" ? "success" : "danger"} 
-                    />
-                    {item.status === "missing" && (
-                      <Button size="sm" variant="outline" onClick={() => setUploadTarget(item.name)} className="inline-flex items-center gap-2">
-                        <Upload className="h-4 w-4" aria-hidden />
-                        Upload document
-                      </Button>
-                    )}
-                  </div>
+        <div className="space-y-3">
+          {requirementStatuses.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-lg border border-border p-4"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{item.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {item.requiredAtSubmission ? "Required at submission" : "Required before start"}
+                  </p>
                 </div>
+                <StatusChip 
+                  label={item.status === "completed" ? "Verified" : "Missing"} 
+                  tone={item.status === "completed" ? "success" : "danger"} 
+                />
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       </Card>
 
+      {/* Confirmation Modal */}
       <Modal
-        open={requirementsModalOpen}
-        onClose={() => setRequirementsModalOpen(false)}
-        title="Documents Required Before Application"
-        description="Upload these required documents to your compliance wallet before you can apply for this job."
-      >
-        <div className="space-y-3">
-          {missingRequiredDocuments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">All required documents are uploaded. You can now apply!</p>
-          ) : (
-            missingRequiredDocuments.map((doc) => (
-              <div key={doc} className="flex items-center justify-between rounded-xl border border-border px-3 py-2">
-                <span className="text-sm font-medium text-foreground">{doc}</span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setRequirementsModalOpen(false)
-                    setUploadTarget(doc)
-                  }}
-                >
-                  Upload
-                </Button>
-              </div>
-            ))
-          )}
-        </div>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button variant="outline" onClick={() => setRequirementsModalOpen(false)}>
-            Close
-          </Button>
-          <Button onClick={() => (window.location.href = "/candidate/documents")}>Go to Document Wallet</Button>
-        </div>
-      </Modal>
-
-      <Modal
-        open={uploadTarget !== null}
+        open={confirmModalOpen}
         onClose={() => {
-          if (!uploading) {
-            setUploadTarget(null)
+          if (!applying) {
+            setConfirmModalOpen(false)
+            setCoverLetter("")
           }
         }}
-        title={`Upload ${uploadTarget ?? ""}`}
-        description="Simulate adding this document to your wallet."
+        title="Confirm Application"
+        description={`You're applying for ${job.title}`}
       >
-        <p className="text-sm text-muted-foreground">
-          This action adds a placeholder file for the selected requirement.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Button onClick={handleUpload} disabled={uploading}>
-            {uploading ? "Uploading..." : "Upload document"}
-          </Button>
-          <Button variant="outline" onClick={() => setUploadTarget(null)} disabled={uploading}>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Position:</p>
+            <p className="text-sm text-muted-foreground">{job.title}</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Location:</p>
+            <p className="text-sm text-muted-foreground">{job.location}</p>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Pay Rate:</p>
+            <p className="text-sm text-muted-foreground">{job.billRate}</p>
+          </div>
+          <div className="space-y-2 pt-4 border-t border-border">
+            <label className="text-sm font-medium text-foreground">Cover Letter (Optional)</label>
+            <Textarea
+              value={coverLetter}
+              onChange={(e) => setCoverLetter(e.target.value)}
+              placeholder="Add a personal message to the hiring manager..."
+              className="min-h-[100px]"
+            />
+          </div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setConfirmModalOpen(false)
+              setCoverLetter("")
+            }}
+            disabled={applying}
+          >
             Cancel
+          </Button>
+          <Button
+            onClick={handleSubmitApplication}
+            disabled={applying}
+          >
+            {applying ? "Submitting..." : "Submit Application"}
           </Button>
         </div>
       </Modal>

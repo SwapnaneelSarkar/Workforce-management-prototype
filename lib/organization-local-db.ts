@@ -1209,6 +1209,10 @@ export function deletePlacement(id: string): boolean {
   return true
 }
 
+export function getPlacementsByCandidate(candidateId: string): OrganizationPlacement[] {
+  return getAllPlacements().filter((placement) => placement.candidateId === candidateId)
+}
+
 // Helper functions for workforce groups
 export function getAllWorkforceGroups(): OrganizationWorkforceGroup[] {
   const state = readOrganizationLocalDb()
