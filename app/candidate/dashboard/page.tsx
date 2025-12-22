@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Header, Card } from "@/components/system"
 import { useDemoData } from "@/components/providers/demo-data-provider"
 import { useLocalDb } from "@/components/providers/local-db-provider"
@@ -12,29 +12,109 @@ import { cn } from "@/lib/utils"
 
 export default function CandidateDashboardPage() {
   const { candidate, allJobs } = useDemoData()
-  const { data: localDb } = useLocalDb()
+  const { data: localDb, hydrated } = useLocalDb()
+  const [mounted, setMounted] = useState(false)
 
-  // Calculate stats
+  // Handle client-side mounting to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Calculate stats from localDB (only after hydration to avoid mismatch)
   const openJobsCount = useMemo(() => {
+    if (!mounted || !hydrated) {
+      // Return demo data count during SSR/initial render
+      return allJobs.filter((job) => job.status === "Open").length
+    }
+    
+    // Try to get from organization-local-db first (more accurate)
+    try {
+      const { getAllJobs } = require("@/lib/organization-local-db")
+      const allOrgJobs = getAllJobs()
+      const orgOpenJobs = allOrgJobs.filter((job) => job.status === "Open").length
+      if (orgOpenJobs > 0) {
+        return orgOpenJobs
+      }
+    } catch (error) {
+      // Silently fail if organization-local-db is not available
+    }
+    
+    // Fallback to demo data
     return allJobs.filter((job) => job.status === "Open").length
-  }, [allJobs])
+  }, [allJobs, mounted, hydrated])
 
   const applicationsCount = useMemo(() => {
-    return Object.keys(localDb.jobApplications).length + candidate.applications.length
-  }, [localDb.jobApplications, candidate.applications])
+    if (!mounted || !hydrated) {
+      // Return demo data count during SSR/initial render
+      return candidate.applications.length
+    }
+    
+    // Count from localDB (excluding withdrawn applications)
+    const localDbApps = Object.keys(localDb.jobApplications).filter(
+      (jobId) => {
+        const entry = localDb.jobApplications[jobId]
+        return !entry.withdrawn
+      }
+    ).length
+    
+    // Also count from candidate.applications that aren't already in localDB
+    const candidateAppsNotInLocalDb = candidate.applications.filter(
+      (app) => !localDb.jobApplications[app.jobId]
+    ).length
+    
+    return localDbApps + candidateAppsNotInLocalDb
+  }, [localDb.jobApplications, candidate.applications, mounted, hydrated])
 
   const activePlacementsCount = useMemo(() => {
-    // Count timecards with active status (submitted or approved)
+    if (!mounted || !hydrated) {
+      // Return 0 during SSR/initial render
+      return 0
+    }
+    
+    // Try to get from organization-local-db first
+    try {
+      const { getPlacementsByCandidate } = require("@/lib/organization-local-db")
+      const candidateId = candidate.profile.id
+      const placements = getPlacementsByCandidate(candidateId)
+      const activePlacements = placements.filter(
+        (p) => p.status === "Active" || p.status === "Ending Soon"
+      ).length
+      if (activePlacements > 0) {
+        return activePlacements
+      }
+    } catch (error) {
+      // Silently fail if organization-local-db is not available
+    }
+    
+    // Fallback: Count timecards with active status
     return Object.values(localDb.timecards).filter(
       (tc) => tc.status === "submitted" || tc.status === "approved"
     ).length
-  }, [localDb.timecards])
+  }, [localDb.timecards, candidate.profile.id, mounted, hydrated])
 
   const documentsPendingCount = useMemo(() => {
-    return candidate.documents.filter(
+    if (!mounted || !hydrated) {
+      // Return demo data count during SSR/initial render
+      return candidate.documents.filter(
+        (doc) => doc.status === "Pending Upload" || doc.status === "Pending Verification"
+      ).length
+    }
+    
+    // Count from candidate.documents with pending status
+    // This is the source of truth for document status
+    const pendingDocs = candidate.documents.filter(
       (doc) => doc.status === "Pending Upload" || doc.status === "Pending Verification"
     ).length
-  }, [candidate.documents])
+    
+    // Also check if there are documents in localDB that aren't in candidate.documents yet
+    const localDbOnlyDocs = Object.keys(localDb.uploadedDocuments).filter(
+      (docType) => !candidate.documents.some((doc) => doc.type === docType)
+    )
+    
+    // For localDB-only docs, we assume they might be pending if they were just uploaded
+    // But we'll primarily rely on candidate.documents status
+    return pendingDocs
+  }, [localDb.uploadedDocuments, candidate.documents, mounted, hydrated])
 
   // Calculate compliance snapshot
   const complianceSnapshot = useMemo(() => {
@@ -50,7 +130,7 @@ export default function CandidateDashboardPage() {
 
   // Calculate profile completion based on profile setup steps
   const onboardingAnswers = localDb.onboardingDetails
-  
+
   // Check if basic profile setup is complete
   const hasBasicInfo = Boolean(onboardingAnswers.phoneNumber)
   const hasProfessionalInfo = Boolean(onboardingAnswers.occupation)
@@ -112,11 +192,18 @@ export default function CandidateDashboardPage() {
 
   // Get recommended jobs with match scores
   const recommendedJobs = useMemo(() => {
+    if (!mounted || !hydrated) {
+      // Return empty array during SSR to avoid hydration mismatch
+      return []
+    }
+    
     const openJobs = allJobs.filter((job) => job.status === "Open").slice(0, 3)
     
     return openJobs.map((job) => {
-      // Calculate match score based on job requirements and candidate profile
-      let matchScore = 85 + Math.floor(Math.random() * 15) // 85-100% for demo
+      // Calculate match score deterministically based on job ID and candidate profile
+      // Use a simple hash of job ID to get consistent score between server and client
+      const jobIdHash = job.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)
+      const baseScore = 85 + (jobIdHash % 15) // 85-100% range, deterministic
       
       // Check if candidate has required documents
       const hasRequiredDocs = job.requirements?.every((req) => 
@@ -125,6 +212,7 @@ export default function CandidateDashboardPage() {
         )
       ) ?? true
 
+      let matchScore = baseScore
       if (!hasRequiredDocs) {
         matchScore = Math.max(75, matchScore - 10)
       }
@@ -144,7 +232,7 @@ export default function CandidateDashboardPage() {
         ) ?? [],
       }
     })
-  }, [allJobs, candidate.documents, candidate.applications, localDb.jobApplications])
+  }, [allJobs, candidate.documents, candidate.applications, localDb.jobApplications, mounted, hydrated])
 
   // Mock announcements
   const announcements = [
@@ -206,7 +294,7 @@ export default function CandidateDashboardPage() {
                 <Button asChild className="w-full sm:w-auto">
                   <Link href="/candidate/documents">
                     Upload Documents <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
+            </Link>
                 </Button>
               )}
             </div>
@@ -226,18 +314,18 @@ export default function CandidateDashboardPage() {
               <Briefcase className="h-6 w-6 text-blue-600" />
             </div>
           </div>
-        </Card>
+            </Card>
 
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground mb-1">Applications Submitted</p>
               <p className="text-3xl font-bold text-foreground">{applicationsCount}</p>
-            </div>
+                </div>
             <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
               <FileText className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
+                  </div>
+                </div>
         </Card>
 
         <Card className="p-6">
@@ -248,7 +336,7 @@ export default function CandidateDashboardPage() {
             </div>
             <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
               <Calendar className="h-6 w-6 text-purple-600" />
-            </div>
+                </div>
           </div>
         </Card>
 
@@ -260,16 +348,16 @@ export default function CandidateDashboardPage() {
             </div>
             <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
               <Upload className="h-6 w-6 text-orange-600" />
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr] mb-6">
         {/* Compliance Snapshot */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <div>
+              <div>
               <h3 className="text-lg font-semibold text-foreground">Compliance Snapshot</h3>
               <p className="text-sm text-muted-foreground">Keep your documents up to date</p>
             </div>
@@ -285,16 +373,16 @@ export default function CandidateDashboardPage() {
             <div className="text-center p-4 rounded-lg bg-yellow-50 border border-yellow-200">
               <p className="text-2xl font-bold text-yellow-700">{complianceSnapshot.pending}</p>
               <p className="text-sm font-medium text-yellow-600 mt-1">Pending</p>
-            </div>
+              </div>
             <div className="text-center p-4 rounded-lg bg-red-50 border border-red-200">
               <p className="text-2xl font-bold text-red-700">{complianceSnapshot.missing}</p>
               <p className="text-sm font-medium text-red-600 mt-1">Missing</p>
-            </div>
+              </div>
             <div className="text-center p-4 rounded-lg bg-orange-50 border border-orange-200">
               <p className="text-2xl font-bold text-orange-700">{complianceSnapshot.expired}</p>
               <p className="text-sm font-medium text-orange-600 mt-1">Expired</p>
-            </div>
-          </div>
+              </div>
+              </div>
         </Card>
 
         {/* Quick Actions */}
@@ -325,9 +413,9 @@ export default function CandidateDashboardPage() {
                 Submit Timecard
               </Link>
             </Button>
-          </div>
-        </Card>
-      </div>
+              </div>
+          </Card>
+        </div>
 
       {/* Recommended Jobs */}
       <Card className="mb-6">
@@ -339,9 +427,9 @@ export default function CandidateDashboardPage() {
         </div>
         <div className="space-y-4">
           {recommendedJobs.map((job) => (
-            <Link
-              key={job.id}
-              href={`/candidate/jobs/${job.id}`}
+                <Link
+                  key={job.id}
+                  href={`/candidate/jobs/${job.id}`}
               className="block rounded-lg border border-border p-4 hover:border-primary/50 hover:shadow-md transition-all"
             >
               <div className="flex items-start justify-between gap-4">
@@ -373,15 +461,15 @@ export default function CandidateDashboardPage() {
                       {job.missingDocs.length} required document{job.missingDocs.length > 1 ? "s" : ""} missing. Upload now
                     </p>
                   )}
-                </div>
+                  </div>
                 <Button variant="outline" size="sm" asChild>
                   <span>View Job</span>
                 </Button>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </Card>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
 
       {/* Announcements */}
       <Card>
@@ -392,10 +480,10 @@ export default function CandidateDashboardPage() {
               <h4 className="text-sm font-semibold text-foreground mb-1">{announcement.title}</h4>
               <p className="text-sm text-muted-foreground mb-2">{announcement.description}</p>
               <p className="text-xs text-muted-foreground">{announcement.date}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
+          </Card>
     </>
   )
 }
