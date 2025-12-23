@@ -197,9 +197,9 @@ export default function CandidatePlacementsPage() {
         </Card>
       )}
 
-      {/* Active Assignments */}
+      {/* Active Placements */}
       <Card>
-        <h2 className="text-xl font-semibold text-foreground mb-4">Active Assignments</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Active Placements</h2>
         {activePlacements.length > 0 ? (
           <div className="space-y-4">
             {activePlacements.map((placement) => {
@@ -267,14 +267,14 @@ export default function CandidatePlacementsPage() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            No active assignments at this time.
+            No active placements at this time.
           </p>
         )}
       </Card>
 
-      {/* Upcoming Assignments */}
+      {/* Upcoming Placements */}
       <Card>
-        <h2 className="text-xl font-semibold text-foreground mb-4">Upcoming Assignments</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Upcoming Placements</h2>
         {upcomingPlacements.length > 0 ? (
           <div className="space-y-4">
             {upcomingPlacements.map((placement) => {
@@ -342,14 +342,14 @@ export default function CandidatePlacementsPage() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            No upcoming assignments scheduled.
+            No upcoming placements scheduled.
           </p>
         )}
       </Card>
 
-      {/* Past Assignments */}
+      {/* Past Placements */}
       <Card>
-        <h2 className="text-xl font-semibold text-foreground mb-4">Past Assignments</h2>
+        <h2 className="text-xl font-semibold text-foreground mb-4">Past Placements</h2>
         {pastPlacements.length > 0 ? (
           <div className="space-y-4">
             {pastPlacements.map((placement) => {
@@ -389,7 +389,7 @@ export default function CandidatePlacementsPage() {
           </div>
         ) : (
           <p className="text-sm text-muted-foreground py-8 text-center">
-            No past assignments found.
+            No past placements found.
           </p>
         )}
       </Card>

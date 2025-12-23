@@ -793,7 +793,7 @@ export default function MSPProfileTab({ mspId }: MSPProfileTabProps) {
                 <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Organization Name</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Addendum Agreement</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">MSP Fee %</th>
-                <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">SAS Fee %</th>
+                <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">SAAS Fee %</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Agreement Start Date</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Possible Cancellation Date</th>
                 <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">Agreement Renewal Date</th>
@@ -925,7 +925,7 @@ export default function MSPProfileTab({ mspId }: MSPProfileTabProps) {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-foreground mb-2 block">SAS Fee %</Label>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">SAAS Fee %</Label>
                   <Input
                     type="number"
                     step="0.01"
@@ -1013,7 +1013,7 @@ export default function MSPProfileTab({ mspId }: MSPProfileTabProps) {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-foreground mb-2 block">SAS Fee %</Label>
+                  <Label className="text-sm font-medium text-foreground mb-2 block">SAAS Fee %</Label>
                   <Input
                     type="number"
                     step="0.01"

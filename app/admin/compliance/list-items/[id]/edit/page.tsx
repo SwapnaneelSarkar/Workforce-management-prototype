@@ -368,7 +368,7 @@ export default function EditComplianceListItemPage() {
                       value={formData.uploadAttachment}
                       onChange={handleInputChange("uploadAttachment")}
                       className="w-full"
-                      placeholder="Attachment URL"
+                      placeholder="Add Attachment"
                     />
                   </div>
                 )}

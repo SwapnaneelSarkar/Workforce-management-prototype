@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useRouter, useParams, usePathname } from "next/navigation"
-import { Header, Card, StatusChip } from "@/components/system"
+import { Header, Card, StatusChip, useToast } from "@/components/system"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useDemoData } from "@/components/providers/demo-data-provider"
-import type { RequisitionTemplate } from "@/components/providers/demo-data-provider"
 import { AddItemModal } from "@/components/compliance/add-item-modal"
 import type { ComplianceItem } from "@/lib/compliance-templates-store"
 import {
-  getAllComplianceListItems,
+  getCurrentOrganization,
+  getRequisitionTemplateById,
+  updateRequisitionTemplate,
+} from "@/lib/organization-local-db"
+import type { OrganizationLocalDbRequisitionTemplate } from "@/lib/organization-local-db"
+import {
   getComplianceListItemById,
   type ComplianceListItem,
 } from "@/lib/admin-local-db"
@@ -19,27 +22,35 @@ export default function RequisitionTemplateDetailPage() {
   const router = useRouter()
   const params = useParams()
   const pathname = usePathname()
-  const { organization, actions } = useDemoData()
+  const { pushToast } = useToast()
   const templateId = params.id as string
 
-  const template = organization.requisitionTemplates.find((t) => t.id === templateId)
-  const [draftTemplate, setDraftTemplate] = useState<RequisitionTemplate | null>(null)
+  const [template, setTemplate] = useState<OrganizationLocalDbRequisitionTemplate | null>(null)
+  const [draftTemplate, setDraftTemplate] = useState<OrganizationLocalDbRequisitionTemplate | null>(null)
   const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   const activeTab = pathname?.includes("wallet-templates")
     ? "wallet"
-    : pathname?.includes("requisition-templates")
-    ? "requisition"
-    : "legacy"
+    : "requisition"
 
   useEffect(() => {
-    if (template) {
-      setDraftTemplate({ ...template })
-    } else if (templateId) {
-      // Only redirect if we have a templateId but no template found
+    if (typeof window === "undefined") return
+    try {
+      const loadedTemplate = getRequisitionTemplateById(templateId)
+      if (loadedTemplate) {
+        setTemplate(loadedTemplate)
+        setDraftTemplate({ ...loadedTemplate })
+      } else {
+        router.push("/organization/compliance/requisition-templates")
+      }
+    } catch (error) {
+      console.warn("Failed to load template", error)
       router.push("/organization/compliance/requisition-templates")
+    } finally {
+      setLoading(false)
     }
-  }, [template, templateId, router])
+  }, [templateId, router])
 
   // Load compliance list items from IDs
   const templateListItems = useMemo(() => {
@@ -56,7 +67,7 @@ export default function RequisitionTemplateDetailPage() {
       .filter((item): item is ComplianceListItem => item !== null && item.isActive)
   }, [draftTemplate])
 
-  if (!draftTemplate) {
+  if (loading || !draftTemplate) {
     return (
       <div className="p-8">
         <p className="text-sm text-muted-foreground">Loading template...</p>
@@ -64,30 +75,67 @@ export default function RequisitionTemplateDetailPage() {
     )
   }
 
-  const handleFieldChange = (field: keyof Omit<RequisitionTemplate, "id" | "listItemIds">, value: string) => {
+  const handleFieldChange = (field: keyof Omit<OrganizationLocalDbRequisitionTemplate, "id" | "listItemIds" | "organizationId" | "createdAt" | "updatedAt">, value: string) => {
+    if (!draftTemplate) return
     setDraftTemplate({ ...draftTemplate, [field]: value })
   }
 
   const handleSave = () => {
     if (!draftTemplate) return
-    actions.updateRequisitionTemplate(templateId, {
-      name: draftTemplate.name,
-      department: draftTemplate.department,
-    })
+    try {
+      const updated = updateRequisitionTemplate(templateId, {
+        name: draftTemplate.name,
+        department: draftTemplate.department,
+        occupation: draftTemplate.occupation,
+        description: draftTemplate.description,
+        listItemIds: draftTemplate.listItemIds,
+      })
+      if (updated) {
+        setTemplate(updated)
+        pushToast({ title: "Template updated", description: "Requisition template saved successfully." })
+      } else {
+        pushToast({ title: "Error", description: "Failed to update template", type: "error" })
+      }
+    } catch (error) {
+      console.error(error)
+      pushToast({ title: "Error", description: "Failed to update template", type: "error" })
+    }
   }
 
   const handleAddItem = (item: ComplianceItem) => {
-    actions.addRequisitionTemplateItem(templateId, item)
+    if (!draftTemplate || !item.id) return
     // Update local state - add the list item ID
-    if (item.id && !draftTemplate.listItemIds.includes(item.id)) {
-      setDraftTemplate({ ...draftTemplate, listItemIds: [...draftTemplate.listItemIds, item.id] })
+    if (!draftTemplate.listItemIds.includes(item.id)) {
+      const updated = { ...draftTemplate, listItemIds: [...draftTemplate.listItemIds, item.id] }
+      setDraftTemplate(updated)
+      // Save to DB
+      try {
+        updateRequisitionTemplate(templateId, {
+          listItemIds: updated.listItemIds,
+        })
+        pushToast({ title: "Item added", description: "Compliance item added to template." })
+      } catch (error) {
+        console.error(error)
+        pushToast({ title: "Error", description: "Failed to add item", type: "error" })
+      }
     }
   }
 
   const handleRemoveItem = (listItemId: string) => {
-    actions.removeRequisitionTemplateItem(templateId, listItemId)
+    if (!draftTemplate) return
     // Update local state
-    setDraftTemplate({ ...draftTemplate, listItemIds: draftTemplate.listItemIds.filter((id) => id !== listItemId) })
+    const updated = { ...draftTemplate, listItemIds: draftTemplate.listItemIds.filter((id) => id !== listItemId) }
+    setDraftTemplate(updated)
+    // Save to DB
+    try {
+      updateRequisitionTemplate(templateId, {
+        listItemIds: updated.listItemIds,
+      })
+      pushToast({ title: "Item removed", description: "Compliance item removed from template." })
+    } catch (error) {
+      console.error(error)
+      pushToast({ title: "Error", description: "Failed to remove item", type: "error" })
+    }
   }
 
   const existingItemIds = draftTemplate.listItemIds
@@ -120,16 +168,13 @@ export default function RequisitionTemplateDetailPage() {
       <Tabs value={activeTab} onValueChange={(value) => {
         if (value === "wallet") {
           router.push("/organization/compliance/wallet-templates")
-        } else if (value === "requisition") {
-          router.push("/organization/compliance/requisition-templates")
         } else {
-          router.push("/organization/compliance/templates")
+          router.push("/organization/compliance/requisition-templates")
         }
       }}>
         <TabsList>
           <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
           <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
-          <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
         </TabsList>
       </Tabs>
 

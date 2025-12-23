@@ -9,8 +9,22 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Save, X } from "lucide-react"
+import { Save, X, Edit, Plus, Search, MoreVertical } from "lucide-react"
+import { DataTable } from "@/components/system/table"
 import { cn } from "@/lib/utils"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   getCurrentOrganization,
   getWorkforceGroupById,
@@ -31,6 +45,9 @@ export default function WorkforceGroupDetailPage() {
   const [group, setGroup] = useState<OrganizationWorkforceGroup | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
+  const [memberSearchQuery, setMemberSearchQuery] = useState("")
+  const [isChangeTemplateDialogOpen, setIsChangeTemplateDialogOpen] = useState(false)
+  const [isAddMembersDialogOpen, setIsAddMembersDialogOpen] = useState(false)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -152,8 +169,68 @@ export default function WorkforceGroupDetailPage() {
   const complianceTemplateItemCount = useMemo(() => {
     if (!group?.complianceTemplateId) return 0
     const template = complianceTemplates.find((t) => t.id === group.complianceTemplateId)
-    return template?.items?.length || 0
+    if (!template) return 0
+    // Count required items
+    const allListItems = template.listItemIds.map((id) => getComplianceListItemById(id)).filter(Boolean)
+    return allListItems.filter((item) => item?.isRequired).length
   }, [group, complianceTemplates])
+
+  // Get group members (candidates matching the group's occupations)
+  const groupMembers = useMemo(() => {
+    if (!group || !currentOrgId) return []
+    
+    const matchingOccupations = allOccupations.filter((occ) =>
+      group.occupationCodes.includes(occ.code)
+    )
+
+    const members = candidates
+      .filter((c) => {
+        const candidateRole = c.role.toLowerCase()
+        return matchingOccupations.some((occ) =>
+          candidateRole.includes(occ.name.toLowerCase()) ||
+          candidateRole.includes(occ.code.toLowerCase())
+        )
+      })
+      .map((c) => {
+        // Calculate compliance percentage
+        const totalDocs = c.documents.length
+        const completedDocs = c.documents.filter((d) => d.status === "Completed").length
+        const compliancePercentage = totalDocs > 0 ? Math.round((completedDocs / totalDocs) * 100) : 0
+        
+        // Determine compliance status
+        let complianceStatus: "Complete" | "Pending" | "Missing" = "Complete"
+        if (compliancePercentage === 100) {
+          complianceStatus = "Complete"
+        } else if (compliancePercentage >= 50) {
+          complianceStatus = "Pending"
+        } else {
+          complianceStatus = "Missing"
+        }
+
+        return {
+          id: c.id,
+          name: c.name,
+          occupation: c.role || "Unknown",
+          specialty: c.specialties?.[0] || "N/A",
+          status: group.name,
+          complianceStatus,
+          compliancePercentage,
+        }
+      })
+
+    // Filter by search query
+    if (memberSearchQuery.trim()) {
+      const query = memberSearchQuery.toLowerCase()
+      return members.filter(
+        (m) =>
+          m.name.toLowerCase().includes(query) ||
+          m.occupation.toLowerCase().includes(query) ||
+          m.specialty.toLowerCase().includes(query)
+      )
+    }
+
+    return members
+  }, [group, currentOrgId, allOccupations, memberSearchQuery])
 
   const handleSave = () => {
     if (!group) return
@@ -274,87 +351,157 @@ export default function WorkforceGroupDetailPage() {
       <section className="space-y-6">
         {!isEditing ? (
           <>
-            <div className="flex justify-end">
+            {/* Header Section */}
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">{group.name}</h1>
+                <p className="text-sm text-muted-foreground mt-1">{group.description}</p>
+              </div>
               <Button onClick={() => setIsEditing(true)} className="ph5-button-primary">
-                <Save className="h-4 w-4 mr-2" />
+                <Edit className="h-4 w-4 mr-2" />
                 Edit Group
               </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            {/* Stats Section */}
+            <div className="grid grid-cols-3 gap-4">
               <Card className="p-6">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground mb-4">{group.name}</h3>
-                    <p className="text-sm text-muted-foreground">{group.description}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total Members</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.memberCount}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Occupations</p>
-                      <p className="text-2xl font-bold text-foreground">{stats.occupationCount}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-sm text-muted-foreground mb-1">Compliant</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-muted rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all"
-                            style={{ width: `${stats.compliancePercentage}%` }}
-                          />
-                        </div>
-                        <p className="text-sm font-semibold text-foreground">{stats.compliancePercentage}%</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <p className="text-sm text-muted-foreground mb-2">Total Members</p>
+                <p className="text-3xl font-bold text-foreground">{stats.memberCount}</p>
               </Card>
-
               <Card className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Occupations</h3>
-                <div className="space-y-2">
-                  {occupationNames.length > 0 ? (
-                    occupationNames.map((name) => (
-                      <div key={name} className="p-2 bg-muted/50 rounded-md">
-                        <p className="text-sm text-foreground">{name}</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No occupations assigned</p>
-                  )}
-                </div>
+                <p className="text-sm text-muted-foreground mb-2">Occupations</p>
+                <p className="text-3xl font-bold text-foreground">{stats.occupationCount}</p>
+              </Card>
+              <Card className="p-6">
+                <p className="text-sm text-muted-foreground mb-2">Compliance</p>
+                <p className="text-3xl font-bold text-foreground">{stats.compliancePercentage}%</p>
               </Card>
             </div>
 
-            {complianceTemplateName && (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Compliance Template</h3>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">{complianceTemplateName}</p>
-                  <p className="text-xs text-muted-foreground">{complianceTemplateItemCount} required items</p>
+            {/* Compliance Template Section */}
+            <Card className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-foreground mb-4">Compliance Template</h3>
+                  {complianceTemplateName ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{complianceTemplateName}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {complianceTemplateItemCount} required items
+                          </p>
+                        </div>
+                        <StatusChip status="success" label="Active" />
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No template assigned</p>
+                  )}
                 </div>
-              </Card>
-            )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsChangeTemplateDialogOpen(true)}
+                >
+                  Change Template
+                </Button>
+              </div>
+            </Card>
 
-            {specialtyNames.length > 0 && (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4">Specialties</h3>
-                <div className="flex flex-wrap gap-2">
-                  {specialtyNames.map((name) => (
-                    <span
-                      key={name}
-                      className="px-3 py-1 bg-muted text-foreground rounded-md text-sm"
-                    >
-                      {name}
-                    </span>
-                  ))}
+            {/* Group Members Section */}
+            <Card className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">Group Members</h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsAddMembersDialogOpen(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Members
+                  </Button>
                 </div>
-              </Card>
-            )}
+
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search members..."
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Members Table */}
+                <DataTable
+                  columns={[
+                    {
+                      id: "name",
+                      label: "Name",
+                      sortable: true,
+                      render: (member: any) => (
+                        <div>
+                          <p className="font-medium text-foreground">{member.name}</p>
+                        </div>
+                      ),
+                    },
+                    { id: "occupation", label: "Occupation", sortable: true },
+                    { id: "specialty", label: "Specialty", sortable: true },
+                    {
+                      id: "status",
+                      label: "Status",
+                      sortable: true,
+                      render: (member: any) => (
+                        <span className="text-sm text-muted-foreground">{member.status}</span>
+                      ),
+                    },
+                    {
+                      id: "compliance",
+                      label: "Compliance",
+                      sortable: true,
+                      render: (member: any) => (
+                        <StatusChip
+                          status={
+                            member.complianceStatus === "Complete"
+                              ? "success"
+                              : member.complianceStatus === "Pending"
+                              ? "warning"
+                              : "error"
+                          }
+                          label={member.complianceStatus === "Complete" ? `${member.compliancePercentage}%` : `${member.complianceStatus} ${member.compliancePercentage}%`}
+                        />
+                      ),
+                    },
+                    {
+                      id: "actions",
+                      label: "Actions",
+                      sortable: false,
+                      render: (member: any) => (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="backdrop-blur-sm bg-card/95">
+                            <DropdownMenuItem>View Profile</DropdownMenuItem>
+                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">Remove</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ),
+                    },
+                  ]}
+                  rows={groupMembers}
+                  rowKey={(row) => row.id}
+                />
+              </div>
+            </Card>
           </>
         ) : (
           <Card className="p-6">
@@ -461,6 +608,91 @@ export default function WorkforceGroupDetailPage() {
           </Card>
         )}
       </section>
+
+      {/* Change Template Dialog */}
+      <Dialog open={isChangeTemplateDialogOpen} onOpenChange={setIsChangeTemplateDialogOpen}>
+        <DialogContent className="backdrop-blur-sm bg-card/95">
+          <DialogHeader>
+            <DialogTitle>Change Compliance Template</DialogTitle>
+            <DialogDescription>
+              Select a compliance template for this workforce group
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Select
+              value={formData.complianceTemplateId}
+              onValueChange={(value) => setFormData({ ...formData, complianceTemplateId: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a compliance template" />
+              </SelectTrigger>
+              <SelectContent className="backdrop-blur-sm bg-card/95">
+                <SelectItem value="none">None</SelectItem>
+                {complianceTemplates.map((template) => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsChangeTemplateDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  handleSave()
+                  setIsChangeTemplateDialogOpen(false)
+                }}
+                className="ph5-button-primary"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Members Dialog */}
+      <Dialog open={isAddMembersDialogOpen} onOpenChange={setIsAddMembersDialogOpen}>
+        <DialogContent className="backdrop-blur-sm bg-card/95 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add Members</DialogTitle>
+            <DialogDescription>
+              Add candidates to this workforce group
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Member addition functionality will be implemented here.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsAddMembersDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  pushToast({
+                    title: "Success",
+                    description: "Members added successfully",
+                    type: "success",
+                  })
+                  setIsAddMembersDialogOpen(false)
+                }}
+                className="ph5-button-primary"
+              >
+                Add Selected
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

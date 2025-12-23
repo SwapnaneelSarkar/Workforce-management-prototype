@@ -657,9 +657,9 @@ export default function CandidateProfilePage() {
             </div>
           </Card>
 
-          {/* Assignments & Job Activity */}
+          {/* Placements & Job Activity */}
           <Card>
-            <h3 className="text-lg font-semibold text-foreground mb-4">Assignments & Job Activity</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Placements & Job Activity</h3>
             <div className="space-y-4">
               <div>
                 <h4 className="text-sm font-medium text-foreground mb-2">Applied Jobs</h4>
@@ -695,7 +695,7 @@ export default function CandidateProfilePage() {
               </div>
 
               <div className="border-t border-border pt-4">
-                <h4 className="text-sm font-medium text-foreground mb-2">Current Assignment</h4>
+                <h4 className="text-sm font-medium text-foreground mb-2">Current Placement</h4>
                 {currentAssignment ? (
                   <div className="rounded-lg border border-border px-3 py-2">
                     <p className="text-sm font-medium text-foreground">{currentAssignment.jobTitle}</p>
@@ -703,12 +703,12 @@ export default function CandidateProfilePage() {
                     <StatusChip label={currentAssignment.status} tone="success" className="mt-2" />
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No active assignment.</p>
+                  <p className="text-sm text-muted-foreground">No active placement.</p>
                 )}
               </div>
 
               <div className="border-t border-border pt-4">
-                <h4 className="text-sm font-medium text-foreground mb-2">Past Assignments</h4>
+                <h4 className="text-sm font-medium text-foreground mb-2">Past Placements</h4>
                 {pastAssignments.length > 0 ? (
                   <div className="space-y-2">
                     {pastAssignments.slice(0, 3).map((assignment) => (
@@ -725,7 +725,7 @@ export default function CandidateProfilePage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No past assignments.</p>
+                  <p className="text-sm text-muted-foreground">No past placements.</p>
                 )}
               </div>
 

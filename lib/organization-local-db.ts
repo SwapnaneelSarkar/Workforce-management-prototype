@@ -100,6 +100,7 @@ export type OrganizationLocalDbState = {
   placements: Record<string, OrganizationPlacement>
   workforceGroups: Record<string, OrganizationWorkforceGroup>
   currentOrganizationId: string | null
+  activeAdminWalletTemplateId: string | null // ID of the currently active admin wallet template
   lastUpdated?: string
 }
 
@@ -113,6 +114,7 @@ export const defaultOrganizationLocalDbState: OrganizationLocalDbState = {
   placements: {},
   workforceGroups: {},
   currentOrganizationId: null,
+  activeAdminWalletTemplateId: null,
   lastUpdated: undefined,
 }
 
@@ -492,6 +494,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         placements: {},
         workforceGroups: {},
         currentOrganizationId: null,
+        activeAdminWalletTemplateId: null,
         lastUpdated: undefined,
       }
       persistOrganizationLocalDb(initialState)
@@ -539,7 +542,9 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         legacyTemplates: existingLegacyTemplates,
         questionnaires: parsed.questionnaires ?? {},
         placements: parsed.placements ?? {},
+        workforceGroups: parsed.workforceGroups ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
+        activeAdminWalletTemplateId: parsed.activeAdminWalletTemplateId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
       needsUpdate = true
@@ -577,7 +582,9 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
         legacyTemplates: existingLegacyTemplates,
         questionnaires: parsed.questionnaires ?? {},
         placements: parsed.placements ?? {},
+        workforceGroups: parsed.workforceGroups ?? {},
         currentOrganizationId: parsed.currentOrganizationId ?? null,
+        activeAdminWalletTemplateId: parsed.activeAdminWalletTemplateId ?? null,
         lastUpdated: parsed.lastUpdated,
       }
       stateWithDefaults = {
@@ -618,6 +625,7 @@ export function readOrganizationLocalDb(): OrganizationLocalDbState {
       placements: parsed.placements ?? {},
       workforceGroups: parsed.workforceGroups ?? {},
       currentOrganizationId: parsed.currentOrganizationId ?? null,
+      activeAdminWalletTemplateId: parsed.activeAdminWalletTemplateId ?? null,
       lastUpdated: parsed.lastUpdated,
     }
   } catch (error) {
@@ -720,6 +728,11 @@ export function getAllApplications(): OrganizationLocalDbApplication[] {
 
 export function getApplicationsByOrganization(organizationId: string): OrganizationLocalDbApplication[] {
   return getAllApplications().filter((app) => app.organizationId === organizationId)
+}
+
+export function getApplicationById(id: string): OrganizationLocalDbApplication | null {
+  const state = readOrganizationLocalDb()
+  return state.applications[id] || null
 }
 
 export function addApplication(organizationId: string, application: Omit<OrganizationLocalDbApplication, "id" | "organizationId" | "createdAt" | "updatedAt">): OrganizationLocalDbApplication {
@@ -907,6 +920,11 @@ export function updateRequisitionTemplate(id: string, updates: Partial<Omit<Orga
   }
   persistOrganizationLocalDb(updatedState)
   return updatedTemplate
+}
+
+export function getRequisitionTemplateById(id: string): OrganizationLocalDbRequisitionTemplate | null {
+  const state = readOrganizationLocalDb()
+  return state.requisitionTemplates[id] || null
 }
 
 export function deleteRequisitionTemplate(id: string): boolean {
@@ -1285,4 +1303,18 @@ export function deleteWorkforceGroup(id: string): boolean {
   return true
 }
 
+// Helper functions for active admin wallet template
+export function getActiveAdminWalletTemplateId(): string | null {
+  const state = readOrganizationLocalDb()
+  return state.activeAdminWalletTemplateId || null
+}
+
+export function setActiveAdminWalletTemplateId(templateId: string | null): void {
+  const state = readOrganizationLocalDb()
+  const updatedState: OrganizationLocalDbState = {
+    ...state,
+    activeAdminWalletTemplateId: templateId,
+  }
+  persistOrganizationLocalDb(updatedState)
+}
 

@@ -53,6 +53,16 @@ import {
   Share2,
   MessageSquareText,
   AlertCircle,
+  HelpCircle,
+  Filter,
+  Cog,
+  UserCircle,
+  Wallet,
+  Receipt as ReceiptIcon,
+  CheckCircle2,
+  AlertTriangle,
+  TrendingDown,
+  LogOut,
 } from "lucide-react"
 
 export type NavLink = SidebarItem
@@ -65,7 +75,7 @@ export const candidateNavLinks: NavLink[] = [
   { href: "#", label: "Shifts", icon: CalendarDays, subtitle: "Will be in the next phase", disabled: true },
   { href: "/candidate/applications", label: "Submissions", icon: FileText },
   { href: "/candidate/documents", label: "Document Wallet", icon: FolderOpen },
-  { href: "#", label: "Resources", icon: BookOpen, subtitle: "Will be in the next phase", disabled: true },
+  { href: "/candidate/support", label: "Support", icon: HelpCircle },
   { href: "/candidate/news-feed", label: "News Feed", icon: Rss },
   { href: "#", label: "Notifications & Messaging", icon: MessageCircle, subtitle: "Will be in the next phase", disabled: true },
   { href: "#", label: "Refer a friend", icon: Share2, subtitle: "Will be in the next phase", disabled: true },
@@ -74,24 +84,50 @@ export const candidateNavLinks: NavLink[] = [
 ]
 
 export const organizationNavLinks: NavLink[] = [
-  { href: "/organization/dashboard", label: "Dashboard", icon: LayoutDashboard },
   {
-    href: "/organization/hiring",
-    label: "Hiring",
-    icon: UserPlus,
+    href: "/organization/command-center",
+    label: "Command Center",
+    icon: Command,
     children: [
-      { href: "/organization/compliance/requisition-templates", label: "Requisition Templates", icon: ClipboardCheck },
-      { href: "/organization/jobs", label: "Jobs", icon: Briefcase },
-      { href: "/organization/applications", label: "Applications", icon: FileText },
+      {
+        href: "/organization/hiring-funnel",
+        label: "Hiring Funnel Management",
+        icon: Filter,
+        subtitle: "Yet to be updated",
+        disabled: true,
+      },
+      {
+        href: "/organization/operations",
+        label: "Operations Management",
+        icon: Cog,
+        subtitle: "Yet to be updated",
+        disabled: true,
+      },
+      {
+        href: "/organization/active-workforce",
+        label: "Active Workforce",
+        icon: Users,
+        children: [
+          {
+            href: "/organization/compliance/requisition-templates",
+            label: "Requisitions",
+            icon: ClipboardCheck,
+            children: [
+              { href: "/organization/workforce/placements", label: "Placements", icon: UserCheck },
+              { href: "/organization/shift", label: "Shift", icon: Calendar, subtitle: "Yet to be updated", disabled: true },
+            ],
+          },
+        ],
+      },
     ],
   },
   {
-    href: "/organization/compliance",
-    label: "Compliance",
+    href: "/organization/compliance/requisition-templates",
+    label: "Requisitions",
     icon: ClipboardCheck,
     children: [
-      { href: "/organization/compliance/templates", label: "Templates", icon: ClipboardCheck },
-      { href: "/organization/compliance/questionnaire", label: "Questionnaire", icon: FileQuestion },
+      { href: "/organization/workforce/placements", label: "Placements", icon: UserCheck },
+      { href: "/organization/shift", label: "Shift", icon: Calendar, subtitle: "Yet to be updated", disabled: true },
     ],
   },
   {
@@ -99,36 +135,64 @@ export const organizationNavLinks: NavLink[] = [
     label: "Workforce",
     icon: Users,
     children: [
-      { href: "/organization/workforce/placements", label: "Placements", icon: UserCheck },
+      { href: "/organization/workforce/talent-community", label: "Talent Community", icon: UserCircle },
       { href: "/organization/workforce/workforce-groups", label: "Workforce Groups", icon: Users },
-      { href: "/organization/workforce/locations-departments", label: "Locations & Departments", icon: Building2 },
+      { href: "/organization/applications", label: "Submissions", icon: FileText },
     ],
   },
   {
-    href: "/organization/time-billing",
-    label: "Time & Billing",
+    href: "/organization/hiring",
+    label: "Hiring",
+    icon: UserPlus,
+    children: [
+      { href: "/organization/jobs", label: "Jobs", icon: Briefcase },
+    ],
+  },
+  {
+    href: "/organization/compliance",
+    label: "Compliance",
+    icon: ClipboardCheck,
+    children: [
+      { href: "/organization/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      {
+        href: "/organization/expiring-credentials",
+        label: "Expiring Credentials",
+        icon: AlertTriangle,
+        subtitle: "Yet to be updated",
+        disabled: true,
+      },
+    ],
+  },
+  {
+    href: "/organization/timekeeping",
+    label: "Timekeeping",
+    icon: Clock,
+    children: [
+      { href: "/organization/timekeeping", label: "Timekeeping", icon: Clock },
+    ],
+  },
+  {
+    href: "/organization/finance",
+    label: "Finance",
     icon: DollarSign,
     children: [
-      { href: "/organization/time-billing/timekeeping", label: "Timekeeping", icon: Clock },
-      { href: "/organization/time-billing/invoicing", label: "Invoicing", icon: Receipt },
+      { href: "/organization/finance/spend-analytics", label: "Spend Analytics", icon: TrendingDown, subtitle: "Yet to be updated", disabled: true },
+      { href: "/organization/finance/invoice-drafts", label: "Invoice Drafts", icon: FileText, subtitle: "Yet to be updated", disabled: true },
+      { href: "/organization/finance/final-invoices", label: "Final Invoices", icon: ReceiptIcon, subtitle: "Yet to be updated", disabled: true },
     ],
   },
   {
-    href: "/organization/management",
-    label: "Management",
+    href: "/organization/admin",
+    label: "Admin",
     icon: Settings,
     children: [
-      { href: "/organization/management/vendors", label: "Vendors", icon: Network },
+      { href: "/organization/compliance/wallet-templates", label: "Compliance Wallet", icon: Wallet },
+      { href: "/organization/compliance/requisition-templates", label: "Requisition Templates", icon: ClipboardCheck },
+      { href: "/organization/admin/shift-templates", label: "Shift Templates", icon: Calendar, subtitle: "Yet to be updated", disabled: true },
+      { href: "/organization/admin/workforce-group-status", label: "Workforce Group Status", icon: Users, subtitle: "Yet to be updated", disabled: true },
+      { href: "/organization/admin/billing", label: "Billing", icon: CreditCard, subtitle: "Yet to be updated", disabled: true },
+      { href: "/organization/admin/approvals", label: "Approvals", icon: CheckCircle2, subtitle: "Yet to be updated", disabled: true },
       { href: "/organization/management/users", label: "Users", icon: UserCog },
-      { href: "/organization/management/notes", label: "Notes", icon: StickyNote },
-    ],
-  },
-  {
-    href: "/organization/settings",
-    label: "Settings",
-    icon: Settings,
-    children: [
-      { href: "/organization/settings", label: "Settings", icon: Settings },
     ],
   },
 ]

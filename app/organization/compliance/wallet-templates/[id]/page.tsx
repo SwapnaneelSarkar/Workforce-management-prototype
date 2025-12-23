@@ -1,244 +1,365 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useRouter, useParams, usePathname } from "next/navigation"
+import { useState, useEffect, useMemo } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { Header, Card, StatusChip } from "@/components/system"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useDemoData } from "@/components/providers/demo-data-provider"
-import type { WalletTemplate } from "@/components/providers/demo-data-provider"
-import { AddItemModal } from "@/components/compliance/add-item-modal"
-import type { ComplianceItem } from "@/lib/compliance-templates-store"
-import { getActiveOccupations, getAllComplianceListItems } from "@/lib/admin-local-db"
+import { Button } from "@/components/ui/button"
+import { ArrowLeft, Eye, EyeOff } from "lucide-react"
+import { DataTable } from "@/components/system/table"
+import {
+  getAdminWalletTemplateById,
+  getComplianceListItemById,
+  getAllComplianceListItems,
+  getOccupationById,
+  getSpecialtyById,
+  type AdminWalletTemplate,
+  type ComplianceListItem,
+} from "@/lib/admin-local-db"
 
 export default function WalletTemplateDetailPage() {
   const router = useRouter()
-  const params = useParams()
-  const pathname = usePathname()
-  const { organization, actions } = useDemoData()
-  const templateId = params.id as string
+  const params = useParams<{ id: string }>()
+  const templateId = params?.id
 
-  const template = organization.walletTemplates.find((t) => t.id === templateId)
-  const [draftTemplate, setDraftTemplate] = useState<WalletTemplate | null>(null)
-  const [isAddItemModalOpen, setIsAddItemModalOpen] = useState(false)
-  const [occupations, setOccupations] = useState<string[]>([])
-  
+  const [template, setTemplate] = useState<AdminWalletTemplate | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [complianceItems, setComplianceItems] = useState<ComplianceListItem[]>([])
+
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const occs = getActiveOccupations()
-        setOccupations(occs.map((occ) => occ.code))
-      } catch (error) {
-        // Fallback to default occupations
-        setOccupations(["RN", "LPN", "CNA", "PT", "OT", "RT", "ST", "MT"])
+    if (typeof window === "undefined" || !templateId) return
+    
+    try {
+      const tmpl = getAdminWalletTemplateById(templateId)
+      if (!tmpl) {
+        console.warn("Template not found:", templateId)
+        return
       }
+      
+      setTemplate(tmpl)
+      
+      // Load all compliance items for this template
+      const allItems = getAllComplianceListItems()
+      const templateItems = tmpl.listItemIds
+        .map((id) => allItems.find((item) => item.id === id))
+        .filter((item): item is ComplianceListItem => item !== undefined)
+      
+      setComplianceItems(templateItems)
+    } catch (error) {
+      console.error("Failed to load template:", error)
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }, [templateId])
 
-  const activeTab = pathname?.includes("wallet-templates")
-    ? "wallet"
-    : pathname?.includes("requisition-templates")
-    ? "requisition"
-    : "legacy"
+  const occupation = template?.occupationId ? getOccupationById(template.occupationId) : null
+  const specialty = template?.specialtyId ? getSpecialtyById(template.specialtyId) : null
 
-  useEffect(() => {
-    if (template) {
-      setDraftTemplate({ ...template })
-    } else if (templateId) {
-      // Only redirect if we have a templateId but no template found
-      router.push("/organization/compliance/wallet-templates")
+  const requiredCount = useMemo(() => {
+    return complianceItems.filter((item) => {
+      // Check if item has requiredAtSubmission field (if we add it later)
+      // For now, we'll use a heuristic: items that are typically required
+      const requiredCategories = ["Licenses", "Certifications"]
+      const requiredNames = [
+        "Background Check",
+        "Drug Screening",
+        "TB Test",
+        "Hepatitis B Vaccination",
+        "Physical Exam",
+        "RN License",
+        "LPN License",
+        "BLS Certification",
+        "ACLS Certification",
+      ]
+      return (
+        requiredCategories.some((cat) => item.category.includes(cat)) ||
+        requiredNames.some((name) => item.name.includes(name))
+      )
+    }).length
+  }, [complianceItems])
+
+  const expirableCount = useMemo(() => {
+    return complianceItems.filter(
+      (item) => item.expirationType !== "Non-Expirable"
+    ).length
+  }, [complianceItems])
+
+  const formatExpirationType = (item: ComplianceListItem) => {
+    if (item.expirationType === "Non-Expirable") {
+      return "—"
     }
-  }, [template, templateId, router])
+    if (item.expirationType === "Expiration Date") {
+      return "Yes"
+    }
+    if (item.expirationType === "Expiration Rule") {
+      const value = item.expirationRuleValue || 0
+      const interval = item.expirationRuleInterval || "Days"
+      return `${value} ${interval}`
+    }
+    return "Yes"
+  }
 
-  if (!draftTemplate) {
+  const isItemRequired = (item: ComplianceListItem): boolean => {
+    // Heuristic to determine if item is required
+    const requiredCategories = ["Licenses", "Certifications"]
+    const requiredNames = [
+      "Background Check",
+      "Drug Screening",
+      "TB Test",
+      "Hepatitis B Vaccination",
+      "Physical Exam",
+      "RN License",
+      "LPN License",
+      "BLS Certification",
+      "ACLS Certification",
+    ]
     return (
-      <div className="p-8">
-        <p className="text-sm text-muted-foreground">Loading template...</p>
+      requiredCategories.some((cat) => item.category.includes(cat)) ||
+      requiredNames.some((name) => item.name.includes(name))
+    )
+  }
+
+  const columns = [
+    {
+      id: "name",
+      label: "Item Name",
+      sortable: true,
+      render: (item: ComplianceListItem) => (
+        <span className="text-sm font-medium text-foreground">{item.name}</span>
+      ),
+    },
+    {
+      id: "category",
+      label: "Category",
+      sortable: true,
+      render: (item: ComplianceListItem) => (
+        <span className="text-sm text-foreground">{item.category}</span>
+      ),
+    },
+    {
+      id: "expiration",
+      label: "Expiration Required",
+      sortable: true,
+      render: (item: ComplianceListItem) => (
+        <span className="text-sm text-foreground">{formatExpirationType(item)}</span>
+      ),
+    },
+    {
+      id: "required",
+      label: "Required at Submission",
+      sortable: true,
+      render: (item: ComplianceListItem) => {
+        const required = isItemRequired(item)
+        return (
+          <span className="text-sm font-medium text-foreground">
+            {required ? "Required" : "Optional"}
+          </span>
+        )
+      },
+    },
+    {
+      id: "display",
+      label: "Display to Candidate",
+      sortable: true,
+      render: (item: ComplianceListItem) => (
+        <div className="flex items-center gap-2">
+          {item.displayToCandidate ? (
+            <>
+              <Eye className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-foreground">Visible</span>
+            </>
+          ) : (
+            <>
+              <EyeOff className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Hidden</span>
+            </>
+          )}
+        </div>
+      ),
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="space-y-6 p-8">
+        <Card>
+          <div className="py-12 text-center text-muted-foreground">Loading...</div>
+        </Card>
       </div>
     )
   }
 
-  const handleFieldChange = (field: keyof Omit<WalletTemplate, "id" | "items">, value: string) => {
-    setDraftTemplate({ ...draftTemplate, [field]: value })
-  }
-
-  const handleSave = () => {
-    if (!draftTemplate) return
-    actions.updateWalletTemplate(templateId, {
-      name: draftTemplate.name,
-      occupation: draftTemplate.occupation,
-    })
-  }
-
-  const handleAddItem = (item: ComplianceItem) => {
-    actions.addWalletTemplateItem(templateId, item)
-    // Update local state
-    setDraftTemplate({ ...draftTemplate, items: [...draftTemplate.items, item] })
-  }
-
-  const handleRemoveItem = (itemId: string) => {
-    actions.removeWalletTemplateItem(templateId, itemId)
-    // Update local state
-    setDraftTemplate({ ...draftTemplate, items: draftTemplate.items.filter((item) => item.id !== itemId) })
-  }
-
-  const existingItemIds = draftTemplate.items.map((item) => {
-    // Try to find the original ComplianceListItem ID by name
-    if (typeof window !== "undefined") {
-      try {
-        const listItems = getAllComplianceListItems()
-        const listItem = listItems.find((li) => li.name === item.name && li.isActive)
-        if (listItem) return listItem.id
-      } catch (error) {
-        console.warn("Failed to load compliance list items", error)
-      }
-    }
-    // Fallback: use item name as identifier
-    return item.name
-  })
-
-
-  // Group items by category
-  const itemsByCategory = draftTemplate.items.reduce((acc, item) => {
-    const category = item.type
-    if (!acc[category]) {
-      acc[category] = []
-    }
-    acc[category].push(item)
-    return acc
-  }, {} as Record<string, ComplianceItem[]>)
-
-  return (
-    <div className="space-y-6 p-8">
-      <Header
-        title="Edit Compliance Wallet Template"
-        subtitle="Manage template details and compliance items."
-        breadcrumbs={[
-          { label: "Organization", href: "/organization/dashboard" },
-          { label: "Compliance templates", href: "/organization/compliance/templates" },
-          { label: "Compliance Wallet Templates", href: "/organization/compliance/wallet-templates" },
-          { label: draftTemplate.name },
-        ]}
-      />
-
-      <Tabs value={activeTab} onValueChange={(value) => {
-        if (value === "wallet") {
-          router.push("/organization/compliance/wallet-templates")
-        } else if (value === "requisition") {
-          router.push("/organization/compliance/requisition-templates")
-        } else {
-          router.push("/organization/compliance/templates")
-        }
-      }}>
-        <TabsList>
-          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
-          <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
-          <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-        <Card title="Template Info">
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Template Name</label>
-              <Input
-                value={draftTemplate.name}
-                onChange={(e) => handleFieldChange("name", e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Occupation</label>
-              <select
-                value={draftTemplate.occupation || ""}
-                onChange={(e) => handleFieldChange("occupation", e.target.value)}
-                className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-              >
-                <option value="">Select occupation</option>
-                {occupations.map((occ) => (
-                  <option key={occ} value={occ}>
-                    {occ}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="pt-2 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-1">Items</p>
-              <p className="text-sm font-semibold text-foreground">{draftTemplate.items.length}</p>
-            </div>
-            <button type="button" className="ph5-button-primary w-full text-xs" onClick={handleSave}>
-              Save Changes
-            </button>
-          </div>
-        </Card>
-
-        <Card title="Compliance Items">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-foreground">Items</p>
-              <button
-                type="button"
-                className="ph5-button-secondary text-xs"
-                onClick={() => setIsAddItemModalOpen(true)}
-              >
-                Add Item
-              </button>
-            </div>
-
-            {Object.keys(itemsByCategory).length === 0 ? (
+  if (!template) {
+    return (
+      <div className="space-y-6 p-8">
+        <Header
+          title="Template Not Found"
+          subtitle="The requested compliance template could not be found."
+          breadcrumbs={[
+            { label: "Organization", href: "/organization/dashboard" },
+            { label: "Admin", href: "/organization/admin" },
+            { label: "Compliance Wallet", href: "/organization/compliance/wallet-templates" },
+            { label: "Template Detail" },
+          ]}
+        />
+        <Card>
+          <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+            <div>
               <p className="text-sm text-muted-foreground">
-                No items yet. Click &quot;Add Item&quot; to add compliance items from the list.
+                This template may have been deleted or is not available.
               </p>
-            ) : (
-              <div className="space-y-4">
-                {Object.entries(itemsByCategory).map(([category, items]) => (
-                  <div key={category} className="space-y-2">
-                    <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">
-                      {category}
-                    </h3>
-                    <div className="space-y-2">
-                      {items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between rounded-md border border-border p-3"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm font-medium text-foreground">{item.name}</span>
-                              <StatusChip label={item.type} />
-                            </div>
-                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                              <span>Expiration: {item.expirationType}</span>
-                              {item.requiredAtSubmission && (
-                                <span className="text-primary font-medium">Required at submission</span>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            className="ph5-button-ghost text-xs ml-2"
-                            onClick={() => handleRemoveItem(item.id)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => router.push("/organization/compliance/wallet-templates")}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Templates
+            </Button>
           </div>
         </Card>
       </div>
+    )
+  }
 
-      <AddItemModal
-        open={isAddItemModalOpen}
-        onClose={() => setIsAddItemModalOpen(false)}
-        onAdd={handleAddItem}
-        existingItemIds={existingItemIds}
+  return (
+    <div className="space-y-6 p-8">
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={() => router.push("/organization/compliance/wallet-templates")}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Templates
+        </Button>
+      </div>
+
+      <Header
+        title={template.name}
+        subtitle={
+          `${occupation?.name || template.occupationCode || "N/A"}${specialty ? ` • ${specialty.name || specialty.code}` : ""}`
+        }
+        breadcrumbs={[
+          { label: "Organization", href: "/organization/dashboard" },
+          { label: "Admin", href: "/organization/admin" },
+          { label: "Compliance Wallet", href: "/organization/compliance/wallet-templates" },
+          { label: template.name },
+        ]}
       />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Template Summary */}
+          <Card title="Template Summary">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                    Occupation
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {occupation?.name || template.occupationCode || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                    Specialty
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {specialty?.name || specialty?.code || "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                    Total Compliance Items
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {complianceItems.length}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                    Required at Submission
+                  </p>
+                  <p className="text-sm font-semibold text-foreground">{requiredCount}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                  Description
+                </p>
+                <p className="text-sm text-foreground">
+                  Compliance requirements for {occupation?.name || template.occupationCode || "this role"}
+                  {specialty && ` in ${specialty.name || specialty.code}`} departments.
+                </p>
+              </div>
+              <div className="pt-4 border-t">
+                <p className="text-xs text-muted-foreground">
+                  Compliance items are managed by Admin and cannot be edited by the organization.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Compliance Items Table */}
+          <Card
+            title={`Compliance Items (${complianceItems.length})`}
+          >
+            <DataTable
+              columns={columns}
+              rows={complianceItems}
+              rowKey={(row) => row.id}
+              emptyState={
+                <div className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No compliance items found in this template.
+                  </p>
+                </div>
+              }
+            />
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="lg:col-span-1 space-y-6">
+          <Card title="Summary">
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                  Total Items
+                </p>
+                <p className="text-2xl font-bold text-foreground">{complianceItems.length}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                  Required at Submission
+                </p>
+                <p className="text-2xl font-bold text-foreground">{requiredCount}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1">
+                  Expirable Items
+                </p>
+                <p className="text-2xl font-bold text-foreground">{expirableCount}</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="space-y-2">
+              <StatusChip
+                status={template.isActive ? "success" : "warning"}
+                label={template.isActive ? "Active" : "Inactive"}
+              />
+              <p className="text-xs text-muted-foreground">
+                Template status is managed by Admin.
+              </p>
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }

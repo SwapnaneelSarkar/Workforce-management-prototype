@@ -1,174 +1,232 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
-import { Header, Card } from "@/components/system"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useDemoData } from "@/components/providers/demo-data-provider"
-import type { RequisitionTemplate } from "@/components/providers/demo-data-provider"
-import Link from "next/link"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Header, Card, StatusChip } from "@/components/system"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Search, Plus, Edit, Trash2, MoreVertical } from "lucide-react"
+import { DataTable } from "@/components/system/table"
+import {
+  getCurrentOrganization,
+  getRequisitionTemplatesByOrganization,
+  deleteRequisitionTemplate,
+  type OrganizationLocalDbRequisitionTemplate,
+} from "@/lib/organization-local-db"
+import { useToast } from "@/components/system"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { getOccupationByCode } from "@/lib/admin-local-db"
 
 export default function RequisitionTemplatesPage() {
   const router = useRouter()
-  const pathname = usePathname()
-  const { organization, actions } = useDemoData()
-  const [templateName, setTemplateName] = useState("")
-  const [department, setDepartment] = useState("")
-  const [isCreating, setIsCreating] = useState(false)
+  const { pushToast } = useToast()
+  const [orgId, setOrgId] = useState<string | null>(null)
+  const [templates, setTemplates] = useState<OrganizationLocalDbRequisitionTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
 
-  const activeTab = pathname?.includes("wallet-templates")
-    ? "wallet"
-    : pathname?.includes("requisition-templates")
-    ? "requisition"
-    : "legacy"
-
-  const handleCreateTemplate = async () => {
-    if (!templateName.trim()) return
-    setIsCreating(true)
+  useEffect(() => {
+    if (typeof window === "undefined") return
     try {
-      const template = await actions.createRequisitionTemplate({
-        name: templateName,
-        department: department || undefined,
-      })
-      router.push(`/organization/compliance/requisition-templates/${template.id}`)
+      const current = getCurrentOrganization() || "admin"
+      setOrgId(current)
+      const orgTemplates = getRequisitionTemplatesByOrganization(current)
+      setTemplates(orgTemplates)
     } catch (error) {
-      console.error("Failed to create template:", error)
+      console.warn("Failed to load requisition templates", error)
     } finally {
-      setIsCreating(false)
-      setTemplateName("")
-      setDepartment("")
+      setLoading(false)
+    }
+  }, [])
+
+  const filteredTemplates = templates.filter((template) => {
+    if (!searchQuery.trim()) return true
+    const query = searchQuery.toLowerCase()
+    return (
+      template.name.toLowerCase().includes(query) ||
+      template.occupation?.toLowerCase().includes(query) ||
+      template.specialty?.toLowerCase().includes(query) ||
+      template.department?.toLowerCase().includes(query)
+    )
+  })
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to delete this requisition template?")) {
+      const deleted = deleteRequisitionTemplate(id)
+      if (deleted) {
+        setTemplates(templates.filter((t) => t.id !== id))
+        pushToast({
+          title: "Success",
+          description: "Requisition template deleted successfully",
+          type: "success",
+        })
+      } else {
+        pushToast({
+          title: "Error",
+          description: "Failed to delete requisition template",
+          type: "error",
+        })
+      }
     }
   }
+
+  const getTypeLabel = (type?: string) => {
+    switch (type) {
+      case "long-term":
+        return "Long-term Order/Assignment"
+      case "permanent":
+        return "Permanent Job"
+      case "per-diem":
+        return "Per Diem Job"
+      default:
+        return "N/A"
+    }
+  }
+
+  const columns = [
+    {
+      id: "name",
+      label: "Template Name",
+      sortable: true,
+      render: (template: OrganizationLocalDbRequisitionTemplate) => (
+        <div>
+          <p className="font-medium text-foreground">{template.name}</p>
+          <p className="text-xs text-muted-foreground">{getTypeLabel(template.type)}</p>
+        </div>
+      ),
+    },
+    {
+      id: "occupation",
+      label: "Occupation",
+      sortable: true,
+      render: (template: OrganizationLocalDbRequisitionTemplate) => {
+        if (!template.occupation) return <span className="text-sm text-muted-foreground">—</span>
+        const occ = getOccupationByCode(template.occupation)
+        return <span className="text-sm text-foreground">{occ?.name || template.occupation}</span>
+      },
+    },
+    {
+      id: "specialty",
+      label: "Specialty",
+      sortable: true,
+      render: (template: OrganizationLocalDbRequisitionTemplate) => (
+        <span className="text-sm text-muted-foreground">{template.specialty || "—"}</span>
+      ),
+    },
+    {
+      id: "department",
+      label: "Department",
+      sortable: true,
+      render: (template: OrganizationLocalDbRequisitionTemplate) => (
+        <span className="text-sm text-muted-foreground">{template.department || "—"}</span>
+      ),
+    },
+    {
+      id: "status",
+      label: "Status",
+      sortable: true,
+      render: (template: OrganizationLocalDbRequisitionTemplate) => (
+        <StatusChip
+          status={template.status === "Active" ? "success" : "warning"}
+          label={template.status || "Draft"}
+        />
+      ),
+    },
+    {
+      id: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (template: OrganizationLocalDbRequisitionTemplate) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="backdrop-blur-sm bg-card/95">
+            <DropdownMenuItem onClick={() => router.push(`/organization/compliance/requisition-templates/${template.id}`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => handleDelete(template.id)}
+              className="text-destructive"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ]
 
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="Requisition Compliance Templates"
-        subtitle="Create job-based templates for requisition compliance requirements."
+        title="Requisition Templates"
+        subtitle="Create and manage requisition templates for job postings"
         breadcrumbs={[
           { label: "Organization", href: "/organization/dashboard" },
-          { label: "Compliance templates", href: "/organization/compliance/templates" },
+          { label: "Admin", href: "/organization/admin" },
           { label: "Requisition Templates" },
+        ]}
+        actions={[
+          {
+            id: "add-template",
+            label: "Add Template",
+            icon: <Plus className="h-4 w-4" />,
+            variant: "primary",
+            onClick: () => router.push("/organization/compliance/requisition-templates/create"),
+          },
         ]}
       />
 
-      <Tabs value={activeTab} onValueChange={(value) => {
-        if (value === "wallet") {
-          router.push("/organization/compliance/wallet-templates")
-        } else if (value === "requisition") {
-          router.push("/organization/compliance/requisition-templates")
-        } else {
-          router.push("/organization/compliance/templates")
-        }
-      }}>
-        <TabsList>
-          <TabsTrigger value="wallet">Compliance Wallet Templates</TabsTrigger>
-          <TabsTrigger value="requisition">Requisition Templates</TabsTrigger>
-          <TabsTrigger value="legacy">Legacy Templates</TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,260px)_minmax(0,1fr)]">
-        <Card title="Templates">
-          <div className="space-y-3">
-            <div className="space-y-2 p-3 border border-border rounded-md bg-muted/30">
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Template name"
-                className="w-full rounded-md border border-border bg-input px-2 py-1.5 text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateTemplate()
-                  }
-                }}
-              />
-              <input
-                type="text"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="Department (optional)"
-                className="w-full rounded-md border border-border bg-input px-2 py-1.5 text-sm"
-              />
-              <button
-                type="button"
-                className="ph5-button-primary w-full text-xs"
-                onClick={handleCreateTemplate}
-                disabled={!templateName.trim() || isCreating}
-              >
-                {isCreating ? "Creating..." : "Create Template"}
-              </button>
-            </div>
-            <div className="space-y-1">
-              {organization.requisitionTemplates.map((template) => (
-                <Link
-                  key={template.id}
-                  href={`/organization/compliance/requisition-templates/${template.id}`}
-                  className="block rounded-md px-3 py-2 text-sm hover:bg-muted/80 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-foreground">{template.name}</div>
-                      {template.department && (
-                        <div className="text-xs text-muted-foreground">{template.department}</div>
-                      )}
-                    </div>
-                    <span className="text-xs text-muted-foreground">{template.listItemIds?.length || 0} items</span>
-                  </div>
-                </Link>
-              ))}
-              {organization.requisitionTemplates.length === 0 && (
-                <p className="text-sm text-muted-foreground px-3 py-2">
-                  No templates yet. Create one to get started.
-                </p>
-              )}
-            </div>
-          </div>
+      {loading ? (
+        <Card>
+          <div className="py-12 text-center text-muted-foreground">Loading...</div>
         </Card>
-
-        <Card title="Create New Template">
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Requisition Compliance Templates are job-based templates that define which compliance items are required
-              for specific job requisitions. These templates can be selected when creating jobs.
-            </p>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Template Name</label>
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g., ICU Core Requirements"
-                className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleCreateTemplate()
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-foreground">Department (optional)</label>
-              <input
-                type="text"
-                value={department}
-                onChange={(e) => setDepartment(e.target.value)}
-                placeholder="e.g., ICU, Med Surg, ER"
-                className="w-full rounded-md border border-border bg-input px-3 py-2 text-sm"
-              />
-            </div>
-            <button
-              type="button"
-              className="ph5-button-primary"
-              onClick={handleCreateTemplate}
-              disabled={!templateName.trim() || isCreating}
-            >
-              {isCreating ? "Creating..." : "Create Template"}
-            </button>
+      ) : (
+        <div className="space-y-6">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              type="text"
+              placeholder="Search templates..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
           </div>
-        </Card>
-      </div>
+
+          {/* Templates Table */}
+          <Card>
+            <DataTable
+              columns={columns}
+              rows={filteredTemplates}
+              rowKey={(row) => row.id}
+              emptyState={
+                <div className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground mb-4">No requisition templates found.</p>
+                  <Button
+                    onClick={() => router.push("/organization/compliance/requisition-templates/create")}
+                    className="ph5-button-primary"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Your First Template
+                  </Button>
+                </div>
+              }
+            />
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

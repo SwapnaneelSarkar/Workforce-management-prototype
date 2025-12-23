@@ -287,7 +287,7 @@ function AddComplianceListItemForm() {
                       value={formData.uploadAttachment}
                       onChange={handleInputChange("uploadAttachment")}
                       className="w-full"
-                      placeholder="Attachment URL"
+                      placeholder="Add Attachment"
                     />
                   </div>
                 )}
