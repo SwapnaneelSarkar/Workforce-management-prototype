@@ -85,7 +85,7 @@ const initialDraft: JobDraft = {
 
 export default function CreateJobPage() {
   const router = useRouter()
-  const { actions, organization } = useDemoData()
+  const { actions, organization, vendor } = useDemoData()
   const [step, setStep] = useState<"type" | "template" | "details">("type")
   const [wizardStep, setWizardStep] = useState<"job_details" | "submission_settings" | "publish_settings" | "review_confirm">("job_details")
   const [selectedType, setSelectedType] = useState<RequisitionType | null>(null)
@@ -93,7 +93,17 @@ export default function CreateJobPage() {
   const [draft, setDraft] = useState<JobDraft>(initialDraft)
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
-  const [prefilled, setPrefilled] = useState(false)
+  const [submissionType, setSubmissionType] = useState<"Vendor & Candidate" | "Vendor Only" | "Candidate Only">("Vendor & Candidate")
+  const [vendorAccess, setVendorAccess] = useState<"All Vendors" | "Selected Vendors">("All Vendors")
+  const [allowedVendorIds, setAllowedVendorIds] = useState<string[]>([])
+  const [vendorNotes, setVendorNotes] = useState("")
+  const [enabledComplianceIds, setEnabledComplianceIds] = useState<string[]>([])
+
+  const [publishVisibility, setPublishVisibility] = useState<"Public" | "Internal" | "Private">("Public")
+  const [publishStartDate, setPublishStartDate] = useState("")
+  const [publishEndDate, setPublishEndDate] = useState("")
+  const [notifyVendorsOnPublish, setNotifyVendorsOnPublish] = useState(true)
+  const [notifyCandidatesOnPublish, setNotifyCandidatesOnPublish] = useState(false)
   const [occupationOptions, setOccupationOptions] = useState<Array<{ label: string; value: string }>>([
     { label: "Select occupation", value: "" },
   ])
@@ -182,6 +192,42 @@ export default function CreateJobPage() {
 
     return preview
   }, [organization.jobs])
+
+  const currentJob = useMemo(() => {
+    if (!jobId) return null
+    return organization.jobs.find((job) => job.id === jobId) ?? null
+  }, [jobId, organization.jobs])
+
+  useEffect(() => {
+    if (!currentJob) return
+
+    const jobSubmissionType = (currentJob as { submissionType?: "Vendor & Candidate" | "Vendor Only" | "Candidate Only" }).submissionType
+    const jobVendorAccess = (currentJob as { vendorAccess?: "All Vendors" | "Selected Vendors" }).vendorAccess
+    const jobAllowedVendorIds = (currentJob as { allowedVendorIds?: string[] }).allowedVendorIds
+    const jobVendorNotes = (currentJob as { vendorNotes?: string }).vendorNotes
+    const jobComplianceItems = (currentJob as { complianceItems?: Array<{ id: string }> }).complianceItems
+
+    if (jobSubmissionType) setSubmissionType(jobSubmissionType)
+    if (jobVendorAccess) setVendorAccess(jobVendorAccess)
+    if (Array.isArray(jobAllowedVendorIds)) setAllowedVendorIds(jobAllowedVendorIds)
+    if (typeof jobVendorNotes === "string") setVendorNotes(jobVendorNotes)
+
+    if (Array.isArray(jobComplianceItems) && jobComplianceItems.length) {
+      setEnabledComplianceIds(jobComplianceItems.map((item) => item.id))
+    }
+
+    const jobPublishVisibility = (currentJob as { publishVisibility?: "Public" | "Internal" | "Private" }).publishVisibility
+    const jobPublishStartDate = (currentJob as { publishStartDate?: string }).publishStartDate
+    const jobPublishEndDate = (currentJob as { publishEndDate?: string }).publishEndDate
+    const jobNotifyVendors = (currentJob as { notifyVendorsOnPublish?: boolean }).notifyVendorsOnPublish
+    const jobNotifyCandidates = (currentJob as { notifyCandidatesOnPublish?: boolean }).notifyCandidatesOnPublish
+
+    if (jobPublishVisibility) setPublishVisibility(jobPublishVisibility)
+    if (typeof jobPublishStartDate === "string") setPublishStartDate(jobPublishStartDate)
+    if (typeof jobPublishEndDate === "string") setPublishEndDate(jobPublishEndDate)
+    if (typeof jobNotifyVendors === "boolean") setNotifyVendorsOnPublish(jobNotifyVendors)
+    if (typeof jobNotifyCandidates === "boolean") setNotifyCandidatesOnPublish(jobNotifyCandidates)
+  }, [currentJob])
 
   // Get selected template - load directly from DB to ensure we get the right template
   const selectedTemplate = useMemo<SelectedTemplate | null>(() => {
@@ -405,7 +451,16 @@ export default function CreateJobPage() {
     setTemplateSearch("")
     setStep("type")
     setWizardStep("job_details")
-    setPrefilled(false)
+    setSubmissionType("Vendor & Candidate")
+    setVendorAccess("All Vendors")
+    setAllowedVendorIds([])
+    setVendorNotes("")
+    setEnabledComplianceIds([])
+    setPublishVisibility("Public")
+    setPublishStartDate("")
+    setPublishEndDate("")
+    setNotifyVendorsOnPublish(true)
+    setNotifyCandidatesOnPublish(false)
   }
 
   const handleSelectTemplate = async (templateId: string) => {
@@ -506,7 +561,25 @@ export default function CreateJobPage() {
       })
 
       setWizardStep("job_details")
-      setPrefilled(true)
+
+      const templateItems = selectedTemplate?.items
+      if (templateItems && templateItems.length) {
+        setEnabledComplianceIds(templateItems.map((item) => item.id))
+      } else {
+        setEnabledComplianceIds(complianceItems.map((item) => item.id))
+      }
+
+      actions.updateJob(jobId, {
+        submissionType: "Vendor & Candidate",
+        vendorAccess: "All Vendors",
+        allowedVendorIds: [],
+        vendorNotes: "",
+        publishVisibility: "Public",
+        publishStartDate: "",
+        publishEndDate: "",
+        notifyVendorsOnPublish: true,
+        notifyCandidatesOnPublish: false,
+      })
       setStep("details")
     } finally {
       setSaving(null)
@@ -520,7 +593,49 @@ export default function CreateJobPage() {
     }))
     setStep("template")
     setWizardStep("job_details")
-    setPrefilled(false)
+  }
+
+  const persistSubmissionSettings = (updates?: Partial<{
+    submissionType: "Vendor & Candidate" | "Vendor Only" | "Candidate Only"
+    vendorAccess: "All Vendors" | "Selected Vendors"
+    allowedVendorIds: string[]
+    vendorNotes: string
+    enabledComplianceIds: string[]
+  }>) => {
+    if (!jobId) return
+    const nextSubmissionType = updates?.submissionType ?? submissionType
+    const nextVendorAccess = updates?.vendorAccess ?? vendorAccess
+    const nextAllowedVendorIds = updates?.allowedVendorIds ?? allowedVendorIds
+    const nextVendorNotes = updates?.vendorNotes ?? vendorNotes
+    const nextEnabledComplianceIds = updates?.enabledComplianceIds ?? enabledComplianceIds
+
+    const templateItems = selectedTemplate?.items ?? []
+    const complianceItems = templateItems.filter((item) => nextEnabledComplianceIds.includes(item.id))
+
+    actions.updateJob(jobId, {
+      submissionType: nextSubmissionType,
+      vendorAccess: nextVendorAccess,
+      allowedVendorIds: nextVendorAccess === "Selected Vendors" ? nextAllowedVendorIds : [],
+      vendorNotes: nextVendorNotes,
+      complianceItems,
+    })
+  }
+
+  const persistPublishSettings = (updates?: Partial<{
+    publishVisibility: "Public" | "Internal" | "Private"
+    publishStartDate: string
+    publishEndDate: string
+    notifyVendorsOnPublish: boolean
+    notifyCandidatesOnPublish: boolean
+  }>) => {
+    if (!jobId) return
+    actions.updateJob(jobId, {
+      publishVisibility: updates?.publishVisibility ?? publishVisibility,
+      publishStartDate: updates?.publishStartDate ?? publishStartDate,
+      publishEndDate: updates?.publishEndDate ?? publishEndDate,
+      notifyVendorsOnPublish: updates?.notifyVendorsOnPublish ?? notifyVendorsOnPublish,
+      notifyCandidatesOnPublish: updates?.notifyCandidatesOnPublish ?? notifyCandidatesOnPublish,
+    })
   }
 
   const persistDraftToJob = (updates: Partial<JobDraft>) => {
@@ -1044,8 +1159,179 @@ export default function CreateJobPage() {
                 <>
                   <div className="space-y-1">
                     <div className="text-lg font-semibold text-foreground">Submission Settings</div>
-                    <div className="text-sm text-muted-foreground">Coming next.</div>
+                    <div className="text-sm text-muted-foreground">
+                      Configure workflow settings, vendor submission rules and acceptance criteria
+                    </div>
                   </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Workflow Settings</div>
+
+                      <div className="space-y-3">
+                        <div className="text-sm font-semibold text-foreground">Submission Type <span className="text-destructive">*</span></div>
+                        <div className="space-y-2">
+                          <label className="flex items-start gap-3 rounded-lg border border-border p-4">
+                            <input
+                              type="radio"
+                              name="submissionType"
+                              checked={submissionType === "Vendor & Candidate"}
+                              onChange={() => {
+                                setSubmissionType("Vendor & Candidate")
+                                persistSubmissionSettings({ submissionType: "Vendor & Candidate" })
+                              }}
+                            />
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">Vendor & Candidate</div>
+                              <div className="text-sm text-muted-foreground">Both vendors and candidates can submit applications for this job.</div>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-3 rounded-lg border border-border p-4">
+                            <input
+                              type="radio"
+                              name="submissionType"
+                              checked={submissionType === "Vendor Only"}
+                              onChange={() => {
+                                setSubmissionType("Vendor Only")
+                                persistSubmissionSettings({ submissionType: "Vendor Only" })
+                              }}
+                            />
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">Vendor Only</div>
+                              <div className="text-sm text-muted-foreground">Only vendors can submit candidates for this job.</div>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-3 rounded-lg border border-border p-4">
+                            <input
+                              type="radio"
+                              name="submissionType"
+                              checked={submissionType === "Candidate Only"}
+                              onChange={() => {
+                                setSubmissionType("Candidate Only")
+                                persistSubmissionSettings({ submissionType: "Candidate Only" })
+                              }}
+                            />
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">Candidate Only</div>
+                              <div className="text-sm text-muted-foreground">Only candidates can apply directly for this job.</div>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Vendor Submission Rules</div>
+
+                      <div className="space-y-3">
+                        <div className="text-sm font-semibold text-foreground">Vendor Access <span className="text-destructive">*</span></div>
+                        <div className="space-y-2">
+                          <label className="flex items-start gap-3 rounded-lg border border-border p-4">
+                            <input
+                              type="radio"
+                              name="vendorAccess"
+                              checked={vendorAccess === "All Vendors"}
+                              onChange={() => {
+                                setVendorAccess("All Vendors")
+                                setAllowedVendorIds([])
+                                persistSubmissionSettings({ vendorAccess: "All Vendors", allowedVendorIds: [] })
+                              }}
+                            />
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">All Vendors</div>
+                              <div className="text-sm text-muted-foreground">All active vendors in this organization can submit candidates.</div>
+                            </div>
+                          </label>
+
+                          <label className="flex items-start gap-3 rounded-lg border border-border p-4">
+                            <input
+                              type="radio"
+                              name="vendorAccess"
+                              checked={vendorAccess === "Selected Vendors"}
+                              onChange={() => {
+                                setVendorAccess("Selected Vendors")
+                                persistSubmissionSettings({ vendorAccess: "Selected Vendors" })
+                              }}
+                            />
+                            <div className="w-full">
+                              <div className="text-sm font-semibold text-foreground">Selected Vendors</div>
+                              <div className="text-sm text-muted-foreground">Choose specific vendors who can submit.</div>
+
+                              {vendorAccess === "Selected Vendors" ? (
+                                <div className="mt-3 grid gap-2">
+                                  {vendor.vendors.map((v) => {
+                                    const checked = allowedVendorIds.includes(v.id)
+                                    return (
+                                      <label key={v.id} className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          onChange={() => {
+                                            const next = checked ? allowedVendorIds.filter((id) => id !== v.id) : [...allowedVendorIds, v.id]
+                                            setAllowedVendorIds(next)
+                                            persistSubmissionSettings({ allowedVendorIds: next })
+                                          }}
+                                        />
+                                        <div className="flex-1">
+                                          <div className="text-sm font-medium text-foreground">{v.name}</div>
+                                          <div className="text-xs text-muted-foreground">{v.tier}</div>
+                                        </div>
+                                      </label>
+                                    )
+                                  })}
+                                </div>
+                              ) : null}
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-sm font-semibold text-foreground">Notes for Vendors (Optional)</div>
+                        <Textarea
+                          value={vendorNotes}
+                          onChange={(e) => {
+                            setVendorNotes(e.target.value)
+                            persistSubmissionSettings({ vendorNotes: e.target.value })
+                          }}
+                          rows={3}
+                          placeholder="Add any special instructions or requirements for vendors submitting candidates..."
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Acceptance Criteria</div>
+                      <div className="text-sm text-muted-foreground">
+                        The following criteria are inherited from the compliance template. All items are pre-checked. Uncheck items to exclude them for this job only.
+                      </div>
+
+                      <div className="grid gap-2">
+                        {(selectedTemplate?.items ?? []).map((item) => {
+                          const checked = enabledComplianceIds.includes(item.id)
+                          return (
+                            <label key={item.id} className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => {
+                                  const next = checked
+                                    ? enabledComplianceIds.filter((id) => id !== item.id)
+                                    : [...enabledComplianceIds, item.id]
+                                  setEnabledComplianceIds(next)
+                                  persistSubmissionSettings({ enabledComplianceIds: next })
+                                }}
+                              />
+                              <div className="text-sm text-foreground">{item.name}</div>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between pt-2">
                     <button type="button" className="ph5-button-secondary" onClick={() => setWizardStep("job_details")}>Back</button>
                     <button type="button" className="ph5-button-primary" onClick={() => setWizardStep("publish_settings")}>Next</button>
@@ -1057,8 +1343,94 @@ export default function CreateJobPage() {
                 <>
                   <div className="space-y-1">
                     <div className="text-lg font-semibold text-foreground">Publish Settings</div>
-                    <div className="text-sm text-muted-foreground">Coming next.</div>
+                    <div className="text-sm text-muted-foreground">
+                      Configure visibility, schedule, and notifications.
+                    </div>
                   </div>
+
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Visibility</div>
+                      <div className="space-y-2">
+                        {([
+                          { value: "Public", label: "Public", desc: "Visible to candidates and vendors." },
+                          { value: "Internal", label: "Internal", desc: "Visible internally only." },
+                          { value: "Private", label: "Private", desc: "Hidden until you publish." },
+                        ] as const).map((opt) => (
+                          <label key={opt.value} className="flex items-start gap-3 rounded-lg border border-border p-4">
+                            <input
+                              type="radio"
+                              name="publishVisibility"
+                              checked={publishVisibility === opt.value}
+                              onChange={() => {
+                                setPublishVisibility(opt.value)
+                                persistPublishSettings({ publishVisibility: opt.value })
+                              }}
+                            />
+                            <div>
+                              <div className="text-sm font-semibold text-foreground">{opt.label}</div>
+                              <div className="text-sm text-muted-foreground">{opt.desc}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Schedule</div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <Field label="Publish Start Date">
+                          <Input
+                            value={publishStartDate}
+                            onChange={(e) => {
+                              setPublishStartDate(e.target.value)
+                              persistPublishSettings({ publishStartDate: e.target.value })
+                            }}
+                            placeholder="dd/mm/yyyy"
+                          />
+                        </Field>
+                        <Field label="Publish End Date">
+                          <Input
+                            value={publishEndDate}
+                            onChange={(e) => {
+                              setPublishEndDate(e.target.value)
+                              persistPublishSettings({ publishEndDate: e.target.value })
+                            }}
+                            placeholder="dd/mm/yyyy"
+                          />
+                        </Field>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="text-sm font-semibold text-foreground">Notifications</div>
+                      <label className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={notifyVendorsOnPublish}
+                          onChange={() => {
+                            const next = !notifyVendorsOnPublish
+                            setNotifyVendorsOnPublish(next)
+                            persistPublishSettings({ notifyVendorsOnPublish: next })
+                          }}
+                        />
+                        <div className="text-sm text-foreground">Notify vendors when this job is published</div>
+                      </label>
+                      <label className="flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={notifyCandidatesOnPublish}
+                          onChange={() => {
+                            const next = !notifyCandidatesOnPublish
+                            setNotifyCandidatesOnPublish(next)
+                            persistPublishSettings({ notifyCandidatesOnPublish: next })
+                          }}
+                        />
+                        <div className="text-sm text-foreground">Notify candidates when this job is published</div>
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="flex justify-between pt-2">
                     <button type="button" className="ph5-button-secondary" onClick={() => setWizardStep("submission_settings")}>Back</button>
                     <button type="button" className="ph5-button-primary" onClick={() => setWizardStep("review_confirm")}>Next</button>
@@ -1070,8 +1442,33 @@ export default function CreateJobPage() {
                 <>
                   <div className="space-y-1">
                     <div className="text-lg font-semibold text-foreground">Review & Confirm</div>
-                    <div className="text-sm text-muted-foreground">Finalize and publish.</div>
+                    <div className="text-sm text-muted-foreground">Review all job settings before saving or publishing.</div>
                   </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="text-sm text-muted-foreground">Submission Type</div>
+                      <div className="text-sm font-semibold text-foreground">{submissionType}</div>
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="text-sm text-muted-foreground">Vendor Access</div>
+                      <div className="text-sm font-semibold text-foreground">{vendorAccess}</div>
+                      {vendorAccess === "Selected Vendors" ? (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {allowedVendorIds.length} vendor{allowedVendorIds.length === 1 ? "" : "s"} selected
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="text-sm text-muted-foreground">Publish Visibility</div>
+                      <div className="text-sm font-semibold text-foreground">{publishVisibility}</div>
+                    </div>
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="text-sm text-muted-foreground">Acceptance Criteria</div>
+                      <div className="text-sm font-semibold text-foreground">{enabledComplianceIds.length} item(s) enabled</div>
+                    </div>
+                  </div>
+
                   <div className="flex flex-wrap gap-3 pt-2">
                     <button type="button" className="ph5-button-secondary" onClick={() => setWizardStep("publish_settings")}>Back</button>
                     <button type="button" onClick={() => handleSubmit("Draft")} disabled={saving !== null} className="ph5-button-secondary">

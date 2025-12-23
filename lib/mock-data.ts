@@ -64,6 +64,15 @@ export type Job = {
   interviewRequired?: boolean // Whether interview is required
   interviewType?: string
   hiringManager?: string
+  submissionType?: "Vendor & Candidate" | "Vendor Only" | "Candidate Only"
+  vendorAccess?: "All Vendors" | "Selected Vendors"
+  allowedVendorIds?: string[]
+  vendorNotes?: string
+  publishVisibility?: "Public" | "Internal" | "Private"
+  publishStartDate?: string
+  publishEndDate?: string
+  notifyVendorsOnPublish?: boolean
+  notifyCandidatesOnPublish?: boolean
   jobOverview?: string // Job overview text
   responsibilities?: string[] // Job responsibilities
   jobRequirements?: string[] // Job requirements (different from compliance requirements)
