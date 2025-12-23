@@ -45,6 +45,13 @@ export type Job = {
   complianceItems?: ComplianceItem[] // Job-specific compliance requirements
   complianceTemplateId?: string // Legacy field for backward compatibility
   startDate?: string
+  endDate?: string
+  startTime?: string
+  endTime?: string
+  lengthWeeks?: number
+  shiftHours?: number
+  shiftsPerWeek?: number
+  hoursPerWeek?: number
   occupation?: string // Occupation code (e.g., "RN", "LPN", "CNA")
   specialty?: string // Specialty (e.g., "ICU", "Emergency")
   duration?: string // Contract duration (e.g., "13 weeks")
@@ -55,6 +62,8 @@ export type Job = {
   startDateFlexibility?: string // Start date flexibility (e.g., "Flexible")
   whoCanApply?: string // Who can apply (e.g., "External candidates", "Internal candidates")
   interviewRequired?: boolean // Whether interview is required
+  interviewType?: string
+  hiringManager?: string
   jobOverview?: string // Job overview text
   responsibilities?: string[] // Job responsibilities
   jobRequirements?: string[] // Job requirements (different from compliance requirements)
@@ -62,7 +71,7 @@ export type Job = {
 
 export type ApplicationTimelineEvent = {
   id: string
-  status: "Submitted" | "Qualified" | "Interview" | "Offer" | "Accepted" | "Rejected"
+  status: "Submitted" | "Under Review" | "Qualified" | "Interview" | "Interview Scheduled" | "Offer" | "Accepted" | "Rejected"
   date: string
   note?: string
 }
@@ -72,7 +81,7 @@ export type Application = {
   jobId: string
   candidateId: string
   candidateName: string
-  status: "Submitted" | "Qualified" | "Interview" | "Offer" | "Accepted" | "Rejected"
+  status: "Submitted" | "Under Review" | "Qualified" | "Interview" | "Interview Scheduled" | "Offer" | "Accepted" | "Rejected"
   submittedAt: string
   lastUpdated?: string
   documentStatus: "Complete" | "Missing" | "Pending"

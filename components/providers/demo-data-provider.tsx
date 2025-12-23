@@ -131,6 +131,7 @@ type DemoDataContextValue = {
       complianceTemplateId?: string
       startDate?: string
       occupation?: string
+      contractType?: string
     }) => Promise<Job>
     updateJob: (id: string, updates: Partial<Job>) => void
     updateApplicationStatus: (id: string, status: Application["status"]) => void
@@ -251,7 +252,28 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
           complianceItems: job.complianceItems,
           complianceTemplateId: job.complianceTemplateId,
           startDate: job.startDate,
+          endDate: (job as Job).endDate,
+          startTime: (job as Job).startTime,
+          endTime: (job as Job).endTime,
+          lengthWeeks: (job as Job).lengthWeeks,
+          shiftHours: (job as Job).shiftHours,
+          shiftsPerWeek: (job as Job).shiftsPerWeek,
+          hoursPerWeek: (job as Job).hoursPerWeek,
           occupation: job.occupation,
+          specialty: (job as Job).specialty,
+          duration: (job as Job).duration,
+          numberOfOpenPositions: (job as Job).numberOfOpenPositions,
+          interviewRequired: (job as Job).interviewRequired,
+          interviewType: (job as Job).interviewType,
+          hiringManager: (job as Job).hiringManager,
+          contractType: job.contractType,
+          expectedWeeklyHours: (job as Job).expectedWeeklyHours,
+          shiftPattern: (job as Job).shiftPattern,
+          startDateFlexibility: (job as Job).startDateFlexibility,
+          whoCanApply: (job as Job).whoCanApply,
+          jobOverview: (job as Job).jobOverview,
+          responsibilities: (job as Job).responsibilities,
+          jobRequirements: (job as Job).jobRequirements,
         }))
         setJobsState(jobs)
       } catch (error) {
@@ -643,6 +665,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       complianceTemplateId?: string
       startDate?: string
       occupation?: string
+      contractType?: string
     }) => {
       await simulateDelay(400, 900)
       
@@ -667,6 +690,7 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         complianceTemplateId: payload.complianceTemplateId,
         startDate: payload.startDate ?? new Date().toISOString().slice(0, 10),
         occupation: payload.occupation,
+        contractType: payload.contractType,
       })
 
       // Convert to Job format and update state
@@ -686,7 +710,28 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         complianceItems: dbJob.complianceItems,
         complianceTemplateId: dbJob.complianceTemplateId,
         startDate: dbJob.startDate,
+        endDate: (dbJob as Job).endDate,
+        startTime: (dbJob as Job).startTime,
+        endTime: (dbJob as Job).endTime,
+        lengthWeeks: (dbJob as Job).lengthWeeks,
+        shiftHours: (dbJob as Job).shiftHours,
+        shiftsPerWeek: (dbJob as Job).shiftsPerWeek,
+        hoursPerWeek: (dbJob as Job).hoursPerWeek,
         occupation: dbJob.occupation,
+        specialty: (dbJob as Job).specialty,
+        duration: (dbJob as Job).duration,
+        numberOfOpenPositions: (dbJob as Job).numberOfOpenPositions,
+        interviewRequired: (dbJob as Job).interviewRequired,
+        interviewType: (dbJob as Job).interviewType,
+        hiringManager: (dbJob as Job).hiringManager,
+        contractType: dbJob.contractType,
+        expectedWeeklyHours: (dbJob as Job).expectedWeeklyHours,
+        shiftPattern: (dbJob as Job).shiftPattern,
+        startDateFlexibility: (dbJob as Job).startDateFlexibility,
+        whoCanApply: (dbJob as Job).whoCanApply,
+        jobOverview: (dbJob as Job).jobOverview,
+        responsibilities: (dbJob as Job).responsibilities,
+        jobRequirements: (dbJob as Job).jobRequirements,
       }
       
       // Refresh jobs from DB to include the new job
@@ -709,7 +754,28 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
             status: j.status,
             complianceTemplateId: j.complianceTemplateId,
             startDate: j.startDate,
+            endDate: (j as Job).endDate,
+            startTime: (j as Job).startTime,
+            endTime: (j as Job).endTime,
+            lengthWeeks: (j as Job).lengthWeeks,
+            shiftHours: (j as Job).shiftHours,
+            shiftsPerWeek: (j as Job).shiftsPerWeek,
+            hoursPerWeek: (j as Job).hoursPerWeek,
             occupation: j.occupation,
+            specialty: (j as Job).specialty,
+            duration: (j as Job).duration,
+            numberOfOpenPositions: (j as Job).numberOfOpenPositions,
+            interviewRequired: (j as Job).interviewRequired,
+            interviewType: (j as Job).interviewType,
+            hiringManager: (j as Job).hiringManager,
+            contractType: j.contractType,
+            expectedWeeklyHours: (j as Job).expectedWeeklyHours,
+            shiftPattern: (j as Job).shiftPattern,
+            startDateFlexibility: (j as Job).startDateFlexibility,
+            whoCanApply: (j as Job).whoCanApply,
+            jobOverview: (j as Job).jobOverview,
+            responsibilities: (j as Job).responsibilities,
+            jobRequirements: (j as Job).jobRequirements,
           }))
           setJobsState(updatedJobs)
         } catch (error) {
@@ -746,7 +812,28 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
           status: job.status,
           complianceTemplateId: job.complianceTemplateId,
           startDate: job.startDate,
+          endDate: (job as Job).endDate,
+          startTime: (job as Job).startTime,
+          endTime: (job as Job).endTime,
+          lengthWeeks: (job as Job).lengthWeeks,
+          shiftHours: (job as Job).shiftHours,
+          shiftsPerWeek: (job as Job).shiftsPerWeek,
+          hoursPerWeek: (job as Job).hoursPerWeek,
           occupation: job.occupation,
+          specialty: (job as Job).specialty,
+          duration: (job as Job).duration,
+          numberOfOpenPositions: (job as Job).numberOfOpenPositions,
+          interviewRequired: (job as Job).interviewRequired,
+          interviewType: (job as Job).interviewType,
+          hiringManager: (job as Job).hiringManager,
+          contractType: job.contractType,
+          expectedWeeklyHours: (job as Job).expectedWeeklyHours,
+          shiftPattern: (job as Job).shiftPattern,
+          startDateFlexibility: (job as Job).startDateFlexibility,
+          whoCanApply: (job as Job).whoCanApply,
+          jobOverview: (job as Job).jobOverview,
+          responsibilities: (job as Job).responsibilities,
+          jobRequirements: (job as Job).jobRequirements,
         }))
         setJobsState(jobs)
         return
@@ -1166,7 +1253,28 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
         status: job.status,
         complianceTemplateId: job.complianceTemplateId,
         startDate: job.startDate,
+        endDate: (job as Job).endDate,
+        startTime: (job as Job).startTime,
+        endTime: (job as Job).endTime,
+        lengthWeeks: (job as Job).lengthWeeks,
+        shiftHours: (job as Job).shiftHours,
+        shiftsPerWeek: (job as Job).shiftsPerWeek,
+        hoursPerWeek: (job as Job).hoursPerWeek,
         occupation: job.occupation,
+        specialty: (job as Job).specialty,
+        duration: (job as Job).duration,
+        numberOfOpenPositions: (job as Job).numberOfOpenPositions,
+        interviewRequired: (job as Job).interviewRequired,
+        interviewType: (job as Job).interviewType,
+        hiringManager: (job as Job).hiringManager,
+        contractType: job.contractType,
+        expectedWeeklyHours: (job as Job).expectedWeeklyHours,
+        shiftPattern: (job as Job).shiftPattern,
+        startDateFlexibility: (job as Job).startDateFlexibility,
+        whoCanApply: (job as Job).whoCanApply,
+        jobOverview: (job as Job).jobOverview,
+        responsibilities: (job as Job).responsibilities,
+        jobRequirements: (job as Job).jobRequirements,
       }))
     } catch (error) {
       console.warn("Failed to get organization jobs", error)

@@ -88,38 +88,6 @@ export const organizationNavLinks: NavLink[] = [
     href: "/organization/command-center",
     label: "Command Center",
     icon: Command,
-    children: [
-      {
-        href: "/organization/hiring-funnel",
-        label: "Hiring Funnel Management",
-        icon: Filter,
-        subtitle: "Yet to be updated",
-        disabled: true,
-      },
-      {
-        href: "/organization/operations",
-        label: "Operations Management",
-        icon: Cog,
-        subtitle: "Yet to be updated",
-        disabled: true,
-      },
-      {
-        href: "/organization/active-workforce",
-        label: "Active Workforce",
-        icon: Users,
-        children: [
-          {
-            href: "/organization/compliance/requisition-templates",
-            label: "Requisitions",
-            icon: ClipboardCheck,
-            children: [
-              { href: "/organization/workforce/placements", label: "Placements", icon: UserCheck },
-              { href: "/organization/shift", label: "Shift", icon: Calendar, subtitle: "Yet to be updated", disabled: true },
-            ],
-          },
-        ],
-      },
-    ],
   },
   {
     href: "/organization/compliance/requisition-templates",

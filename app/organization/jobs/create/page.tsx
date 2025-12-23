@@ -12,50 +12,88 @@ import type { ComplianceItem } from "@/lib/compliance-templates-store"
 type JobDraft = {
   title: string
   location: string
-  payRangeMin: string
-  payRangeMax: string
   description: string
   requisitionTemplateId: string
   occupation: string
+  specialty: string
   department: string
   unit: string
   shift: string
   hours: string
+  startDate: string
+  endDate: string
+  lengthWeeks: string
+  startTime: string
+  endTime: string
+  shiftHours: string
+  shiftsPerWeek: string
+  billRate: string
+  numberOfOpenPositions: string
+  interviewType: string
+  hiringManager: string
+}
+
+type RequisitionType = "Long-term Order/Assignment" | "Fixed duration contract" | "Permanent Job" | "Per Diem Job"
+
+type SelectedTemplate = {
+  id: string
+  name: string
+  department?: string
+  occupation?: string
+  items: ComplianceItem[]
 }
 
 type FieldErrors = {
   title?: string
   location?: string
-  payRangeMin?: string
-  payRangeMax?: string
+  billRate?: string
   requisitionTemplateId?: string
   occupation?: string
+  specialty?: string
   department?: string
   unit?: string
   shift?: string
   hours?: string
+  startDate?: string
+  lengthWeeks?: string
+  shiftsPerWeek?: string
 }
 
 const initialDraft: JobDraft = {
   title: "",
   location: "",
-  payRangeMin: "",
-  payRangeMax: "",
   description: "",
   requisitionTemplateId: "",
   occupation: "",
+  specialty: "",
   department: "",
   unit: "",
   shift: "",
   hours: "",
+  startDate: "",
+  endDate: "",
+  lengthWeeks: "",
+  startTime: "",
+  endTime: "",
+  shiftHours: "",
+  shiftsPerWeek: "",
+  billRate: "",
+  numberOfOpenPositions: "",
+  interviewType: "Client Interview",
+  hiringManager: "Admin",
 }
 
 export default function CreateJobPage() {
   const router = useRouter()
   const { actions, organization } = useDemoData()
+  const [step, setStep] = useState<"type" | "template" | "details">("type")
+  const [wizardStep, setWizardStep] = useState<"job_details" | "submission_settings" | "publish_settings" | "review_confirm">("job_details")
+  const [selectedType, setSelectedType] = useState<RequisitionType | null>(null)
+  const [jobId, setJobId] = useState<string | null>(null)
   const [draft, setDraft] = useState<JobDraft>(initialDraft)
   const [saving, setSaving] = useState<"draft" | "publish" | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
+  const [prefilled, setPrefilled] = useState(false)
   const [occupationOptions, setOccupationOptions] = useState<Array<{ label: string; value: string }>>([
     { label: "Select occupation", value: "" },
   ])
@@ -63,46 +101,109 @@ export default function CreateJobPage() {
     id: string
     name: string
     description?: string
+    department?: string
+    occupation?: string
     itemCount: number
-    type: 'legacy' | 'requisition'
+    type: 'requisition'
   }>>([])
 
+  const [templateSearch, setTemplateSearch] = useState("")
+
+  const occupationLabelByCode = useMemo(() => {
+    const map = new Map<string, string>()
+    occupationOptions.forEach((opt) => {
+      if (!opt.value) return
+      map.set(opt.value, opt.label)
+    })
+    return map
+  }, [occupationOptions])
+
+  const templatePreviewById = useMemo(() => {
+    const jobs = organization.jobs
+    const preview: Record<
+      string,
+      {
+        title?: string
+        occupation?: string
+        specialty?: string
+        location?: string
+        department?: string
+        unit?: string
+        shift?: string
+        duration?: string
+        billRate?: string
+        description?: string
+        startDate?: string
+        endDate?: string
+        startTime?: string
+        endTime?: string
+        lengthWeeks?: number
+        shiftHours?: number
+        shiftsPerWeek?: number
+        numberOfOpenPositions?: number
+        interviewType?: string
+        hiringManager?: string
+        _ts?: string
+      }
+    > = {}
+
+    jobs.forEach((job) => {
+      const templateId = (job as { complianceTemplateId?: string }).complianceTemplateId
+      if (!templateId) return
+      const candidateTimestamp = (job as { startDate?: string }).startDate || new Date().toISOString()
+      const existingTimestamp = preview[templateId]?._ts || ""
+
+      if (!existingTimestamp || new Date(candidateTimestamp).getTime() >= new Date(existingTimestamp).getTime()) {
+        preview[templateId] = {
+          title: job.title,
+          occupation: job.occupation,
+          specialty: (job as { specialty?: string }).specialty,
+          location: job.location,
+          department: job.department,
+          unit: job.unit,
+          shift: job.shift,
+          duration: (job as { duration?: string }).duration,
+          billRate: job.billRate,
+          description: job.description,
+          startDate: (job as { startDate?: string }).startDate,
+          endDate: (job as { endDate?: string }).endDate,
+          startTime: (job as { startTime?: string }).startTime,
+          endTime: (job as { endTime?: string }).endTime,
+          lengthWeeks: (job as { lengthWeeks?: number }).lengthWeeks,
+          shiftHours: (job as { shiftHours?: number }).shiftHours,
+          shiftsPerWeek: (job as { shiftsPerWeek?: number }).shiftsPerWeek,
+          numberOfOpenPositions: (job as { numberOfOpenPositions?: number }).numberOfOpenPositions,
+          interviewType: (job as { interviewType?: string }).interviewType,
+          hiringManager: (job as { hiringManager?: string }).hiringManager,
+          _ts: candidateTimestamp,
+        }
+      }
+    })
+
+    return preview
+  }, [organization.jobs])
+
   // Get selected template - load directly from DB to ensure we get the right template
-  // Check both legacy templates and requisition templates
-  const selectedTemplate = useMemo(() => {
+  const selectedTemplate = useMemo<SelectedTemplate | null>(() => {
     if (!draft.requisitionTemplateId) return null
     
-    // Try to get from DB first (check both legacy and requisition templates)
+    // Try to get from org LocalDB requisition templates only
     if (typeof window !== "undefined") {
       try {
-        const { 
-          getCurrentOrganization, 
+        const {
+          getCurrentOrganization,
           getRequisitionTemplatesByOrganization,
-          getLegacyTemplatesByOrganization 
-        } = require("@/lib/organization-local-db")
+        } = require("@/lib/organization-local-db") as typeof import("@/lib/organization-local-db")
         const currentOrgId = getCurrentOrganization() || "admin"
         
-        // Check legacy templates first
-        const legacyTemplates = getLegacyTemplatesByOrganization(currentOrgId)
-        const legacyTemplate = legacyTemplates.find((t) => t.id === draft.requisitionTemplateId)
-        if (legacyTemplate && legacyTemplate.organizationId === currentOrgId) {
-          return {
-            id: legacyTemplate.id,
-            name: legacyTemplate.name,
-            department: legacyTemplate.description,
-            occupation: undefined,
-            items: legacyTemplate.items,
-          }
-        }
-        
         // Check requisition templates - convert listItemIds to ComplianceItem[]
-        const { getComplianceListItemById } = require("@/lib/admin-local-db")
+        const { getComplianceListItemById } = require("@/lib/admin-local-db") as typeof import("@/lib/admin-local-db")
         const reqTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
-        const reqTemplate = reqTemplates.find((t) => t.id === draft.requisitionTemplateId)
+        const reqTemplate = reqTemplates.find((t: { id: string }) => t.id === draft.requisitionTemplateId)
         if (reqTemplate && reqTemplate.organizationId === currentOrgId) {
           // Convert listItemIds to ComplianceItem[] for job creation
           const complianceItems = reqTemplate.listItemIds
-            .map((listItemId) => {
+            .map((listItemId: string) => {
               try {
                 const listItem = getComplianceListItemById(listItemId)
                 if (!listItem || !listItem.isActive) return null
@@ -152,78 +253,8 @@ export default function CreateJobPage() {
         console.warn("Failed to load template from DB", error)
       }
     }
-    
-    // Fallback: try compliance templates store
-    try {
-      const { useComplianceTemplatesStore } = require("@/lib/compliance-templates-store")
-      const legacyTemplate = useComplianceTemplatesStore.getState().templates.find(
-        (t) => t.id === draft.requisitionTemplateId
-      )
-      if (legacyTemplate) {
-        return {
-          id: legacyTemplate.id,
-          name: legacyTemplate.name,
-          department: legacyTemplate.description,
-          occupation: undefined,
-          items: legacyTemplate.items,
-        }
-      }
-    } catch (error) {
-      // Continue to next fallback
-    }
-    
-    // Fallback to provider templates - convert listItemIds to ComplianceItem[]
-    const reqTemplate = organization.requisitionTemplates.find((t) => t.id === draft.requisitionTemplateId)
-    if (reqTemplate && typeof window !== "undefined") {
-      try {
-        const { getComplianceListItemById } = require("@/lib/admin-local-db")
-        const complianceItems = reqTemplate.listItemIds
-          .map((listItemId) => {
-            try {
-              const listItem = getComplianceListItemById(listItemId)
-              if (!listItem || !listItem.isActive) return null
-              
-              let type: "License" | "Certification" | "Background" | "Training" | "Other" = "Other"
-              if (listItem.category === "Licenses") {
-                type = "License"
-              } else if (listItem.category === "Certifications") {
-                type = "Certification"
-              } else if (listItem.category === "Background and Identification") {
-                type = "Background"
-              } else if (listItem.category === "Education and Assessments") {
-                type = "Training"
-              }
-              
-              let expirationType: "None" | "Fixed Date" | "Recurring" = "None"
-              if (listItem.expirationType === "Expiration Date") {
-                expirationType = "Fixed Date"
-              } else if (listItem.expirationType === "Expiration Rule") {
-                expirationType = "Recurring"
-              }
-              
-              return {
-                id: listItem.id,
-                name: listItem.name,
-                type,
-                expirationType,
-                requiredAtSubmission: false,
-              }
-            } catch (error) {
-              return null
-            }
-          })
-          .filter((item): item is NonNullable<typeof item> => item !== null)
-        
-        return {
-          ...reqTemplate,
-          items: complianceItems,
-        }
-      } catch (error) {
-        console.warn("Failed to convert template items", error)
-      }
-    }
-    return reqTemplate || null
-  }, [draft.requisitionTemplateId, organization.requisitionTemplates])
+    return null
+  }, [draft.requisitionTemplateId])
 
   // Load available templates for the current organization
   useEffect(() => {
@@ -231,26 +262,14 @@ export default function CreateJobPage() {
     
     const loadTemplates = () => {
       try {
-        const { 
-          getCurrentOrganization, 
+        const {
+          getCurrentOrganization,
           getRequisitionTemplatesByOrganization,
-          getLegacyTemplatesByOrganization,
-          setCurrentOrganization 
-        } = require("@/lib/organization-local-db")
-        
-        let currentOrgId = getCurrentOrganization()
-        
-        // If no organization is set, try to get from provider or default to admin
-        if (!currentOrgId) {
-          // Try to get from demo data provider
-          if (organization && (organization as any).id) {
-            currentOrgId = (organization as any).id
-            setCurrentOrganization(currentOrgId)
-          } else {
-            currentOrgId = "admin"
-            setCurrentOrganization("admin")
-          }
-        }
+          setCurrentOrganization,
+        } = require("@/lib/organization-local-db") as typeof import("@/lib/organization-local-db")
+
+        const currentOrgId = getCurrentOrganization() || (organization && (organization as any).id) || "admin"
+        setCurrentOrganization(currentOrgId)
         
         console.log("[Job Create] Loading templates for organization:", currentOrgId)
         
@@ -258,10 +277,6 @@ export default function CreateJobPage() {
         if (currentOrgId && currentOrgId !== "admin") {
           setCurrentOrganization(currentOrgId)
         }
-        
-        // Get legacy templates (from /organization/compliance/templates page)
-        const legacyTemplates = getLegacyTemplatesByOrganization(currentOrgId)
-        console.log("[Job Create] Legacy templates:", legacyTemplates.length)
         
         // Get requisition templates (from /organization/compliance/requisition-templates page)
         const requisitionTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
@@ -272,39 +287,20 @@ export default function CreateJobPage() {
           itemCount: t.listItemIds.length
         })))
         
-        // Combine both types of templates
-        const templates = [
-          ...legacyTemplates.map(t => ({
-            id: t.id,
-            name: t.name,
-            description: t.description,
-            itemCount: t.items.length,
-            type: 'legacy' as const,
-          })),
-          ...requisitionTemplates.map(t => ({
+        const orgTemplates = requisitionTemplates
+          .filter((t: { organizationId: string }) => {
+            if (currentOrgId !== "admin" && t.organizationId === "admin") return false
+            return t.organizationId === currentOrgId
+          })
+          .map((t) => ({
             id: t.id,
             name: t.name,
             description: t.department,
+            department: t.department,
+            occupation: t.occupation,
             itemCount: t.listItemIds.length,
             type: 'requisition' as const,
           }))
-        ]
-        
-        // Filter to only show organization templates (not admin templates if org is not admin)
-        const orgTemplates = templates.filter((template) => {
-          const legacyTemplate = legacyTemplates.find(lt => lt.id === template.id)
-          const reqTemplate = requisitionTemplates.find(rt => rt.id === template.id)
-          const originalTemplate = legacyTemplate || reqTemplate
-          
-          if (!originalTemplate) return false
-          
-          // If current org is not "admin", never show admin templates
-          if (currentOrgId !== "admin" && originalTemplate.organizationId === "admin") {
-            return false
-          }
-          // Only show templates that match the current organization
-          return originalTemplate.organizationId === currentOrgId
-        })
         
         console.log("[Job Create] Filtered templates for dropdown:", orgTemplates.length)
         setAvailableTemplates(orgTemplates)
@@ -360,10 +356,217 @@ export default function CreateJobPage() {
     }
   }, [])
 
+  const filteredTemplates = useMemo(() => {
+    const query = templateSearch.trim().toLowerCase()
+    if (!query) return availableTemplates
+    return availableTemplates.filter((t) => {
+      const hay = `${t.name} ${t.description ?? ""}`.toLowerCase()
+      return hay.includes(query)
+    })
+  }, [availableTemplates, templateSearch])
+
+  const templateUsage = useMemo(() => {
+    const usage: Record<string, { count: number; lastUsed?: string }> = {}
+    organization.jobs.forEach((job) => {
+      const templateId = (job as { complianceTemplateId?: string }).complianceTemplateId
+      if (!templateId) return
+      usage[templateId] ??= { count: 0, lastUsed: undefined }
+      usage[templateId].count += 1
+      const candidateTimestamp = (job as { startDate?: string }).startDate || new Date().toISOString()
+      if (!usage[templateId].lastUsed || new Date(candidateTimestamp).getTime() > new Date(usage[templateId].lastUsed!).getTime()) {
+        usage[templateId].lastUsed = candidateTimestamp
+      }
+    })
+    return usage
+  }, [organization.jobs])
+
+  const formatLastUsed = (iso?: string) => {
+    if (!iso) return "Never used"
+    const diffMs = Date.now() - new Date(iso).getTime()
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)))
+    if (diffDays === 0) return "Last used today"
+    if (diffDays === 1) return "Last used 1 day ago"
+    return `Last used ${diffDays} days ago`
+  }
+
+  const handleBackToTypeSelection = () => {
+    if (typeof window !== "undefined" && jobId) {
+      try {
+        const { deleteJob } = require("@/lib/organization-local-db") as typeof import("@/lib/organization-local-db")
+        deleteJob(jobId)
+      } catch (error) {
+        // ignore
+      }
+    }
+    setErrors({})
+    setDraft(initialDraft)
+    setJobId(null)
+    setSelectedType(null)
+    setTemplateSearch("")
+    setStep("type")
+    setWizardStep("job_details")
+    setPrefilled(false)
+  }
+
+  const handleSelectTemplate = async (templateId: string) => {
+    if (!jobId) {
+      return
+    }
+    setSaving("draft")
+    try {
+      const {
+        getCurrentOrganization,
+        getRequisitionTemplatesByOrganization,
+      } = require("@/lib/organization-local-db") as typeof import("@/lib/organization-local-db")
+      const currentOrgId = getCurrentOrganization() || "admin"
+      const template = getRequisitionTemplatesByOrganization(currentOrgId).find((t) => t.id === templateId)
+      const occupation = template?.occupation ?? ""
+      const department = template?.department ?? ""
+
+      const complianceItems: ComplianceItem[] = []
+      if (template) {
+        try {
+          const { getComplianceListItemById } = require("@/lib/admin-local-db") as typeof import("@/lib/admin-local-db")
+          template.listItemIds.forEach((listItemId) => {
+            try {
+              const listItem = getComplianceListItemById(listItemId)
+              if (!listItem || !listItem.isActive) return
+
+              let type: "License" | "Certification" | "Background" | "Training" | "Other" = "Other"
+              if (listItem.category === "Licenses") {
+                type = "License"
+              } else if (listItem.category === "Certifications") {
+                type = "Certification"
+              } else if (listItem.category === "Background and Identification") {
+                type = "Background"
+              } else if (listItem.category === "Education and Assessments") {
+                type = "Training"
+              }
+
+              let expirationType: "None" | "Fixed Date" | "Recurring" = "None"
+              if (listItem.expirationType === "Expiration Date") {
+                expirationType = "Fixed Date"
+              } else if (listItem.expirationType === "Expiration Rule") {
+                expirationType = "Recurring"
+              }
+
+              complianceItems.push({
+                id: listItem.id,
+                name: listItem.name,
+                type,
+                expirationType,
+                requiredAtSubmission: false,
+              })
+            } catch (error) {
+              // ignore
+            }
+          })
+        } catch (error) {
+          // ignore
+        }
+      }
+
+      actions.updateJob(jobId, {
+        complianceTemplateId: templateId,
+        complianceItems,
+        contractType: selectedType ?? undefined,
+      })
+
+      const preview = templatePreviewById[templateId]
+      setDraft((prev) => {
+        const next = {
+          ...prev,
+          requisitionTemplateId: templateId,
+          occupation: prev.occupation || occupation,
+          department: prev.department || department,
+        }
+        if (preview) {
+          return {
+            ...next,
+            title: next.title || preview.title || next.title,
+            location: next.location || preview.location || next.location,
+            unit: next.unit || preview.unit || next.unit,
+            shift: next.shift || preview.shift || next.shift,
+            billRate: next.billRate || preview.billRate || next.billRate,
+            description: next.description || preview.description || next.description,
+            specialty: next.specialty || preview.specialty || next.specialty,
+            startDate: next.startDate || preview.startDate || next.startDate,
+            endDate: next.endDate || preview.endDate || next.endDate,
+            startTime: next.startTime || preview.startTime || next.startTime,
+            endTime: next.endTime || preview.endTime || next.endTime,
+            lengthWeeks: next.lengthWeeks || (preview.lengthWeeks ? String(preview.lengthWeeks) : next.lengthWeeks),
+            shiftHours: next.shiftHours || (preview.shiftHours ? String(preview.shiftHours) : next.shiftHours),
+            shiftsPerWeek: next.shiftsPerWeek || (preview.shiftsPerWeek ? String(preview.shiftsPerWeek) : next.shiftsPerWeek),
+            numberOfOpenPositions: next.numberOfOpenPositions || (preview.numberOfOpenPositions ? String(preview.numberOfOpenPositions) : next.numberOfOpenPositions),
+            interviewType: next.interviewType || preview.interviewType || next.interviewType,
+            hiringManager: next.hiringManager || preview.hiringManager || next.hiringManager,
+          }
+        }
+        return next
+      })
+
+      setWizardStep("job_details")
+      setPrefilled(true)
+      setStep("details")
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const handleBackToTemplateSelection = () => {
+    setErrors((prev) => ({
+      ...prev,
+      requisitionTemplateId: undefined,
+    }))
+    setStep("template")
+    setWizardStep("job_details")
+    setPrefilled(false)
+  }
+
+  const persistDraftToJob = (updates: Partial<JobDraft>) => {
+    if (!jobId) return
+    const hoursPerWeek = (() => {
+      const shiftsPerWeek = parseFloat((updates.shiftsPerWeek ?? draft.shiftsPerWeek) || "")
+      const shiftHours = parseFloat((updates.shiftHours ?? draft.shiftHours) || "")
+      if (Number.isFinite(shiftsPerWeek) && Number.isFinite(shiftHours)) {
+        return shiftsPerWeek * shiftHours
+      }
+      return undefined
+    })()
+
+    actions.updateJob(jobId, {
+      title: (updates.title ?? draft.title) || "New Job Posting",
+      location: updates.location ?? draft.location,
+      department: updates.department ?? draft.department,
+      unit: updates.unit ?? draft.unit,
+      shift: updates.shift ?? draft.shift,
+      hours: updates.hours ?? draft.hours,
+      billRate: updates.billRate ?? draft.billRate,
+      description: updates.description ?? draft.description,
+      occupation: updates.occupation ?? draft.occupation,
+      specialty: updates.specialty ?? draft.specialty,
+      contractType: selectedType ?? undefined,
+      complianceTemplateId: draft.requisitionTemplateId,
+      startDate: updates.startDate ?? draft.startDate,
+      endDate: updates.endDate ?? draft.endDate,
+      startTime: updates.startTime ?? draft.startTime,
+      endTime: updates.endTime ?? draft.endTime,
+      lengthWeeks: (updates.lengthWeeks ?? draft.lengthWeeks) ? parseInt((updates.lengthWeeks ?? draft.lengthWeeks) as string, 10) : undefined,
+      shiftHours: (updates.shiftHours ?? draft.shiftHours) ? parseFloat((updates.shiftHours ?? draft.shiftHours) as string) : undefined,
+      shiftsPerWeek: (updates.shiftsPerWeek ?? draft.shiftsPerWeek) ? parseFloat((updates.shiftsPerWeek ?? draft.shiftsPerWeek) as string) : undefined,
+      hoursPerWeek,
+      numberOfOpenPositions: (updates.numberOfOpenPositions ?? draft.numberOfOpenPositions) ? parseInt((updates.numberOfOpenPositions ?? draft.numberOfOpenPositions) as string, 10) : undefined,
+      interviewType: updates.interviewType ?? draft.interviewType,
+      interviewRequired: (updates.interviewType ?? draft.interviewType) ? true : undefined,
+      hiringManager: updates.hiringManager ?? draft.hiringManager,
+    })
+  }
+
   const handleChange =
     (field: keyof JobDraft) =>
     (value: string) => {
       setDraft((prev) => ({ ...prev, [field]: value }))
+      persistDraftToJob({ [field]: value } as Partial<JobDraft>)
       // Clear error for this field when user starts typing
       if (errors[field as keyof FieldErrors]) {
         setErrors((prev) => ({ ...prev, [field]: undefined }))
@@ -379,15 +582,8 @@ export default function CreateJobPage() {
     if (!draft.location.trim()) {
       newErrors.location = "Location is required"
     }
-    if (!draft.payRangeMin.trim()) {
-      newErrors.payRangeMin = "Minimum pay is required"
-    } else if (parseFloat(draft.payRangeMin) < 0) {
-      newErrors.payRangeMin = "Amount cannot be negative"
-    }
-    if (!draft.payRangeMax.trim()) {
-      newErrors.payRangeMax = "Maximum pay is required"
-    } else if (parseFloat(draft.payRangeMax) < 0) {
-      newErrors.payRangeMax = "Amount cannot be negative"
+    if (!draft.billRate.trim()) {
+      newErrors.billRate = "Bill rate is required"
     }
 
     if (!draft.requisitionTemplateId) {
@@ -395,6 +591,22 @@ export default function CreateJobPage() {
     }
     if (!draft.occupation.trim()) {
       newErrors.occupation = "Occupation is required"
+    }
+
+    if (!draft.specialty.trim()) {
+      newErrors.specialty = "Specialty is required"
+    }
+
+    if (!draft.startDate.trim()) {
+      newErrors.startDate = "Start date is required"
+    }
+
+    if (!draft.lengthWeeks.trim()) {
+      newErrors.lengthWeeks = "Length (weeks) is required"
+    }
+
+    if (!draft.shiftsPerWeek.trim()) {
+      newErrors.shiftsPerWeek = "Shifts per week is required"
     }
 
     setErrors(newErrors)
@@ -408,336 +620,474 @@ export default function CreateJobPage() {
 
     setSaving(nextStatus === "Draft" ? "draft" : "publish")
 
-    const payRange = `$${draft.payRangeMin}–$${draft.payRangeMax}/hr`
-
-    await actions.createJob({
-      title: draft.title.trim(),
-      location: draft.location.trim(),
-      department: draft.department.trim() || "N/A",
-      unit: draft.unit.trim() || "N/A",
-      shift: draft.shift.trim() || "N/A",
-      hours: draft.hours.trim() || "N/A",
-      billRate: payRange,
-      description: draft.description.trim() || "To be provided.",
-      requirements: [],
-      tags: [],
-      status: nextStatus === "Draft" ? "Draft" : "Open",
-      complianceTemplateId: draft.requisitionTemplateId,
-      complianceItems: selectedTemplate?.items || [],
-      occupation: draft.occupation.trim(),
-    })
+    if (jobId) {
+      actions.updateJob(jobId, {
+        title: draft.title.trim(),
+        location: draft.location.trim(),
+        department: draft.department.trim() || "N/A",
+        unit: draft.unit.trim() || "N/A",
+        shift: draft.shift.trim() || "N/A",
+        hours: draft.hours.trim() || "N/A",
+        billRate: draft.billRate.trim() || "N/A",
+        description: draft.description.trim() || "To be provided.",
+        requirements: [],
+        tags: [],
+        status: nextStatus === "Draft" ? "Draft" : "Open",
+        complianceTemplateId: draft.requisitionTemplateId,
+        complianceItems: selectedTemplate?.items || [],
+        occupation: draft.occupation.trim(),
+        specialty: draft.specialty.trim(),
+        contractType: selectedType ?? undefined,
+        startDate: draft.startDate,
+        endDate: draft.endDate,
+        startTime: draft.startTime,
+        endTime: draft.endTime,
+        lengthWeeks: draft.lengthWeeks ? parseInt(draft.lengthWeeks, 10) : undefined,
+        shiftHours: draft.shiftHours ? parseFloat(draft.shiftHours) : undefined,
+        shiftsPerWeek: draft.shiftsPerWeek ? parseFloat(draft.shiftsPerWeek) : undefined,
+        hoursPerWeek: (() => {
+          const spw = parseFloat(draft.shiftsPerWeek)
+          const sh = parseFloat(draft.shiftHours)
+          if (Number.isFinite(spw) && Number.isFinite(sh)) return spw * sh
+          return undefined
+        })(),
+        numberOfOpenPositions: draft.numberOfOpenPositions ? parseInt(draft.numberOfOpenPositions, 10) : undefined,
+        interviewType: draft.interviewType,
+        interviewRequired: true,
+        hiringManager: draft.hiringManager,
+      })
+    } else {
+      await actions.createJob({
+        title: draft.title.trim(),
+        location: draft.location.trim(),
+        department: draft.department.trim() || "N/A",
+        unit: draft.unit.trim() || "N/A",
+        shift: draft.shift.trim() || "N/A",
+        hours: draft.hours.trim() || "N/A",
+        billRate: draft.billRate.trim() || "N/A",
+        description: draft.description.trim() || "To be provided.",
+        requirements: [],
+        tags: [],
+        status: nextStatus === "Draft" ? "Draft" : "Open",
+        complianceTemplateId: draft.requisitionTemplateId,
+        complianceItems: selectedTemplate?.items || [],
+        occupation: draft.occupation.trim(),
+        contractType: selectedType ?? undefined,
+      })
+    }
 
     setSaving(null)
     router.push("/organization/jobs")
   }
 
+  const handleSelectType = async (type: RequisitionType) => {
+    setSaving("draft")
+    try {
+      const job = await actions.createJob({
+        title: "New Job Posting",
+        location: "",
+        department: "",
+        unit: "",
+        shift: "",
+        hours: "",
+        billRate: "",
+        description: "",
+        requirements: [],
+        tags: [],
+        status: "Draft",
+        complianceTemplateId: "",
+        complianceItems: [],
+        occupation: "",
+        contractType: type,
+      })
+      setSelectedType(type)
+      setJobId(job.id)
+      setStep("template")
+    } finally {
+      setSaving(null)
+    }
+  }
+
   return (
     <div className="space-y-6 p-8">
       <Header
-        title="Create job"
-        subtitle="Capture the basics and select a requisition compliance template."
-        breadcrumbs={[
-          { label: "Organization", href: "/organization/dashboard" },
-          { label: "Jobs", href: "/organization/jobs" },
-          { label: "Create" },
-        ]}
+        title={
+          step === "type"
+            ? "Create New Job Posting"
+            : step === "template"
+              ? "Select a Requisition Template"
+              : "Create Job Posting"
+        }
+        subtitle={
+          step === "type"
+            ? "Select the type of requisition you want to create"
+            : step === "template"
+              ? selectedType
+                ? `Creating: ${selectedType}`
+                : "Select a requisition template"
+              : "All fields are pre-filled from the selected template. You can customize any field for this specific job posting."
+        }
       />
 
-      <Card>
-        <div className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Job title" error={errors.title}>
-              <Input
-                value={draft.title}
-                onChange={(event) => handleChange("title")(event.target.value)}
-                placeholder="ICU RN - Main Campus"
-              />
-            </Field>
-            <Field label="Location" error={errors.location}>
-              <select
-                value={draft.location}
-                onChange={(event) => handleChange("location")(event.target.value)}
-                className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
-              >
-                <option value="">Select a location</option>
-                <option value="Memorial - Main Campus">Memorial - Main Campus</option>
-                <option value="Memorial - Downtown">Memorial - Downtown</option>
-                <option value="Memorial - Satellite Clinic">Memorial - Satellite Clinic</option>
-              </select>
-            </Field>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Pay range (min)" error={errors.payRangeMin}>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#718096] pointer-events-none">USD</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={draft.payRangeMin}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    // Prevent negative values - allow empty string or non-negative numbers
-                    if (value === "" || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && !value.startsWith("-"))) {
-                      handleChange("payRangeMin")(value)
-                    }
-                  }}
-                  placeholder="80"
-                  className="pl-16"
-                />
+      {step === "type" ? (
+        <Card>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border border-border p-5">
+                <div className="space-y-2">
+                  <div className="text-base font-semibold text-foreground">Long-term Order/Assignment</div>
+                  <div className="text-sm text-muted-foreground">
+                    Temporary assignments with defined start and end dates, typically 8-26 weeks
+                  </div>
+                  <button
+                    type="button"
+                    className="ph5-button-primary"
+                    disabled={saving !== null}
+                    onClick={() => handleSelectType("Long-term Order/Assignment")}
+                  >
+                    Select this type
+                  </button>
+                </div>
               </div>
-            </Field>
-            <Field label="Pay range (max)" error={errors.payRangeMax}>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-[#718096] pointer-events-none">USD</span>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={draft.payRangeMax}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    // Prevent negative values - allow empty string or non-negative numbers
-                    if (value === "" || (!isNaN(parseFloat(value)) && parseFloat(value) >= 0 && !value.startsWith("-"))) {
-                      handleChange("payRangeMax")(value)
-                    }
-                  }}
-                  placeholder="90"
-                  className="pl-16"
-                />
+
+              <div className="rounded-lg border border-border p-5">
+                <div className="space-y-2">
+                  <div className="text-base font-semibold text-foreground">Fixed duration contract</div>
+                  <div className="text-sm text-muted-foreground">Defined start and end dates</div>
+                  <div className="text-sm text-muted-foreground">Full-time or part-time schedules</div>
+                  <div className="text-sm text-muted-foreground">Compliance requirements tracked</div>
+                  <button
+                    type="button"
+                    className="ph5-button-primary"
+                    disabled={saving !== null}
+                    onClick={() => handleSelectType("Fixed duration contract")}
+                  >
+                    Select this type
+                  </button>
+                </div>
               </div>
-            </Field>
+
+              <div className="rounded-lg border border-border p-5">
+                <div className="space-y-2">
+                  <div className="text-base font-semibold text-foreground">Permanent Job</div>
+                  <div className="text-sm text-muted-foreground">Full-time permanent positions with no defined end date</div>
+                  <div className="text-sm text-muted-foreground">Indefinite employment</div>
+                  <div className="text-sm text-muted-foreground">Full benefits package</div>
+                  <div className="text-sm text-muted-foreground">Standard work schedule</div>
+                  <div className="text-sm text-muted-foreground">Long-term career opportunity</div>
+                  <button
+                    type="button"
+                    className="ph5-button-primary"
+                    disabled={saving !== null}
+                    onClick={() => handleSelectType("Permanent Job")}
+                  >
+                    Select this type
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border p-5">
+                <div className="space-y-2">
+                  <div className="text-base font-semibold text-foreground">Per Diem Job</div>
+                  <div className="text-sm text-muted-foreground">Flexible shifts on an as-needed basis, paid per shift</div>
+                  <div className="text-sm text-muted-foreground">Shift-by-shift basis</div>
+                  <div className="text-sm text-muted-foreground">Flexible scheduling</div>
+                  <div className="text-sm text-muted-foreground">No guaranteed hours</div>
+                  <div className="text-sm text-muted-foreground">Quick onboarding</div>
+                  <button
+                    type="button"
+                    className="ph5-button-primary"
+                    disabled={saving !== null}
+                    onClick={() => handleSelectType("Per Diem Job")}
+                  >
+                    Select this type
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+        </Card>
+      ) : null}
 
-          <Field label="Job description (optional)">
-            <Textarea
-              value={draft.description}
-              onChange={(event) => handleChange("description")(event.target.value)}
-              rows={4}
-              placeholder="Summary of responsibilities and expectations."
-            />
-          </Field>
+      {step === "template" ? (
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <button type="button" className="ph5-button-ghost" onClick={handleBackToTypeSelection}>
+                Back to Type Selection
+              </button>
+            </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Occupation" error={errors.occupation}>
-              <select
-                value={draft.occupation}
-                onChange={(event) => handleChange("occupation")(event.target.value)}
-                className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
-              >
-                {occupationOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Department" error={errors.department}>
+            <div>
               <Input
-                value={draft.department}
-                onChange={(event) => handleChange("department")(event.target.value)}
-                placeholder="e.g., Emergency, ICU, Med-Surg"
+                value={templateSearch}
+                onChange={(e) => setTemplateSearch(e.target.value)}
+                placeholder="Search templates by occupation, location, department..."
               />
-            </Field>
-          </div>
+              <div className="mt-2 text-sm text-muted-foreground">{filteredTemplates.length} templates found</div>
+            </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Unit" error={errors.unit}>
-              <Input
-                value={draft.unit}
-                onChange={(event) => handleChange("unit")(event.target.value)}
-                placeholder="e.g., 3A, ICU-1, ER-Bay"
-              />
-            </Field>
-            <Field label="Shift" error={errors.shift}>
-              <select
-                value={draft.shift}
-                onChange={(event) => handleChange("shift")(event.target.value)}
-                className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
-              >
-                <option value="">Select shift</option>
-                <option value="Day Shift">Day Shift</option>
-                <option value="Night Shift">Night Shift</option>
-                <option value="Evening Shift">Evening Shift</option>
-                <option value="Rotational Shift">Rotational Shift</option>
-                <option value="Weekend Shift">Weekend Shift</option>
-                <option value="Variable Shift">Variable Shift</option>
-              </select>
-            </Field>
-          </div>
-
-          <Field label="Hours" error={errors.hours}>
-            <Input
-              value={draft.hours}
-              onChange={(event) => handleChange("hours")(event.target.value)}
-              placeholder="e.g., 40/week, 12-hour shifts, Part-time"
-            />
-          </Field>
-
-          <Field label="Compliance Template" error={errors.requisitionTemplateId}>
-            <select
-              value={draft.requisitionTemplateId}
-              onChange={(event) => handleChange("requisitionTemplateId")(event.target.value)}
-              className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5 disabled:cursor-not-allowed disabled:bg-[#F7F7F9] disabled:text-[#A0AEC0] disabled:opacity-60"
-            >
-              <option value="">Select a requisition template</option>
-              {availableTemplates.length === 0 ? (
-                <option value="" disabled>
-                  {typeof window !== "undefined" ? "Loading templates..." : "No templates available"}
-                </option>
-              ) : (
-                availableTemplates.map((template) => (
-                  <option key={template.id} value={template.id}>
-                    {template.name} {template.description ? `(${template.description})` : ""} - {template.itemCount} items
-                  </option>
-                ))
-              )}
-            </select>
-            {draft.requisitionTemplateId && selectedTemplate && (
-              <div className="mt-3 rounded-lg border border-border p-4 bg-muted/30">
-                <p className="text-sm font-semibold text-foreground mb-2">
-                  Selected Template: {selectedTemplate.name}
-                </p>
-                <p className="text-xs text-muted-foreground mb-3">
-                  This template includes {selectedTemplate.items.length} compliance requirement{selectedTemplate.items.length !== 1 ? "s" : ""}.
-                </p>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {selectedTemplate.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between rounded-md border border-border px-3 py-2 bg-background"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">{item.name}</span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">
-                            {item.type}
-                          </span>
-                          {item.requiredAtSubmission && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-warning/10 text-warning">
-                              Required at submission
-                            </span>
-                          )}
+            <div className="grid gap-4">
+              {filteredTemplates.map((template) => {
+                const usage = templateUsage[template.id]
+                const preview = templatePreviewById[template.id]
+                const occupationLabel = preview?.occupation ? (occupationLabelByCode.get(preview.occupation) ?? preview.occupation) : (template.occupation || "—")
+                return (
+                  <button
+                    key={template.id}
+                    type="button"
+                    disabled={saving !== null}
+                    onClick={() => handleSelectTemplate(template.id)}
+                    className="text-left rounded-lg border border-border p-5 hover:bg-muted/30 transition"
+                  >
+                    <div className="space-y-3">
+                      <div className="text-base font-semibold text-foreground">{preview?.title || template.name}</div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                          <div className="text-xs text-muted-foreground">Occupation</div>
+                          <div className="text-sm text-foreground">{occupationLabel}</div>
+                          <div className="text-sm text-foreground">{preview?.specialty || template.department || "—"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Location</div>
+                          <div className="text-sm text-foreground">{preview?.location || "—"}</div>
+                          <div className="text-sm text-foreground">{preview?.department || template.department || "—"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Shift & Duration</div>
+                          <div className="text-sm text-foreground">{preview?.shift || "—"}</div>
+                          <div className="text-sm text-foreground">{preview?.duration || "—"}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-muted-foreground">Bill Rate</div>
+                          <div className="text-sm text-foreground">{preview?.billRate || "—"}</div>
                         </div>
                       </div>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
+                        <div>{formatLastUsed(usage?.lastUsed)}</div>
+                        <div>Used {usage?.count ?? 0} times</div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">{template.name}</div>
                     </div>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">
-                  <a
-                    href="/organization/compliance/templates"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    Manage templates
-                  </a>
-                </p>
-              </div>
-            )}
-            {(() => {
-              // Check if there are any templates available (both legacy and requisition)
-              if (typeof window !== "undefined") {
-                try {
-                  const { 
-                    getCurrentOrganization, 
-                    getRequisitionTemplatesByOrganization,
-                    getLegacyTemplatesByOrganization,
-                    setCurrentOrganization 
-                  } = require("@/lib/organization-local-db")
-                  let currentOrgId = getCurrentOrganization()
-                  if (!currentOrgId) {
-                    currentOrgId = "admin"
-                    setCurrentOrganization("admin")
-                  }
-                  
-                  const legacyTemplates = getLegacyTemplatesByOrganization(currentOrgId)
-                  const reqTemplates = getRequisitionTemplatesByOrganization(currentOrgId)
-                  
-                  const allOrgTemplates = [
-                    ...legacyTemplates.filter((t) => {
-                      if (currentOrgId !== "admin" && t.organizationId === "admin") return false
-                      return t.organizationId === currentOrgId
-                    }),
-                    ...reqTemplates.filter((t) => {
-                      if (currentOrgId !== "admin" && t.organizationId === "admin") return false
-                      return t.organizationId === currentOrgId
-                    })
-                  ]
-                  
-                  if (allOrgTemplates.length === 0) {
-                    return (
-                      <div className="mt-3 rounded-lg border-2 border-dashed border-border p-4 text-center">
-                        <p className="text-sm text-muted-foreground mb-2">
-                          No compliance templates found for your organization.
-                        </p>
-                        <a
-                          href="/organization/compliance/templates"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          Create a compliance template first
-                        </a>
-                      </div>
-                    )
-                  }
-                  return null
-                } catch (error) {
-                  // Fall through to check provider templates
-                }
-              }
-              
-              // Fallback check
-              try {
-                const { useComplianceTemplatesStore } = require("@/lib/compliance-templates-store")
-                const legacyTemplates = useComplianceTemplatesStore.getState().templates
-                if (legacyTemplates.length === 0 && organization.requisitionTemplates.length === 0) {
-                  return (
-                      <div className="mt-3 rounded-lg border-2 border-dashed border-border p-4 text-center">
-                        <p className="text-sm text-muted-foreground mb-2">
-                          No compliance templates found.
-                        </p>
-                        <a
-                          href="/organization/compliance/templates"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          Create a template first
-                        </a>
-                      </div>
-                  )
-                }
-              } catch (error) {
-                // Ignore
-              }
-              
-              return null
-            })()}
-          </Field>
-
-          <div className="flex flex-wrap gap-3 pt-4">
-            <button
-              type="button"
-              onClick={() => handleSubmit("Draft")}
-              disabled={saving !== null}
-              className="ph5-button-secondary"
-            >
-              {saving === "draft" ? "Saving..." : "Save as draft"}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSubmit("Published")}
-              disabled={saving !== null}
-              className="ph5-button-primary"
-            >
-              {saving === "publish" ? "Publishing..." : "Publish job"}
-            </button>
+                  </button>
+                )
+              })}
+              {!filteredTemplates.length ? (
+                <div className="text-sm text-muted-foreground">No templates found.</div>
+              ) : null}
+            </div>
           </div>
+        </Card>
+      ) : null}
+
+      {step === "details" ? (
+      <div className="space-y-4">
+        <button type="button" className="ph5-button-ghost" onClick={handleBackToTemplateSelection}>
+          Back to Template Selection
+        </button>
+
+        <Card>
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground">Create Job Posting</div>
+            <div className="text-sm">
+              <span className="font-semibold">Type:</span> {selectedType || "—"}
+              <span className="px-2 text-muted-foreground">•</span>
+              <span className="font-semibold">Template:</span> {selectedTemplate?.name || "—"}
+            </div>
+          </div>
+        </Card>
+
+        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          <Card>
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-foreground">Requisition Type</div>
+              <div className="text-sm font-semibold text-foreground">Select Template</div>
+              <div className={`text-sm font-semibold ${wizardStep === "job_details" ? "text-foreground" : "text-muted-foreground"}`}>Job Details</div>
+              <div className={`text-sm font-semibold ${wizardStep === "submission_settings" ? "text-foreground" : "text-muted-foreground"}`}>Submission Settings</div>
+              <div className={`text-sm font-semibold ${wizardStep === "publish_settings" ? "text-foreground" : "text-muted-foreground"}`}>Publish Settings</div>
+              <div className={`text-sm font-semibold ${wizardStep === "review_confirm" ? "text-foreground" : "text-muted-foreground"}`}>Review & Confirm</div>
+            </div>
+          </Card>
+
+          <Card>
+            <div className="space-y-6">
+              {wizardStep === "job_details" ? (
+                <>
+                  <div className="space-y-1">
+                    <div className="text-lg font-semibold text-foreground">Job Details</div>
+                    <div className="text-sm text-muted-foreground">
+                      All fields are pre-filled from the selected template. You can customize any field for this specific job posting.
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-sm font-semibold text-foreground">General Information</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Requisition Name" error={errors.title}>
+                        <Input value={draft.title} onChange={(e) => handleChange("title")(e.target.value)} />
+                      </Field>
+                      <Field label="Location" error={errors.location}>
+                        <Input value={draft.location} onChange={(e) => handleChange("location")(e.target.value)} />
+                      </Field>
+                      <Field label="Department" error={errors.department}>
+                        <Input value={draft.department} onChange={(e) => handleChange("department")(e.target.value)} />
+                      </Field>
+                      <Field label="Unit Name" error={errors.unit}>
+                        <Input value={draft.unit} onChange={(e) => handleChange("unit")(e.target.value)} />
+                      </Field>
+                      <Field label="Required Occupation" error={errors.occupation}>
+                        <select
+                          value={draft.occupation}
+                          onChange={(e) => handleChange("occupation")(e.target.value)}
+                          className="h-11 w-full rounded-[10px] border-2 border-[#E2E8F0] bg-gradient-to-b from-white to-[#fafbfc] px-4 py-2.5 text-sm text-[#2D3748] transition-all duration-200 shadow-sm hover:border-[#3182CE]/30 hover:shadow-md focus:border-[#3182CE] focus:outline-none focus:ring-4 focus:ring-[#3182CE]/20 focus:shadow-lg focus:-translate-y-0.5"
+                        >
+                          {occupationOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Required Specialty" error={errors.specialty}>
+                        <Input value={draft.specialty} onChange={(e) => handleChange("specialty")(e.target.value)} />
+                      </Field>
+                      <Field label="Shift Type" error={errors.shift}>
+                        <Input value={draft.shift} onChange={(e) => handleChange("shift")(e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-sm font-semibold text-foreground">Shift & Schedule</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Start Date" error={errors.startDate}>
+                        <Input value={draft.startDate} onChange={(e) => handleChange("startDate")(e.target.value)} placeholder="dd/mm/yyyy" />
+                      </Field>
+                      <Field label="End Date">
+                        <Input value={draft.endDate} onChange={(e) => handleChange("endDate")(e.target.value)} placeholder="dd/mm/yyyy" />
+                      </Field>
+                      <Field label="Length (Weeks)" error={errors.lengthWeeks}>
+                        <Input value={draft.lengthWeeks} onChange={(e) => handleChange("lengthWeeks")(e.target.value)} />
+                      </Field>
+                      <Field label="Start Time">
+                        <Input value={draft.startTime} onChange={(e) => handleChange("startTime")(e.target.value)} placeholder="--:-- --" />
+                      </Field>
+                      <Field label="End Time">
+                        <Input value={draft.endTime} onChange={(e) => handleChange("endTime")(e.target.value)} placeholder="--:-- --" />
+                      </Field>
+                      <Field label="Shift Hours">
+                        <Input value={draft.shiftHours} onChange={(e) => handleChange("shiftHours")(e.target.value)} />
+                      </Field>
+                      <Field label="Shifts Per Week" error={errors.shiftsPerWeek}>
+                        <Input value={draft.shiftsPerWeek} onChange={(e) => handleChange("shiftsPerWeek")(e.target.value)} />
+                      </Field>
+                      <Field label="Hours Per Week">
+                        <Input
+                          value={(() => {
+                            const spw = parseFloat(draft.shiftsPerWeek)
+                            const sh = parseFloat(draft.shiftHours)
+                            if (Number.isFinite(spw) && Number.isFinite(sh)) return String(spw * sh)
+                            return ""
+                          })()}
+                          readOnly
+                        />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-sm font-semibold text-foreground">Compensation & Hiring</div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Bill Rate" error={errors.billRate}>
+                        <Input value={draft.billRate} onChange={(e) => handleChange("billRate")(e.target.value)} placeholder="$75.00/hr" />
+                      </Field>
+                      <Field label="# of Open Positions">
+                        <Input value={draft.numberOfOpenPositions} onChange={(e) => handleChange("numberOfOpenPositions")(e.target.value)} />
+                      </Field>
+                      <Field label="Interview Required">
+                        <Input value={draft.interviewType} onChange={(e) => handleChange("interviewType")(e.target.value)} />
+                      </Field>
+                      <Field label="Hiring Manager">
+                        <Input value={draft.hiringManager} onChange={(e) => handleChange("hiringManager")(e.target.value)} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-sm font-semibold text-foreground">Job Description</div>
+                    <Field label="Description">
+                      <Textarea value={draft.description} onChange={(e) => handleChange("description")(e.target.value)} rows={4} />
+                    </Field>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="text-sm font-semibold text-foreground">Compliance</div>
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="text-sm text-muted-foreground">Compliance Checklist Template</div>
+                      <div className="text-sm font-semibold text-foreground">{selectedTemplate?.name || "—"}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between pt-2">
+                    <button type="button" className="ph5-button-secondary" onClick={handleBackToTemplateSelection}>
+                      Back
+                    </button>
+                    <button type="button" className="ph5-button-primary" onClick={() => setWizardStep("submission_settings")}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {wizardStep === "submission_settings" ? (
+                <>
+                  <div className="space-y-1">
+                    <div className="text-lg font-semibold text-foreground">Submission Settings</div>
+                    <div className="text-sm text-muted-foreground">Coming next.</div>
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <button type="button" className="ph5-button-secondary" onClick={() => setWizardStep("job_details")}>Back</button>
+                    <button type="button" className="ph5-button-primary" onClick={() => setWizardStep("publish_settings")}>Next</button>
+                  </div>
+                </>
+              ) : null}
+
+              {wizardStep === "publish_settings" ? (
+                <>
+                  <div className="space-y-1">
+                    <div className="text-lg font-semibold text-foreground">Publish Settings</div>
+                    <div className="text-sm text-muted-foreground">Coming next.</div>
+                  </div>
+                  <div className="flex justify-between pt-2">
+                    <button type="button" className="ph5-button-secondary" onClick={() => setWizardStep("submission_settings")}>Back</button>
+                    <button type="button" className="ph5-button-primary" onClick={() => setWizardStep("review_confirm")}>Next</button>
+                  </div>
+                </>
+              ) : null}
+
+              {wizardStep === "review_confirm" ? (
+                <>
+                  <div className="space-y-1">
+                    <div className="text-lg font-semibold text-foreground">Review & Confirm</div>
+                    <div className="text-sm text-muted-foreground">Finalize and publish.</div>
+                  </div>
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    <button type="button" className="ph5-button-secondary" onClick={() => setWizardStep("publish_settings")}>Back</button>
+                    <button type="button" onClick={() => handleSubmit("Draft")} disabled={saving !== null} className="ph5-button-secondary">
+                      {saving === "draft" ? "Saving..." : "Save as draft"}
+                    </button>
+                    <button type="button" onClick={() => handleSubmit("Published")} disabled={saving !== null} className="ph5-button-primary">
+                      {saving === "publish" ? "Publishing..." : "Publish job"}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </Card>
         </div>
-      </Card>
+      </div>
+      ) : null}
     </div>
   )
 }

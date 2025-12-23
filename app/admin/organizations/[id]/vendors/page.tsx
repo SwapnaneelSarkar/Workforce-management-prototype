@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Search, ArrowUpDown, Eye, Plus, X } from "lucide-react"
+import { Search, ArrowUpDown, Eye, Plus, X, Trash2 } from "lucide-react"
 import { 
   getAllVendors, 
   getOrganizationById, 
@@ -23,6 +23,7 @@ import {
   type Vendor,
   type VendorOrganization
 } from "@/lib/admin-local-db"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,8 @@ export default function OrganizationVendorsPage() {
     notes: "",
   })
   const itemsPerPage = 10
+  const [selectedVendorIds, setSelectedVendorIds] = useState<Set<string>>(new Set())
+  const [bulkVendorIds, setBulkVendorIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadData()
@@ -85,6 +88,7 @@ export default function OrganizationVendorsPage() {
       const filteredVendors = allVendors.filter((vendor) => associatedVendorIds.has(vendor.id))
       
       setVendors(filteredVendors)
+      setSelectedVendorIds(new Set())
       
       // Get organization name
       const org = getOrganizationById(organizationId)
@@ -113,6 +117,7 @@ export default function OrganizationVendorsPage() {
       endDate: "",
       notes: "",
     })
+    setBulkVendorIds(new Set())
     setIsAddModalOpen(true)
   }
 
@@ -129,13 +134,13 @@ export default function OrganizationVendorsPage() {
   }
 
   const handleSaveAssociation = () => {
-    if (!formData.vendorId) {
-      pushToast({ title: "Error", description: "Please select a vendor." })
-      return
-    }
-
     try {
       if (editingAssociation) {
+        if (!formData.vendorId) {
+          pushToast({ title: "Error", description: "Please select a vendor." })
+          return
+        }
+
         // Update existing association
         const updated = updateVendorOrganization(editingAssociation.id, {
           status: formData.status,
@@ -153,24 +158,43 @@ export default function OrganizationVendorsPage() {
           pushToast({ title: "Error", description: "Failed to update association." })
         }
       } else {
-        // Check if association already exists
-        const existing = getVendorOrganizationByVendorAndOrg(formData.vendorId, organizationId)
-        if (existing) {
-          pushToast({ title: "Error", description: "This vendor is already associated with this organization." })
+        if (bulkVendorIds.size === 0) {
+          pushToast({ title: "Error", description: "Please select at least one vendor." })
           return
         }
 
-        // Add new association
-        addVendorOrganization({
-          vendorId: formData.vendorId,
-          organizationId: organizationId,
-          status: formData.status,
-          startDate: formData.startDate || undefined,
-          endDate: formData.endDate || undefined,
-          notes: formData.notes || undefined,
+        let createdCount = 0
+
+        bulkVendorIds.forEach((vendorId) => {
+          // Guard against any race conditions where an association might have been created meanwhile
+          const existing = getVendorOrganizationByVendorAndOrg(vendorId, organizationId)
+          if (existing) {
+            return
+          }
+
+          addVendorOrganization({
+            vendorId,
+            organizationId: organizationId,
+            status: formData.status,
+            startDate: formData.startDate || undefined,
+            endDate: formData.endDate || undefined,
+            notes: formData.notes || undefined,
+          })
+          createdCount += 1
         })
         
-        pushToast({ title: "Success", description: "Vendor added successfully." })
+        if (createdCount > 0) {
+          pushToast({
+            title: "Vendors added",
+            description: `${createdCount} vendor${createdCount > 1 ? "s" : ""} added successfully.`,
+          })
+        } else {
+          pushToast({
+            title: "No vendors added",
+            description: "No new vendors were added to this organization.",
+          })
+        }
+
         loadData()
         setIsAddModalOpen(false)
       }
@@ -243,6 +267,78 @@ export default function OrganizationVendorsPage() {
   }, [filteredAndSortedVendors, currentPage])
 
   const totalPages = Math.ceil(filteredAndSortedVendors.length / itemsPerPage)
+
+  const toggleSelectAll = () => {
+    setSelectedVendorIds((prev) => {
+      if (paginatedVendors.length === 0) return new Set()
+      const allSelected = paginatedVendors.every((vendor) => prev.has(vendor.id))
+      if (allSelected) {
+        const next = new Set(prev)
+        paginatedVendors.forEach((vendor) => next.delete(vendor.id))
+        return next
+      }
+      const next = new Set(prev)
+      paginatedVendors.forEach((vendor) => next.add(vendor.id))
+      return next
+    })
+  }
+
+  const toggleVendorSelection = (vendorId: string) => {
+    setSelectedVendorIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(vendorId)) {
+        next.delete(vendorId)
+      } else {
+        next.add(vendorId)
+      }
+      return next
+    })
+  }
+
+  const handleBulkRemove = () => {
+    if (selectedVendorIds.size === 0) return
+    if (
+      !confirm(
+        `Are you sure you want to remove ${selectedVendorIds.size} vendor${
+          selectedVendorIds.size > 1 ? "s" : ""
+        } from this organization?`,
+      )
+    ) {
+      return
+    }
+
+    let successCount = 0
+    let failureCount = 0
+
+    selectedVendorIds.forEach((vendorId) => {
+      const association = getAssociationForVendor(vendorId)
+      if (!association) return
+      try {
+        const success = deleteVendorOrganization(association.id)
+        if (success) {
+          successCount += 1
+        } else {
+          failureCount += 1
+        }
+      } catch (error) {
+        console.error("Error removing vendor association:", error)
+        failureCount += 1
+      }
+    })
+
+    if (successCount > 0) {
+      pushToast({
+        title: "Vendors removed",
+        description: `${successCount} vendor${successCount > 1 ? "s" : ""} removed from organization.${
+          failureCount ? ` ${failureCount} failed.` : ""
+        }`,
+      })
+    } else if (failureCount > 0) {
+      pushToast({ title: "Error", description: "Failed to remove selected vendors." })
+    }
+
+    loadData()
+  }
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -325,11 +421,40 @@ export default function OrganizationVendorsPage() {
               />
             </div>
 
-            {/* Vendor Table */}
+            {/* Bulk actions + Vendor Table */}
+            {selectedVendorIds.size > 0 && (
+              <div className="flex items-center justify-between rounded-md border border-border bg-muted px-4 py-2 text-sm">
+                <span className="text-muted-foreground">
+                  {selectedVendorIds.size} vendor{selectedVendorIds.size > 1 ? "s" : ""} selected
+                </span>
+                <button
+                  onClick={handleBulkRemove}
+                  className="inline-flex items-center gap-2 text-sm text-destructive hover:underline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Remove selected
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="py-3 px-4 text-left text-sm font-semibold text-foreground">
+                      <Checkbox
+                        aria-label="Select all vendors on this page"
+                        checked={
+                          paginatedVendors.length > 0 &&
+                          paginatedVendors.every((vendor) => selectedVendorIds.has(vendor.id))
+                        }
+                        indeterminate={
+                          paginatedVendors.some((vendor) => selectedVendorIds.has(vendor.id)) &&
+                          !paginatedVendors.every((vendor) => selectedVendorIds.has(vendor.id))
+                        }
+                        onCheckedChange={toggleSelectAll}
+                        className="border-border data-[state=checked]:bg-primary"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">
                       <button
                         onClick={() => handleSort("name")}
@@ -373,7 +498,7 @@ export default function OrganizationVendorsPage() {
                 <tbody>
                   {paginatedVendors.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={7} className="py-8 text-center text-muted-foreground">
                         {searchQuery ? "No vendors found matching your search." : "No vendors available."}
                       </td>
                     </tr>
@@ -382,6 +507,14 @@ export default function OrganizationVendorsPage() {
                       const association = getAssociationForVendor(vendor.id)
                       return (
                         <tr key={vendor.id} className="border-b border-border hover:bg-muted/50">
+                          <td className="py-3 px-4">
+                            <Checkbox
+                              aria-label={`Select vendor ${vendor.name}`}
+                              checked={selectedVendorIds.has(vendor.id)}
+                              onCheckedChange={() => toggleVendorSelection(vendor.id)}
+                              className="border-border data-[state=checked]:bg-primary"
+                            />
+                          </td>
                           <td className="py-3 px-4 text-sm text-foreground">{vendor.name}</td>
                           <td className="py-3 px-4 text-sm">
                             <div className="flex items-center gap-2">
@@ -474,37 +607,91 @@ export default function OrganizationVendorsPage() {
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingAssociation ? "Edit Vendor Association" : "Add Vendor to Organization"}</DialogTitle>
+            <DialogTitle>
+              {editingAssociation ? "Edit Vendor Association" : "Add Vendors to Organization"}
+            </DialogTitle>
             <DialogDescription>
-              {editingAssociation ? "Update the vendor association details." : "Select a vendor to associate with this organization."}
+              {editingAssociation
+                ? "Update the vendor association details."
+                : "Select one or more vendors to associate with this organization."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="vendor-select">Vendor *</Label>
-              <Select
-                value={formData.vendorId}
-                onValueChange={(value) => setFormData({ ...formData, vendorId: value })}
-                disabled={!!editingAssociation}
-              >
-                <SelectTrigger id="vendor-select" className="bg-background">
-                  <SelectValue placeholder="Select a vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {editingAssociation ? (
+            {editingAssociation ? (
+              <div className="space-y-2">
+                <Label htmlFor="vendor-select">Vendor *</Label>
+                <Select
+                  value={formData.vendorId}
+                  onValueChange={(value) => setFormData({ ...formData, vendorId: value })}
+                  disabled
+                >
+                  <SelectTrigger id="vendor-select" className="bg-background">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
                     <SelectItem value={formData.vendorId}>
                       {getVendorById(formData.vendorId)?.name || formData.vendorId}
                     </SelectItem>
-                  ) : (
-                    getAvailableVendors().map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id}>
-                        {vendor.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Vendors *</Label>
+                <div className="rounded-md border border-border bg-background">
+                  <div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-muted-foreground">
+                    <span>
+                      {bulkVendorIds.size} selected
+                    </span>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-primary hover:underline"
+                      onClick={() => {
+                        const available = getAvailableVendors()
+                        if (bulkVendorIds.size === available.length) {
+                          setBulkVendorIds(new Set())
+                        } else {
+                          setBulkVendorIds(new Set(available.map((v) => v.id)))
+                        }
+                      }}
+                    >
+                      {bulkVendorIds.size === getAvailableVendors().length ? "Clear all" : "Select all"}
+                    </button>
+                  </div>
+                  <div className="max-h-64 space-y-1 overflow-y-auto p-3">
+                    {getAvailableVendors().length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        All vendors are already associated with this organization.
+                      </p>
+                    ) : (
+                      getAvailableVendors().map((vendor) => (
+                        <label
+                          key={vendor.id}
+                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-muted"
+                        >
+                          <Checkbox
+                            checked={bulkVendorIds.has(vendor.id)}
+                            onCheckedChange={() => {
+                              setBulkVendorIds((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(vendor.id)) {
+                                  next.delete(vendor.id)
+                                } else {
+                                  next.add(vendor.id)
+                                }
+                                return next
+                              })
+                            }}
+                            className="border-border data-[state=checked]:bg-primary"
+                          />
+                          <span>{vendor.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Plus, Search, Edit, ArrowUpDown, Trash2 } from "lucide-react"
 import { getAllVendors, deleteVendor, type Vendor } from "@/lib/admin-local-db"
 import { useToast } from "@/components/system"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type SortField = "name" | "status" | "activationDate" | "industry"
 type SortDirection = "asc" | "desc"
@@ -21,6 +22,7 @@ export default function AdminVendorsPage() {
   const [sortField, setSortField] = useState<SortField>("name")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedVendorIds, setSelectedVendorIds] = useState<Set<string>>(new Set())
   const itemsPerPage = 10
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function AdminVendorsPage() {
     try {
       const allVendors = getAllVendors()
       setVendors(allVendors)
+      setSelectedVendorIds(new Set())
     } catch (error) {
       console.error("Error loading vendors:", error)
     } finally {
@@ -86,6 +89,79 @@ export default function AdminVendorsPage() {
   }, [filteredAndSortedVendors, currentPage])
 
   const totalPages = Math.ceil(filteredAndSortedVendors.length / itemsPerPage)
+
+  const toggleSelectAll = () => {
+    setSelectedVendorIds((prev) => {
+      if (paginatedVendors.length === 0) return new Set()
+      const allSelected = paginatedVendors.every((vendor) => prev.has(vendor.id))
+      if (allSelected) {
+        // Clear only currently visible vendors from selection
+        const next = new Set(prev)
+        paginatedVendors.forEach((vendor) => next.delete(vendor.id))
+        return next
+      }
+      const next = new Set(prev)
+      paginatedVendors.forEach((vendor) => next.add(vendor.id))
+      return next
+    })
+  }
+
+  const toggleVendorSelection = (vendorId: string) => {
+    setSelectedVendorIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(vendorId)) {
+        next.delete(vendorId)
+      } else {
+        next.add(vendorId)
+      }
+      return next
+    })
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedVendorIds.size === 0) return
+    if (
+      !confirm(
+        `Are you sure you want to delete ${selectedVendorIds.size} vendor${
+          selectedVendorIds.size > 1 ? "s" : ""
+        }? This will also delete all associated users, documents, and notes.`,
+      )
+    ) {
+      return
+    }
+
+    let successCount = 0
+    let failureCount = 0
+
+    selectedVendorIds.forEach((id) => {
+      const vendor = vendors.find((v) => v.id === id)
+      if (!vendor) return
+      try {
+        const success = deleteVendor(id)
+        if (success) {
+          successCount += 1
+        } else {
+          failureCount += 1
+        }
+      } catch (error) {
+        console.error("Error deleting vendor:", error)
+        failureCount += 1
+      }
+    })
+
+    if (successCount > 0) {
+      pushToast({
+        title: "Vendors deleted",
+        description: `${successCount} vendor${successCount > 1 ? "s" : ""} deleted successfully.${
+          failureCount ? ` ${failureCount} failed.` : ""
+        }`,
+      })
+    } else if (failureCount > 0) {
+      pushToast({ title: "Error", description: "Failed to delete selected vendors." })
+    }
+
+    loadVendors()
+  }
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -181,11 +257,40 @@ export default function AdminVendorsPage() {
               />
             </div>
 
-            {/* Vendor Table */}
+            {/* Bulk actions + Vendor Table */}
+            {selectedVendorIds.size > 0 && (
+              <div className="flex items-center justify-between rounded-md border border-border bg-muted px-4 py-2 text-sm">
+                <span className="text-muted-foreground">
+                  {selectedVendorIds.size} vendor{selectedVendorIds.size > 1 ? "s" : ""} selected
+                </span>
+                <button
+                  onClick={handleBulkDelete}
+                  className="inline-flex items-center gap-2 text-sm text-destructive hover:underline"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete selected
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
+                    <th className="py-3 px-4 text-left text-sm font-semibold text-foreground">
+                      <Checkbox
+                        aria-label="Select all vendors on this page"
+                        checked={
+                          paginatedVendors.length > 0 &&
+                          paginatedVendors.every((vendor) => selectedVendorIds.has(vendor.id))
+                        }
+                        indeterminate={
+                          paginatedVendors.some((vendor) => selectedVendorIds.has(vendor.id)) &&
+                          !paginatedVendors.every((vendor) => selectedVendorIds.has(vendor.id))
+                        }
+                        onCheckedChange={toggleSelectAll}
+                        className="border-border data-[state=checked]:bg-primary"
+                      />
+                    </th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-foreground">
                       <button
                         onClick={() => handleSort("name")}
@@ -228,13 +333,21 @@ export default function AdminVendorsPage() {
                 <tbody>
                   {paginatedVendors.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      <td colSpan={6} className="py-8 text-center text-muted-foreground">
                         {searchQuery ? "No vendors found matching your search." : "No vendors available."}
                       </td>
                     </tr>
                   ) : (
                     paginatedVendors.map((vendor) => (
                       <tr key={vendor.id} className="border-b border-border hover:bg-muted/50">
+                        <td className="py-3 px-4">
+                          <Checkbox
+                            aria-label={`Select vendor ${vendor.name}`}
+                            checked={selectedVendorIds.has(vendor.id)}
+                            onCheckedChange={() => toggleVendorSelection(vendor.id)}
+                            className="border-border data-[state=checked]:bg-primary"
+                          />
+                        </td>
                         <td className="py-3 px-4 text-sm">
                           <Link
                             href={`/admin/vendors/${vendor.id}/view`}

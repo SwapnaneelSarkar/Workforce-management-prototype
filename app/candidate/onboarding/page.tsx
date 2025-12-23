@@ -1,7 +1,6 @@
 "use client"
 
 import { type ChangeEvent, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import { ChevronDown, CheckCircle2, Circle, Sparkles, TrendingUp, FileText, MapPin, Briefcase, Calendar, Award, User, Clock } from "lucide-react"
 import { StatusChip } from "@/components/system"
 import { DatePicker } from "@/components/system/date-picker"
@@ -12,14 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useNavigation } from "@/lib/use-navigation"
-import { 
-  getActiveOccupations, 
-  getOccupationByCode,
-  getQuestionnaireByOccupationId,
-  getGeneralQuestionnaire,
-  type OccupationQuestionnaire,
-  type GeneralQuestionnaire,
-} from "@/lib/admin-local-db"
+import { getActiveOccupations, getOccupationByCode } from "@/lib/admin-local-db"
 
 const PREFERRED_LOCATIONS = ["California", "Texas", "Florida", "New York", "Washington", "Arizona", "Remote"]
 const WORK_TYPES = ["Full-time", "Part-time", "Contract", "Travel", "Per Diem"]
@@ -179,14 +171,17 @@ function MultiSelectChips({ options, value, onChange, maxSelections }: MultiSele
 }
 
 export default function OnboardingPage() {
-  const router = useRouter()
-  
-  // Redirect to questionnaire page - the checklist is the questionnaire itself
-  useEffect(() => {
-    router.replace("/candidate/questionnaire")
-  }, [router])
-  
-  return null
+  const { actions } = useDemoData()
+  const {
+    data: localDb,
+    hydrated: dbHydrated,
+    saveOnboardingDetails: persistOnboardingDetails,
+    markDocumentUploaded,
+  } = useLocalDb()
+  const { pushToast } = useToast()
+  const { goCandidateDashboard } = useNavigation()
+  const resumeInputRef = useRef<HTMLInputElement>(null)
+  const [answers, setAnswers] = useState<AnswersState>(initialAnswers)
   const [errors, setErrors] = useState<ErrorsState>({})
   const [prefilledAnswers, setPrefilledAnswers] = useState(false)
   const [expandedItem, setExpandedItem] = useState<ChecklistItemId | null>("preferredLocations")
@@ -839,6 +834,7 @@ export default function OnboardingPage() {
                 </div>
               </div>
             </div>
+
           </div>
           <div className="mt-6 space-y-3 text-xs text-muted-foreground bg-muted/30 rounded-xl p-4 border border-border/40">
             <div className="flex items-start gap-2">
@@ -905,3 +901,4 @@ export default function OnboardingPage() {
     </div>
   )
 }
+

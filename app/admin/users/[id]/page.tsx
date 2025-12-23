@@ -13,20 +13,47 @@ import {
   getPortalUserNotes,
   addPortalUserNote,
   deletePortalUserNote,
+  addPortalUserAffiliation,
+  updatePortalUserAffiliation,
+  deletePortalUserAffiliation,
+  getAllOrganizations,
   type PortalUser,
   type PortalUserNote,
+  type PortalUserAffiliation,
 } from "@/lib/admin-local-db"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Plus, Edit, Trash2, X } from "lucide-react"
 
 const NOTE_TYPES: PortalUserNote["noteType"][] = ["General", "Meeting", "System"]
+const ORGANIZATION_ROLES = [
+  "Administrator",
+  "Contributor",
+  "Viewer",
+  "Hiring Manager",
+  "Compliance Manager",
+  "Billing Manager",
+]
 
 export default function PortalUserDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { pushToast } = useToast()
   const [user, setUser] = useState<PortalUser | null>(null)
-  const [affiliations, setAffiliations] = useState(getPortalUserAffiliations(params.id as string))
+  const [affiliations, setAffiliations] = useState<PortalUserAffiliation[]>([])
   const [notes, setNotes] = useState<PortalUserNote[]>([])
   const [loading, setLoading] = useState(true)
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([])
+  const [isAddAffiliationOpen, setIsAddAffiliationOpen] = useState(false)
+  const [editingAffiliation, setEditingAffiliation] = useState<PortalUserAffiliation | null>(null)
+  const [affiliationForm, setAffiliationForm] = useState({
+    organizationName: "",
+    roleAtOrganization: "",
+    status: "Added" as "Added" | "Removed",
+    activationDate: new Date().toISOString().slice(0, 10),
+    inactivationDate: "",
+  })
   const [noteFilters, setNoteFilters] = useState({
     noteType: "",
     startDate: "",
@@ -50,6 +77,8 @@ export default function PortalUserDetailPage() {
     setUser(data)
     setAffiliations(getPortalUserAffiliations(id))
     setNotes(getPortalUserNotes(id))
+    const orgs = getAllOrganizations()
+    setOrganizations(orgs.map((org) => ({ id: org.id, name: org.name })))
     setLoading(false)
   }, [params.id])
 
@@ -103,6 +132,101 @@ export default function PortalUserDetailPage() {
     }
   }
 
+  const handleAddAffiliation = () => {
+    if (!user) return
+    setEditingAffiliation(null)
+    setAffiliationForm({
+      organizationName: "",
+      roleAtOrganization: "",
+      status: "Added",
+      activationDate: new Date().toISOString().slice(0, 10),
+      inactivationDate: "",
+    })
+    setIsAddAffiliationOpen(true)
+  }
+
+  const handleEditAffiliation = (affiliation: PortalUserAffiliation) => {
+    setEditingAffiliation(affiliation)
+    setAffiliationForm({
+      organizationName: affiliation.organizationName,
+      roleAtOrganization: affiliation.roleAtOrganization,
+      status: affiliation.status,
+      activationDate: affiliation.activationDate || new Date().toISOString().slice(0, 10),
+      inactivationDate: affiliation.inactivationDate || "",
+    })
+    setIsAddAffiliationOpen(true)
+  }
+
+  const handleSaveAffiliation = () => {
+    if (!user) return
+    if (!affiliationForm.organizationName || !affiliationForm.roleAtOrganization) {
+      pushToast({ title: "Validation Error", description: "Please fill in all required fields." })
+      return
+    }
+
+    try {
+      if (editingAffiliation) {
+        const updated = updatePortalUserAffiliation(editingAffiliation.id, {
+          organizationName: affiliationForm.organizationName,
+          roleAtOrganization: affiliationForm.roleAtOrganization,
+          status: affiliationForm.status,
+          activationDate: affiliationForm.activationDate || undefined,
+          inactivationDate: affiliationForm.inactivationDate || undefined,
+        })
+        if (updated) {
+          pushToast({ title: "Success", description: "Affiliation updated successfully." })
+          setAffiliations(getPortalUserAffiliations(user.id))
+          setIsAddAffiliationOpen(false)
+          setEditingAffiliation(null)
+        } else {
+          pushToast({ title: "Error", description: "Failed to update affiliation." })
+        }
+      } else {
+        // Check if affiliation already exists
+        const existing = affiliations.find(
+          (a) => a.organizationName === affiliationForm.organizationName && a.status === "Added"
+        )
+        if (existing) {
+          pushToast({ title: "Error", description: "User is already affiliated with this organization." })
+          return
+        }
+
+        addPortalUserAffiliation({
+          userId: user.id,
+          organizationName: affiliationForm.organizationName,
+          roleAtOrganization: affiliationForm.roleAtOrganization,
+          status: affiliationForm.status,
+          activationDate: affiliationForm.activationDate || undefined,
+          inactivationDate: affiliationForm.inactivationDate || undefined,
+        })
+        pushToast({ title: "Success", description: "Affiliation added successfully." })
+        setAffiliations(getPortalUserAffiliations(user.id))
+        setIsAddAffiliationOpen(false)
+      }
+    } catch (error: any) {
+      console.error("Error saving affiliation:", error)
+      pushToast({ title: "Error", description: error.message || "Failed to save affiliation." })
+    }
+  }
+
+  const handleDeleteAffiliation = (id: string) => {
+    if (!confirm("Are you sure you want to remove this affiliation?")) return
+    const success = deletePortalUserAffiliation(id)
+    if (success) {
+      if (user) {
+        setAffiliations(getPortalUserAffiliations(user.id))
+      }
+      pushToast({ title: "Success", description: "Affiliation removed successfully." })
+    } else {
+      pushToast({ title: "Error", description: "Failed to remove affiliation." })
+    }
+  }
+
+  const getAvailableOrganizations = () => {
+    const associatedOrgNames = new Set(affiliations.filter((a) => a.status === "Added").map((a) => a.organizationName))
+    return organizations.filter((org) => !associatedOrgNames.has(org.name))
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -138,8 +262,8 @@ export default function PortalUserDetailPage() {
   return (
     <>
       <Header
-        title={`User Details (${isOrgUser ? "For Organization Users" : "For Program and Vendor ONLY"})`}
-        subtitle=""
+        title="User Profile"
+        subtitle={`${user.firstName} ${user.lastName} - ${user.userType} User`}
         breadcrumbs={[
           { label: "Admin", href: "/admin/dashboard" },
           { label: "Users", href: "/admin/users" },
@@ -186,48 +310,195 @@ export default function PortalUserDetailPage() {
           </div>
         </Card>
 
-        {!isOrgUser && (
-          <Card>
+        <Card>
+          <div className="space-y-4 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Organizations & Roles</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  All organizations this user belongs to and their role per organization
+                </p>
+              </div>
+              <Button onClick={handleAddAffiliation} className="ph5-button-primary">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Organization
+              </Button>
+            </div>
+            {affiliations.length === 0 ? (
+              <div className="py-8 text-center border border-border rounded-lg bg-muted/30">
+                <p className="text-sm text-muted-foreground">No organization affiliations found.</p>
+                <p className="text-xs text-muted-foreground mt-1">Click "Add Organization" to enroll this user.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-muted-foreground">
+                      <th className="text-left py-3 px-4 font-semibold">Organization Name</th>
+                      <th className="text-left py-3 px-4 font-semibold">Role at Organization</th>
+                      <th className="text-left py-3 px-4 font-semibold">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold">Activation Date</th>
+                      <th className="text-left py-3 px-4 font-semibold">Inactivation Date</th>
+                      <th className="text-right py-3 px-4 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {affiliations.map((a) => (
+                      <tr key={a.id} className="border-b border-border hover:bg-muted/50">
+                        <td className="py-3 px-4 font-medium text-foreground">{a.organizationName}</td>
+                        <td className="py-3 px-4 text-foreground">{a.roleAtOrganization}</td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
+                              a.status === "Added" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                            }`}
+                          >
+                            {a.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-foreground">{a.activationDate || "—"}</td>
+                        <td className="py-3 px-4 text-foreground">{a.inactivationDate || "—"}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleEditAffiliation(a)}
+                              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                              title="Edit affiliation"
+                            >
+                              <Edit className="h-4 w-4" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAffiliation(a.id)}
+                              className="inline-flex items-center gap-1 text-sm text-destructive hover:underline"
+                              title="Remove affiliation"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              Remove
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Add/Edit Affiliation Modal */}
+        {isAddAffiliationOpen && (
+          <Card className="border-2 border-primary">
             <div className="space-y-4 p-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">User Affiliations</h3>
+                <h4 className="text-md font-semibold text-foreground">
+                  {editingAffiliation ? "Edit Organization Affiliation" : "Add Organization Affiliation"}
+                </h4>
+                <button
+                  onClick={() => {
+                    setIsAddAffiliationOpen(false)
+                    setEditingAffiliation(null)
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              {affiliations.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No affiliations.</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-muted-foreground">
-                        <th className="text-left py-3 px-4">Organization Name</th>
-                        <th className="text-left py-3 px-4">Role at Organization</th>
-                        <th className="text-left py-3 px-4">Status</th>
-                        <th className="text-left py-3 px-4">Activation Date</th>
-                        <th className="text-left py-3 px-4">Inactivation Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {affiliations.map((a) => (
-                        <tr key={a.id} className="border-b border-border">
-                          <td className="py-3 px-4">{a.organizationName}</td>
-                          <td className="py-3 px-4">{a.roleAtOrganization}</td>
-                          <td className="py-3 px-4">
-                            <span
-                              className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${
-                                a.status === "Added" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
-                              }`}
-                            >
-                              {a.status}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4">{a.activationDate || "—"}</td>
-                          <td className="py-3 px-4">{a.inactivationDate || "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="org-select">Organization *</Label>
+                  <Select
+                    value={affiliationForm.organizationName}
+                    onValueChange={(value) => setAffiliationForm({ ...affiliationForm, organizationName: value })}
+                    disabled={!!editingAffiliation}
+                  >
+                    <SelectTrigger id="org-select" className="bg-background">
+                      <SelectValue placeholder="Select an organization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {editingAffiliation ? (
+                        <SelectItem value={affiliationForm.organizationName}>
+                          {affiliationForm.organizationName}
+                        </SelectItem>
+                      ) : (
+                        getAvailableOrganizations().map((org) => (
+                          <SelectItem key={org.id} value={org.name}>
+                            {org.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="role-select">Role at Organization *</Label>
+                  <Select
+                    value={affiliationForm.roleAtOrganization}
+                    onValueChange={(value) => setAffiliationForm({ ...affiliationForm, roleAtOrganization: value })}
+                  >
+                    <SelectTrigger id="role-select" className="bg-background">
+                      <SelectValue placeholder="Select a role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORGANIZATION_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {role}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="status-select">Status *</Label>
+                  <Select
+                    value={affiliationForm.status}
+                    onValueChange={(value) => setAffiliationForm({ ...affiliationForm, status: value as "Added" | "Removed" })}
+                  >
+                    <SelectTrigger id="status-select" className="bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Added">Added</SelectItem>
+                      <SelectItem value="Removed">Removed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="activation-date">Activation Date</Label>
+                    <Input
+                      id="activation-date"
+                      type="date"
+                      value={affiliationForm.activationDate}
+                      onChange={(e) => setAffiliationForm({ ...affiliationForm, activationDate: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="inactivation-date">Inactivation Date</Label>
+                    <Input
+                      id="inactivation-date"
+                      type="date"
+                      value={affiliationForm.inactivationDate}
+                      onChange={(e) => setAffiliationForm({ ...affiliationForm, inactivationDate: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+                <Button variant="outline" onClick={() => {
+                  setIsAddAffiliationOpen(false)
+                  setEditingAffiliation(null)
+                }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveAffiliation} className="ph5-button-primary">
+                  {editingAffiliation ? "Update" : "Add"} Affiliation
+                </Button>
+              </div>
             </div>
           </Card>
         )}
@@ -350,5 +621,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     </div>
   )
 }
+
 
 

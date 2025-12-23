@@ -17,6 +17,8 @@ import {
   getAdminWalletTemplatesByOccupation,
   getComplianceListItemById,
   getAllComplianceListItems,
+  getOccupationSpecialtiesByOccupation,
+  getSpecialtyById,
 } from "@/lib/admin-local-db"
 
 type StepDefinition = {
@@ -53,7 +55,9 @@ type ProfileSetupData = {
   timeZone: string
   city: string
   state: string
+  zipCode: string
   occupation: string
+  specialty: string
   yearsOfExperience: string
   employmentTypes: string[]
   preferredShift: string
@@ -70,12 +74,17 @@ export default function CandidateProfileSetupPage() {
   const [occupationOptions, setOccupationOptions] = useState<DropdownOption[]>([
     { label: "Select your occupation", value: "" },
   ])
+  const [specialtyOptions, setSpecialtyOptions] = useState<DropdownOption[]>([
+    { label: "Select your specialty", value: "" },
+  ])
   const [formData, setFormData] = useState<ProfileSetupData>({
     phoneNumber: "",
     timeZone: "",
     city: "",
     state: "",
+    zipCode: "",
     occupation: "",
+    specialty: "",
     yearsOfExperience: "",
     employmentTypes: [],
     preferredShift: "",
@@ -107,6 +116,47 @@ export default function CandidateProfileSetupPage() {
       }
     }
   }, [])
+
+  // Load specialties when occupation is selected
+  useEffect(() => {
+    if (typeof window !== "undefined" && formData.occupation) {
+      try {
+        const occupationSpecialties = getOccupationSpecialtiesByOccupation(formData.occupation)
+        const options: DropdownOption[] = [{ label: "Select your specialty", value: "" }]
+        
+        occupationSpecialties.forEach((occSpec) => {
+          const specialty = getSpecialtyById(occSpec.specialtyId)
+          if (specialty && specialty.isActive) {
+            options.push({
+              label: specialty.name,
+              value: specialty.id,
+            })
+          }
+        })
+        
+        setSpecialtyOptions(options)
+        
+        // Reset specialty if occupation changes
+        if (formData.specialty) {
+          const currentSpecialty = getSpecialtyById(formData.specialty)
+          const isValidSpecialty = occupationSpecialties.some(
+            (occSpec) => occSpec.specialtyId === formData.specialty
+          )
+          if (!isValidSpecialty || !currentSpecialty?.isActive) {
+            setFormData((prev) => ({ ...prev, specialty: "" }))
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load specialties:", error)
+        setSpecialtyOptions([{ label: "Select your specialty", value: "" }])
+      }
+    } else {
+      setSpecialtyOptions([{ label: "Select your specialty", value: "" }])
+      if (formData.specialty) {
+        setFormData((prev) => ({ ...prev, specialty: "" }))
+      }
+    }
+  }, [formData.occupation])
 
   // Basic documents that are always required (shown in profile section)
   const BASIC_DOCUMENTS = [
@@ -386,6 +436,19 @@ export default function CandidateProfileSetupPage() {
         }
       }
 
+      // Get specialty name if selected
+      let specialtyName = formData.specialty
+      if (formData.specialty) {
+        try {
+          const specialty = getSpecialtyById(formData.specialty)
+          if (specialty) {
+            specialtyName = specialty.name || formData.specialty
+          }
+        } catch (error) {
+          console.warn("Failed to get specialty details:", error)
+        }
+      }
+
       // Save profile setup data
       saveOnboardingDetails({
         ...localDb.onboardingDetails,
@@ -393,7 +456,9 @@ export default function CandidateProfileSetupPage() {
         timeZone: formData.timeZone,
         city: formData.city,
         state: formData.state,
+        zipCode: formData.zipCode,
         occupation: occupationName,
+        specialty: specialtyName,
         yearsOfExperience: formData.yearsOfExperience,
         employmentTypes: formData.employmentTypes,
         preferredShift: formData.preferredShift,
@@ -441,7 +506,9 @@ export default function CandidateProfileSetupPage() {
         timeZone: formData.timeZone,
         city: formData.city,
         state: formData.state,
+        zipCode: formData.zipCode,
         occupation: formData.occupation,
+        specialty: formData.specialty,
         yearsOfExperience: formData.yearsOfExperience,
         employmentTypes: formData.employmentTypes,
         preferredShift: formData.preferredShift,
@@ -519,6 +586,17 @@ export default function CandidateProfileSetupPage() {
               placeholder="MA"
             />
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Zip Code</label>
+            <Input
+              type="text"
+              value={formData.zipCode}
+              onChange={(e) => handleInputChange("zipCode")(e.target.value)}
+              placeholder="02101"
+              maxLength={10}
+            />
+          </div>
         </div>
       ),
     },
@@ -536,6 +614,17 @@ export default function CandidateProfileSetupPage() {
               options={occupationOptions}
             />
           </div>
+
+          {formData.occupation && (
+            <div>
+              <Dropdown
+                label="Specialty"
+                value={formData.specialty}
+                onChange={handleInputChange("specialty")}
+                options={specialtyOptions}
+              />
+            </div>
+          )}
 
           <div>
             <Dropdown
