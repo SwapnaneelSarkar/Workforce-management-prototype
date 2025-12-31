@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { Suspense, useState, useMemo, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Header, Card, StatusChip } from "@/components/system"
 import { useToast } from "@/components/system"
@@ -84,6 +84,30 @@ const mockSubmissions: SubmissionListItem[] = [
 ]
 
 export default function SubmissionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 p-8">
+          <Header
+            title="Submissions"
+            subtitle="Manage and review candidate submissions"
+            breadcrumbs={[
+              { label: "Organization", href: "/organization/dashboard" },
+              { label: "Submissions" },
+            ]}
+          />
+          <Card>
+            <div className="h-64 animate-pulse rounded-md bg-muted" />
+          </Card>
+        </div>
+      }
+    >
+      <SubmissionsPageInner />
+    </Suspense>
+  )
+}
+
+function SubmissionsPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { pushToast } = useToast()
