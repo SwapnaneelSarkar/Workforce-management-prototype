@@ -2,15 +2,16 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { Header, Card } from "@/components/system"
-import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
 import { DatePicker } from "@/components/system/date-picker"
-import { Settings, Filter, TrendingUp, TrendingDown, CheckCircle2, XCircle, Target } from "lucide-react"
-import { getAllOccupations, getAllVendors, getAllLocations } from "@/lib/admin-local-db"
-import { useToast } from "@/components/system"
-import { Modal } from "@/components/system/modal"
+import { Filter, TrendingUp, TrendingDown, CheckCircle2, XCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { getCurrentOrganization } from "@/lib/organization-local-db"
+import {
+  getAllOccupations,
+  getVendorOrganizationsByOrganizationId,
+  getOrganizationById,
+} from "@/lib/admin-local-db"
 
 type MetricCategory = "quality" | "speed" | "price"
 
@@ -18,17 +19,10 @@ type MetricConfig = {
   id: string
   name: string
   category: MetricCategory
-  enabled: boolean
   goal?: number
-  goalType?: "min" | "max" | "target" // min = lower is better, max = higher is better, target = specific value
+  goalType?: "min" | "max" | "target"
   unit?: string
   description?: string
-}
-
-type MetricValue = {
-  metricId: string
-  value: number
-  date: string
 }
 
 type MetricFilters = {
@@ -45,7 +39,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "rejection-rate",
     name: "Submission Rejection Rate",
     category: "quality",
-    enabled: true,
     goal: 15,
     goalType: "max",
     unit: "%",
@@ -55,7 +48,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "fill-rate",
     name: "Fill Rate",
     category: "quality",
-    enabled: true,
     goal: 85,
     goalType: "min",
     unit: "%",
@@ -65,7 +57,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "early-end-candidate",
     name: "Early End - Candidate/Vendor",
     category: "quality",
-    enabled: true,
     goal: 10,
     goalType: "max",
     unit: "%",
@@ -75,7 +66,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "early-end-termination",
     name: "Early End - Termination",
     category: "quality",
-    enabled: true,
     goal: 5,
     goalType: "max",
     unit: "%",
@@ -85,7 +75,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "traveler-evaluation",
     name: "Traveler Evaluation (6 weeks)",
     category: "quality",
-    enabled: true,
     goal: 80,
     goalType: "min",
     unit: "%",
@@ -95,7 +84,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "expired-credentials",
     name: "Expired Credentials Rate",
     category: "quality",
-    enabled: true,
     goal: 2,
     goalType: "max",
     unit: "%",
@@ -105,7 +93,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "submit-to-offer",
     name: "Submit to Offer Ratio",
     category: "quality",
-    enabled: true,
     goal: 3,
     goalType: "max",
     unit: ":1",
@@ -115,7 +102,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "back-out-rate",
     name: "Back Out Rate",
     category: "quality",
-    enabled: true,
     goal: 5,
     goalType: "max",
     unit: "%",
@@ -125,7 +111,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "performance-grievances",
     name: "Performance Grievances",
     category: "quality",
-    enabled: true,
     goal: 2,
     goalType: "max",
     unit: "%",
@@ -135,7 +120,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "extension-acceptance",
     name: "Extension Acceptance Rate",
     category: "quality",
-    enabled: true,
     goal: 75,
     goalType: "min",
     unit: "%",
@@ -145,7 +129,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "candidate-canceled-days",
     name: "Candidate Canceled Days",
     category: "quality",
-    enabled: true,
     goal: 3,
     goalType: "max",
     unit: "days",
@@ -156,7 +139,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "time-to-first-submission",
     name: "Time to First Submission",
     category: "speed",
-    enabled: true,
     goal: 48,
     goalType: "max",
     unit: "hours",
@@ -166,7 +148,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "time-post-to-offer",
     name: "Time from Post to Offer",
     category: "speed",
-    enabled: true,
     goal: 7,
     goalType: "max",
     unit: "days",
@@ -176,7 +157,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "time-to-accept-offer",
     name: "Average Time to Accept Offer",
     category: "speed",
-    enabled: true,
     goal: 2,
     goalType: "max",
     unit: "days",
@@ -186,7 +166,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "time-post-to-start",
     name: "Time from Post to Start",
     category: "speed",
-    enabled: true,
     goal: 14,
     goalType: "max",
     unit: "days",
@@ -196,7 +175,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "on-time-starts",
     name: "On Time Starts",
     category: "speed",
-    enabled: true,
     goal: 95,
     goalType: "min",
     unit: "%",
@@ -206,7 +184,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "time-grievances-open",
     name: "Time Grievances Open",
     category: "speed",
-    enabled: true,
     goal: 3,
     goalType: "max",
     unit: "days",
@@ -217,7 +194,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "market-rate",
     name: "Competitive Market Rate",
     category: "price",
-    enabled: true,
     goal: 100,
     goalType: "target",
     unit: "%",
@@ -227,7 +203,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "monetary-change-requests",
     name: "Monetary Change Requests",
     category: "price",
-    enabled: true,
     goal: 10,
     goalType: "max",
     unit: "%",
@@ -237,7 +212,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "candidate-canceled-days-stipends",
     name: "Candidate Canceled Days (Stipends)",
     category: "price",
-    enabled: true,
     goal: 2,
     goalType: "max",
     unit: "days",
@@ -247,7 +221,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "penalty-fees",
     name: "Penalty Fees",
     category: "price",
-    enabled: true,
     goal: 1,
     goalType: "max",
     unit: "%",
@@ -257,7 +230,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "overtime-rate",
     name: "Overtime Rate",
     category: "price",
-    enabled: true,
     goal: 15,
     goalType: "max",
     unit: "%",
@@ -267,7 +239,6 @@ const METRICS_CONFIG: MetricConfig[] = [
     id: "orientation-hours",
     name: "Average Orientation Hours",
     category: "price",
-    enabled: true,
     goal: 8,
     goalType: "max",
     unit: "hours",
@@ -275,109 +246,61 @@ const METRICS_CONFIG: MetricConfig[] = [
   },
 ]
 
-const STORAGE_KEY = "wf_metrics_config"
-
-function loadMetricsConfig(): MetricConfig[] {
-  if (typeof window === "undefined") return METRICS_CONFIG
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const parsed = JSON.parse(stored)
-      // Merge with default config to ensure all metrics exist
-      return METRICS_CONFIG.map((defaultMetric) => {
-        const storedMetric = parsed.find((m: MetricConfig) => m.id === defaultMetric.id)
-        return storedMetric ? { ...defaultMetric, ...storedMetric } : defaultMetric
-      })
-    }
-  } catch (e) {
-    console.error("Failed to load metrics config:", e)
-  }
-  return METRICS_CONFIG
-}
-
-function saveMetricsConfig(config: MetricConfig[]) {
-  if (typeof window === "undefined") return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
-  } catch (e) {
-    console.error("Failed to save metrics config:", e)
-  }
-}
-
 // Mock data generator for metrics
 function generateMockMetricValue(metricId: string, goal?: number, goalType?: "min" | "max" | "target"): number {
   if (!goal) return Math.random() * 100
 
   switch (goalType) {
     case "min":
-      // For "min" goals, value should be >= goal for good performance
-      return goal + (Math.random() * 20 - 10) // Can be slightly below or above
+      return goal + (Math.random() * 20 - 10)
     case "max":
-      // For "max" goals, value should be <= goal for good performance
-      return goal + (Math.random() * 20 - 10) // Can be slightly below or above
+      return goal + (Math.random() * 20 - 10)
     case "target":
-      // For "target" goals, value should be close to goal
       return goal + (Math.random() * 10 - 5)
     default:
       return Math.random() * 100
   }
 }
 
-export default function MetricsDashboardPage() {
-  const { pushToast } = useToast()
-  const [metricsConfig, setMetricsConfig] = useState<MetricConfig[]>(loadMetricsConfig())
-  const [showSettings, setShowSettings] = useState(false)
-  const [editingMetric, setEditingMetric] = useState<MetricConfig | null>(null)
+export default function OrganizationMetricsPage() {
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
+  const [organization, setOrganization] = useState<any>(null)
   const [filters, setFilters] = useState<MetricFilters>({})
   const [showFilters, setShowFilters] = useState(false)
 
-  const occupations = useMemo(() => getAllOccupations(), [])
-  const vendors = useMemo(() => getAllVendors(), [])
-  const locations = useMemo(() => getAllLocations(), [])
-
   useEffect(() => {
-    saveMetricsConfig(metricsConfig)
-  }, [metricsConfig])
+    if (typeof window !== "undefined") {
+      const orgId = getCurrentOrganization()
+      setCurrentOrgId(orgId)
+      if (orgId) {
+        const org = getOrganizationById(orgId)
+        setOrganization(org)
+      }
+    }
+  }, [])
 
-  const enabledMetrics = useMemo(() => {
-    return metricsConfig.filter((m) => m.enabled)
-  }, [metricsConfig])
+  const vendorOrganizations = useMemo(() => {
+    if (!currentOrgId) return []
+    return getVendorOrganizationsByOrganizationId(currentOrgId)
+  }, [currentOrgId])
+
+  const organizationOccupations = useMemo(() => {
+    if (!organization?.occupationIds) return []
+    const allOccupations = getAllOccupations()
+    return allOccupations.filter((occ) => organization.occupationIds.includes(occ.id))
+  }, [organization])
+
+  const organizationLocations = useMemo(() => {
+    if (!organization?.locations) return []
+    return organization.locations
+  }, [organization])
 
   const metricsByCategory = useMemo(() => {
-    const quality = enabledMetrics.filter((m) => m.category === "quality")
-    const speed = enabledMetrics.filter((m) => m.category === "speed")
-    const price = enabledMetrics.filter((m) => m.category === "price")
+    const quality = METRICS_CONFIG.filter((m) => m.category === "quality")
+    const speed = METRICS_CONFIG.filter((m) => m.category === "speed")
+    const price = METRICS_CONFIG.filter((m) => m.category === "price")
     return { quality, speed, price }
-  }, [enabledMetrics])
-
-  const handleToggleMetric = (metricId: string, enabled: boolean) => {
-    setMetricsConfig((prev) =>
-      prev.map((m) => (m.id === metricId ? { ...m, enabled } : m))
-    )
-    pushToast({
-      title: enabled ? "Metric enabled" : "Metric disabled",
-      type: "success",
-    })
-  }
-
-  const handleEditGoal = (metric: MetricConfig) => {
-    setEditingMetric(metric)
-    setShowSettings(true)
-  }
-
-  const handleSaveGoal = () => {
-    if (!editingMetric) return
-
-    setMetricsConfig((prev) =>
-      prev.map((m) => (m.id === editingMetric.id ? { ...editingMetric } : m))
-    )
-    setEditingMetric(null)
-    setShowSettings(false)
-    pushToast({
-      title: "Goal updated",
-      type: "success",
-    })
-  }
+  }, [])
 
   const getMetricValue = (metric: MetricConfig): number => {
     // In a real app, this would fetch from API based on filters
@@ -393,7 +316,7 @@ export default function MetricsDashboardPage() {
       case "max":
         return value <= metric.goal
       case "target":
-        return Math.abs(value - metric.goal) <= metric.goal * 0.1 // Within 10% of target
+        return Math.abs(value - metric.goal) <= metric.goal * 0.1
       default:
         return true
     }
@@ -418,18 +341,9 @@ export default function MetricsDashboardPage() {
 
     return (
       <Card className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-foreground mb-1">{metric.name}</h3>
-            <p className="text-xs text-muted-foreground mb-2">{metric.description}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Switch
-              checked={metric.enabled}
-              onCheckedChange={(checked) => handleToggleMetric(metric.id, checked)}
-              aria-label={`Toggle ${metric.name}`}
-            />
-          </div>
+        <div className="mb-2">
+          <h3 className="text-sm font-semibold text-foreground mb-1">{metric.name}</h3>
+          <p className="text-xs text-muted-foreground mb-2">{metric.description}</p>
         </div>
 
         <div className="flex items-baseline justify-between mb-2">
@@ -447,55 +361,67 @@ export default function MetricsDashboardPage() {
         </div>
 
         <div className="mt-3 pt-3 border-t border-border">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleEditGoal(metric)}
-            className="w-full"
-          >
-            <Target className="h-4 w-4 mr-2" />
-            Set Goal
-          </Button>
+          <div className="flex items-center gap-2 text-xs">
+            {isGood ? (
+              <>
+                <TrendingUp className="h-3 w-3 text-green-600" />
+                <span className="text-green-600 font-medium">Meeting Goal</span>
+              </>
+            ) : (
+              <>
+                <TrendingDown className="h-3 w-3 text-red-600" />
+                <span className="text-red-600 font-medium">Below Goal</span>
+              </>
+            )}
+          </div>
         </div>
       </Card>
+    )
+  }
+
+  if (!currentOrgId || !organization) {
+    return (
+      <>
+        <Header
+          title="Metrics Dashboard"
+          subtitle="View organization metrics and analytics"
+          breadcrumbs={[
+            { label: "Organization", href: "/organization/dashboard" },
+            { label: "Metrics" },
+          ]}
+        />
+        <div className="py-12 text-center">
+          <p className="text-muted-foreground">Loading organization data...</p>
+        </div>
+      </>
     )
   }
 
   return (
     <>
       <Header
-        title="MSP Metrics Dashboard"
-        subtitle="Monitor quality, speed, and price metrics for managed service providers"
+        title="Metrics Dashboard"
+        subtitle={`View metrics and analytics for ${organization.name}`}
         breadcrumbs={[
-          { label: "Admin", href: "/admin/dashboard" },
-          { label: "Metrics Dashboard", href: "/admin/metrics" },
+          { label: "Organization", href: "/organization/dashboard" },
+          { label: "Metrics" },
         ]}
       />
 
       <section className="space-y-6">
-        {/* Filters and Settings */}
+        {/* Filters */}
         <Card className="p-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Filters & Settings</h2>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Filters
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSettings(true)}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Settings
-              </Button>
-            </div>
-            </div>
+            <h2 className="text-lg font-semibold text-foreground">Filters</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4 mr-2" />
+              {showFilters ? "Hide" : "Show"} Filters
+            </Button>
+          </div>
 
           {showFilters && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 pt-4 border-t border-border">
@@ -514,14 +440,14 @@ export default function MetricsDashboardPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Occupations</SelectItem>
-                    {occupations.map((occ) => (
+                    {organizationOccupations.map((occ) => (
                       <SelectItem key={occ.id} value={occ.id}>
                         {occ.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-            </div>
+              </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
@@ -538,14 +464,19 @@ export default function MetricsDashboardPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Vendors</SelectItem>
-                    {vendors.map((vendor) => (
-                      <SelectItem key={vendor.id} value={vendor.id}>
-                        {vendor.name}
-                      </SelectItem>
-                    ))}
+                    {vendorOrganizations.map((vo) => {
+                      // Get vendor name from admin-local-db
+                      const { getVendorById } = require("@/lib/admin-local-db")
+                      const vendor = getVendorById(vo.vendorId)
+                      return vendor ? (
+                        <SelectItem key={vo.id} value={vo.vendorId}>
+                          {vendor.name}
+                        </SelectItem>
+                      ) : null
+                    })}
                   </SelectContent>
                 </Select>
-            </div>
+              </div>
 
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
@@ -562,14 +493,14 @@ export default function MetricsDashboardPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Locations</SelectItem>
-                    {locations.map((loc) => (
+                    {organizationLocations.map((loc) => (
                       <SelectItem key={loc.id} value={loc.id}>
                         {loc.name} - {loc.city}, {loc.state}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-        </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -605,17 +536,17 @@ export default function MetricsDashboardPage() {
               <MetricCard key={metric.id} metric={metric} />
             ))}
           </div>
-                  </div>
+        </div>
 
         {/* Speed Metrics */}
-                  <div>
+        <div>
           <h2 className="text-lg font-semibold text-foreground mb-4">Speed Metrics</h2>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {metricsByCategory.speed.map((metric) => (
               <MetricCard key={metric.id} metric={metric} />
             ))}
-                  </div>
-                </div>
+          </div>
+        </div>
 
         {/* Price Metrics */}
         <div>
@@ -627,78 +558,7 @@ export default function MetricsDashboardPage() {
           </div>
         </div>
       </section>
-
-      {/* Settings Modal */}
-      {showSettings && editingMetric && (
-        <Modal
-          open={showSettings}
-          onClose={() => {
-            setShowSettings(false)
-            setEditingMetric(null)
-          }}
-          title="Set Goal Rule"
-        >
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">
-                Metric
-              </label>
-              <p className="text-sm text-muted-foreground">{editingMetric.name}</p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">
-                Goal Value
-              </label>
-              <Input
-                type="number"
-                value={editingMetric.goal || ""}
-                onChange={(e) =>
-                  setEditingMetric({
-                    ...editingMetric,
-                    goal: e.target.value ? parseFloat(e.target.value) : undefined,
-                  })
-                }
-                placeholder="Enter goal value"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-foreground mb-1 block">
-                Goal Type
-              </label>
-              <Select
-                value={editingMetric.goalType || "max"}
-                onValueChange={(value: "min" | "max" | "target") =>
-                  setEditingMetric({ ...editingMetric, goalType: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="min">Minimum (higher is better)</SelectItem>
-                  <SelectItem value="max">Maximum (lower is better)</SelectItem>
-                  <SelectItem value="target">Target (specific value)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowSettings(false)
-                  setEditingMetric(null)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleSaveGoal}>Save Goal</Button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </>
   )
 }
+

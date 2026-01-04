@@ -163,6 +163,11 @@ export const organizationNavLinks: NavLink[] = [
       { href: "/organization/management/users", label: "Users", icon: UserCog },
     ],
   },
+  {
+    href: "/organization/metrics",
+    label: "Metrics",
+    icon: BarChart3,
+  },
 ]
 
 export const vendorNavLinks: NavLink[] = [

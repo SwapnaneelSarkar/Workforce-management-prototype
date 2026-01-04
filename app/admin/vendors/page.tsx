@@ -286,6 +286,8 @@ export default function AdminVendorsPage() {
                         indeterminate={
                           paginatedVendors.some((vendor) => selectedVendorIds.has(vendor.id)) &&
                           !paginatedVendors.every((vendor) => selectedVendorIds.has(vendor.id))
+                            ? true
+                            : undefined
                         }
                         onCheckedChange={toggleSelectAll}
                         className="border-border data-[state=checked]:bg-primary"
